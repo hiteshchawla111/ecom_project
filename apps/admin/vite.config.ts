@@ -6,6 +6,9 @@ import tailwindcss from '@tailwindcss/vite';
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Fixed dev ports: api :5000, storefront :5001, admin :5002.
+  server: { port: 5002, strictPort: true },
+  preview: { port: 5002, strictPort: true },
   test: {
     environment: 'jsdom',
     globals: true,

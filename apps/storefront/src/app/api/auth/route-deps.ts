@@ -1,0 +1,30 @@
+import 'server-only';
+import { cookies } from 'next/headers';
+import {
+  login as apiLogin,
+  logout as apiLogout,
+  register as apiRegister,
+} from '@/lib/api-auth';
+import { apiBaseUrl } from '@/lib/env';
+import {
+  REFRESH_COOKIE,
+  clearSession,
+  setSession,
+} from '@/lib/session';
+import type { RouteDeps } from './handlers';
+
+/** Production wiring: real API client + cookie-backed session. */
+export function liveRouteDeps(): RouteDeps {
+  const baseUrl = apiBaseUrl();
+  return {
+    register: (input) => apiRegister(input, { baseUrl }),
+    login: (input) => apiLogin(input, { baseUrl }),
+    logout: (refreshToken) => apiLogout(refreshToken, { baseUrl }),
+    setSession,
+    clearSession,
+    getRefreshToken: async () => {
+      const store = await cookies();
+      return store.get(REFRESH_COOKIE)?.value;
+    },
+  };
+}

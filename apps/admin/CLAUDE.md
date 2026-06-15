@@ -15,9 +15,9 @@ Not yet scaffolded. Planned scaffold: Vite `react-ts` template + Tailwind.
 ## Commands
 
 ```bash
-npm run dev        # vite dev server
+npm run dev        # vite dev server — fixed port :5002 (strictPort)
 npm run build      # production build (tsc + vite build)
-npm run preview    # preview prod build
+npm run preview    # preview prod build (also :5002)
 npm run lint       # eslint
 npm test           # vitest run (unit/component); single: npm test -- <pattern>
 npm run test:watch # vitest watch mode

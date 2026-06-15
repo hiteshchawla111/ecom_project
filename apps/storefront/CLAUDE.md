@@ -15,7 +15,7 @@ Not yet scaffolded. Planned scaffold: `create-next-app` (TS, App Router, Tailwin
 ## Commands
 
 ```bash
-npm run dev        # local dev (next dev, Turbopack)
+npm run dev        # local dev (next dev, Turbopack) — fixed port :5001
 npm run build      # production build
 npm run lint       # eslint
 npm test           # vitest run (unit/component); single: npm test -- <pattern>

@@ -12,5 +12,12 @@ export default defineConfig({
     exclude: ['e2e/**', 'node_modules/**'],
     coverage: { provider: 'v8' },
   },
-  resolve: { alias: { '@': path.resolve(__dirname, './src') } },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      // Server-only markers Next resolves at build time but Vitest cannot.
+      'server-only': path.resolve(__dirname, './src/test/server-only-stub.ts'),
+      'next/headers': path.resolve(__dirname, './src/test/next-headers-stub.ts'),
+    },
+  },
 });

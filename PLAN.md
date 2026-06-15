@@ -28,14 +28,14 @@ This is the live source of truth for task status. **Keep it updated** as work ha
 |-------|-------|--------|
 | 0 | Foundation | ✅ Done (apps scaffold ✅; Prisma ✅; test runners — Jest/Vitest/Playwright ✅) |
 | 1 | Data model & core domain (API) | ✅ Done |
-| 2 | Authentication & authorization | 🟡 In Progress (API auth ✅; storefront/admin pending) |
+| 2 | Authentication & authorization | 🟡 In Progress (API auth ✅; storefront 🟡; admin pending) |
 | 3 | Product catalog | ⬜ Not Started |
 | 4 | Cart & checkout | ⬜ Not Started |
 | 5 | Orders & inventory | ⬜ Not Started |
 | 6 | Customers, analytics, notifications | ⬜ Not Started |
 | 7 | Non-functional hardening | ⬜ Not Started |
 
-**Current focus:** Phase 2 API auth ✅ — register/login/logout/refresh/password-reset endpoints + JWT (access + rotating refresh) + role guards, all unit-tested (46 API tests green) and smoke-verified against `ecom_dev`. Next: Phase 2 storefront auth (gated on closing the Phase 0 FE-test-runner gap), then admin auth.
+**Current focus:** Phase 2 storefront auth ✅ — login/register/logout + protected `/account`, httpOnly-cookie session via Next route handlers proxying the API; smoke-verified end-to-end against `ecom_dev`. Next (stop & verify first): storefront **password-reset** UI (request + confirm pages), then **admin** login + role-gated shell.
 
 ---
 
@@ -60,6 +60,8 @@ Environment facts and hard-won lessons not derivable from the code. A fresh sess
 **Conventions in play:**
 - Code `OrderStatus` enum values are UPPERCASE to match the Prisma DB enum (`apps/api/src/orders/order-status.ts`).
 - TDD is enforced via the `.claude/` plugin; one feature at a time, stop and verify (see `RULE.md`).
+
+**Storefront auth (Phase 2, 2026-06-15):** Session lives in **httpOnly cookies** `sf_access`/`sf_refresh` set by Next **Route Handlers** under `src/app/api/auth/*` (browser never sees tokens; handlers call the API server-to-server). `src/lib/session.ts` reads cookies and **refreshes on access-token 401**; pure `resolveSession()` is unit-tested via injected deps. `src/proxy.ts` (Next 16 renamed `middleware`→`proxy`; default export must be named `proxy`) guards `/account` on cookie presence; the page re-verifies via `getCurrentUser()`. **Fixed dev ports** (so the three apps never collide): **api `:5000`**, **storefront `:5001`**, **admin `:5002`**. API port via `PORT` in `apps/api/.env` (read in `main.ts`); storefront via `next dev/start -p 5001` + Playwright `baseURL`/`webServer` on `:5001`; admin via `server.port`/`preview.port` (`strictPort`) in `vite.config.ts`. Storefront→API base URL is **`API_URL=http://localhost:5000`** (`.env.local`, gitignored; template `.env.example`). Vitest can't resolve `server-only`/`next/headers`, so `vitest.config.ts` **aliases** both to stubs in `src/test/`.
 
 **Phase 0 test runners (closed 2026-06-15):** frontend test runners are now wired — Vitest + RTL in `admin` and `storefront`, Playwright E2E in `storefront` (each with a passing smoke test). Unit tests are co-located `*.test.tsx`; storefront E2E lives in `apps/storefront/e2e/*.spec.ts` (Vitest excludes `e2e/**`, so the two runners never overlap). Note: storefront's `next.config.ts` sets `turbopack.root` to the repo root so `globals.css` can import the shared `packages/design-tokens/theme.css` without Turbopack rejecting the `../` traversal.
 
@@ -89,7 +91,7 @@ Environment facts and hard-won lessons not derivable from the code. A fresh sess
 ## Phase 2 — Authentication & authorization (API + both frontends)
 
 - [x] API: customer register/login/logout/password-reset/profile; admin secure login; session/JWT; role-based guards (Customer / Admin / Inventory Manager). *(JWT access + rotating refresh; `@Public`/`@Roles` guards; reset tokens emit-event-ready, email delivery deferred to Phase 6.)*
-- [ ] Storefront: auth pages + session handling + protected customer routes.
+- [x] Storefront: auth pages + session handling + protected customer routes. *(✅ Slice done — login + register + logout + protected `/account`. httpOnly-cookie session (`sf_access`/`sf_refresh`) via Next route handlers proxying the API; `proxy.ts` (Next 16 middleware) guards `/account`; server session helper refreshes on access-token expiry. 41 unit tests + 4 Playwright E2E green; smoke-verified against `ecom_dev`. **Follow-up:** password-reset request/confirm pages.)*
 - [ ] Admin: login + role-gated app shell (redirect UX only; API enforces).
 - [ ] **Exit:** each role can log in and only reach permitted endpoints.
 

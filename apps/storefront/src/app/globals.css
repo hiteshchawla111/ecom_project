@@ -1,0 +1,8 @@
+@import "tailwindcss";
+@import "../../../../packages/design-tokens/theme.css";
+
+body {
+  background: var(--color-neutral-50);
+  color: var(--color-neutral-900);
+  font-family: var(--font-sans);
+}

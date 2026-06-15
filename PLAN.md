@@ -19,14 +19,14 @@ This is the live source of truth for task status. **Keep it updated** as work ha
 | App | Scaffolded | Status |
 |-----|-----------|--------|
 | `apps/api` (NestJS+Prisma) | ✅ | Prisma 7 wired; schema migrated; 9 modules; boots OK |
-| `apps/storefront` (Next.js) | ✅ | Scaffolded (Tailwind v4 + tokens) |
-| `apps/admin` (React+Vite) | ✅ | Scaffolded (Tailwind v4 + tokens) |
+| `apps/storefront` (Next.js) | ✅ | Scaffolded (Tailwind v4 + tokens); Vitest+RTL + Playwright wired |
+| `apps/admin` (React+Vite) | ✅ | Scaffolded (Tailwind v4 + tokens); Vitest+RTL wired |
 
 ### Phase status
 
 | Phase | Title | Status |
 |-------|-------|--------|
-| 0 | Foundation | 🟡 In Progress (apps scaffold ✅; Prisma + FE test runners pending) |
+| 0 | Foundation | ✅ Done (apps scaffold ✅; Prisma ✅; test runners — Jest/Vitest/Playwright ✅) |
 | 1 | Data model & core domain (API) | ✅ Done |
 | 2 | Authentication & authorization | 🟡 In Progress (API auth ✅; storefront/admin pending) |
 | 3 | Product catalog | ⬜ Not Started |
@@ -61,7 +61,7 @@ Environment facts and hard-won lessons not derivable from the code. A fresh sess
 - Code `OrderStatus` enum values are UPPERCASE to match the Prisma DB enum (`apps/api/src/orders/order-status.ts`).
 - TDD is enforced via the `.claude/` plugin; one feature at a time, stop and verify (see `RULE.md`).
 
-**Open gap (from Phase 0):** frontend test runners (Vitest + RTL for admin/storefront, Playwright for storefront E2E) are **not yet set up** — only `apps/api` (Jest) has tests. The TDD hook only runs API tests until this is closed.
+**Phase 0 test runners (closed 2026-06-15):** frontend test runners are now wired — Vitest + RTL in `admin` and `storefront`, Playwright E2E in `storefront` (each with a passing smoke test). Unit tests are co-located `*.test.tsx`; storefront E2E lives in `apps/storefront/e2e/*.spec.ts` (Vitest excludes `e2e/**`, so the two runners never overlap). Note: storefront's `next.config.ts` sets `turbopack.root` to the repo root so `globals.css` can import the shared `packages/design-tokens/theme.css` without Turbopack rejecting the `../` traversal.
 
 ---
 
@@ -71,7 +71,7 @@ Environment facts and hard-won lessons not derivable from the code. A fresh sess
 - [x] Scaffold `apps/api` (NestJS CLI), `apps/storefront` (create-next-app, TS/App Router/Tailwind), `apps/admin` (Vite react-ts + Tailwind).
 - [x] Wire `DESIGN.md` color/type/spacing tokens into both frontends' Tailwind themes (shared values via `packages/design-tokens/theme.css`, Tailwind v4 `@theme`).
 - [ ] Set up Prisma + PostgreSQL connection; base ESLint/Prettier/tsconfig across apps. *(Prisma deferred to Phase 1; ESLint present per app.)*
-- [ ] Set up test runners per app — Jest in `api` ✅ (17 tests passing); Vitest + RTL for `admin`/`storefront` and Playwright for storefront E2E still **pending**.
+- [x] Set up test runners per app — Jest in `api` ✅; Vitest + RTL in `admin` ✅ and `storefront` ✅; Playwright E2E in `storefront` ✅ (each proven by a smoke test).
 - [x] Verify each app builds and lints clean. **Exit criteria:** all three build ✅; lint clean ✅; `apps/api` `npm test` works ✅. FE test runners pending.
 
 > **Build everything test-first (TDD).** Use the project TDD plugin (`.claude/` — `tdd` skill, `/tdd` command, `tdd-runner` agent). Red → green → refactor; 80% coverage target. See `RULE.md` §4.

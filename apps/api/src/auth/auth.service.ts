@@ -48,6 +48,8 @@ export class AuthService {
     const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({ where: { email } });
     const generic = new UnauthorizedException('Invalid credentials');
+    // TODO(phase-7): equalize timing on the unknown-email path (run a dummy
+    // bcrypt compare) so latency can't be used to enumerate registered emails.
     if (!user || !user.isActive || user.deletedAt) throw generic;
     const ok = await this.passwords.compare(dto.password, user.passwordHash);
     if (!ok) throw generic;
@@ -100,6 +102,8 @@ export class AuthService {
     if (!record || record.usedAt || record.expiresAt.getTime() < Date.now()) {
       throw new BadRequestException('Invalid or expired reset token');
     }
+    // TODO(phase-7): close the TOCTOU window by atomically claiming the token
+    // (UPDATE ... WHERE usedAt IS NULL RETURNING *) instead of read-then-write.
     const passwordHash = await this.passwords.hash(dto.password);
     await this.prisma.user.update({
       where: { id: record.userId },

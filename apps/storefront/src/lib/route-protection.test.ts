@@ -31,6 +31,11 @@ describe('isAuthRoute', () => {
     expect(isAuthRoute('/account')).toBe(false);
     expect(isAuthRoute('/loginx')).toBe(false);
   });
+
+  it('matches auth route sub-paths', () => {
+    expect(isAuthRoute('/reset-password/confirm')).toBe(true);
+    expect(isAuthRoute('/forgot-password/sent')).toBe(true);
+  });
 });
 
 describe('guestRedirectFor', () => {
@@ -49,5 +54,9 @@ describe('guestRedirectFor', () => {
   it('never redirects non-auth routes', () => {
     expect(guestRedirectFor('/', true)).toBeNull();
     expect(guestRedirectFor('/account', true)).toBeNull();
+  });
+
+  it('redirects an authenticated user away from an auth sub-path', () => {
+    expect(guestRedirectFor('/reset-password/confirm', true)).toBe('/');
   });
 });

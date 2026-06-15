@@ -39,6 +39,8 @@ model User {
   orders       Order[]
   auditLogs    AuditLog[]
   notifications Notification[]
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
 
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -62,6 +64,30 @@ model Address {
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  user      User      @relation(fields: [userId], references: [id])
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  user      User      @relation(fields: [userId], references: [id])
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   @@index([userId])
 }

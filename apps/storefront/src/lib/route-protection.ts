@@ -21,3 +21,26 @@ export function loginRedirectFor(
   if (isProtected(pathname) && !hasSession) return '/login';
   return null;
 }
+
+/** Auth routes a logged-in customer should be bounced away from. */
+const AUTH_PREFIXES = ['/login', '/register', '/forgot-password', '/reset-password'];
+
+export function isAuthRoute(pathname: string): boolean {
+  return AUTH_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}
+
+/**
+ * Decide whether an authenticated request should be redirected off an auth page.
+ * `hasSession` reflects only cookie presence.
+ *
+ * @returns the redirect target, or null to proceed.
+ */
+export function guestRedirectFor(
+  pathname: string,
+  hasSession: boolean,
+): string | null {
+  if (isAuthRoute(pathname) && hasSession) return '/';
+  return null;
+}

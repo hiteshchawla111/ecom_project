@@ -3,7 +3,6 @@ import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes, createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { PasswordService } from './password.service';
 import { AccessTokenPayload } from './auth-tokens';
 
 interface RotateResult {
@@ -16,7 +15,6 @@ export class TokenService {
   constructor(
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
-    private readonly passwords: PasswordService,
     private readonly prisma: PrismaService,
   ) {}
 

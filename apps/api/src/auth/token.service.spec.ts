@@ -1,7 +1,6 @@
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { TokenService } from './token.service';
-import { PasswordService } from './password.service';
 
 const config = (overrides: Record<string, string> = {}) =>
   ({
@@ -37,12 +36,7 @@ const firstCreateData = (
 };
 
 const build = (prisma = prismaMock()) => {
-  const svc = new TokenService(
-    new JwtService({}),
-    config(),
-    new PasswordService(),
-    prisma as never,
-  );
+  const svc = new TokenService(new JwtService({}), config(), prisma as never);
   return { svc, prisma };
 };
 

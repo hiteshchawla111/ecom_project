@@ -28,14 +28,14 @@ This is the live source of truth for task status. **Keep it updated** as work ha
 |-------|-------|--------|
 | 0 | Foundation | 🟡 In Progress (apps scaffold ✅; Prisma + FE test runners pending) |
 | 1 | Data model & core domain (API) | ✅ Done |
-| 2 | Authentication & authorization | ⬜ Not Started |
+| 2 | Authentication & authorization | 🟡 In Progress (API auth ✅; storefront/admin pending) |
 | 3 | Product catalog | ⬜ Not Started |
 | 4 | Cart & checkout | ⬜ Not Started |
 | 5 | Orders & inventory | ⬜ Not Started |
 | 6 | Customers, analytics, notifications | ⬜ Not Started |
 | 7 | Non-functional hardening | ⬜ Not Started |
 
-**Current focus:** Phase 1 ✅ complete — Prisma schema migrated to `ecom_dev`, seed working, 9 domain modules wired, API boots & serves HTTP 200. Next: Phase 2 (auth).
+**Current focus:** Phase 2 API auth ✅ — register/login/logout/refresh/password-reset endpoints + JWT (access + rotating refresh) + role guards, all unit-tested (46 API tests green) and smoke-verified against `ecom_dev`. Next: Phase 2 storefront auth (gated on closing the Phase 0 FE-test-runner gap), then admin auth.
 
 ---
 
@@ -88,7 +88,7 @@ Environment facts and hard-won lessons not derivable from the code. A fresh sess
 
 ## Phase 2 — Authentication & authorization (API + both frontends)
 
-- [ ] API: customer register/login/logout/password-reset/profile; admin secure login; session/JWT; role-based guards (Customer / Admin / Inventory Manager).
+- [x] API: customer register/login/logout/password-reset/profile; admin secure login; session/JWT; role-based guards (Customer / Admin / Inventory Manager). *(JWT access + rotating refresh; `@Public`/`@Roles` guards; reset tokens emit-event-ready, email delivery deferred to Phase 6.)*
 - [ ] Storefront: auth pages + session handling + protected customer routes.
 - [ ] Admin: login + role-gated app shell (redirect UX only; API enforces).
 - [ ] **Exit:** each role can log in and only reach permitted endpoints.

@@ -18,7 +18,7 @@ This is the live source of truth for task status. **Keep it updated** as work ha
 
 | App | Scaffolded | Status |
 |-----|-----------|--------|
-| `apps/api` (NestJS+Prisma) | ✅ | Scaffolded (Prisma pending — Phase 1) |
+| `apps/api` (NestJS+Prisma) | ✅ | Prisma 7 wired; schema migrated; 9 modules; boots OK |
 | `apps/storefront` (Next.js) | ✅ | Scaffolded (Tailwind v4 + tokens) |
 | `apps/admin` (React+Vite) | ✅ | Scaffolded (Tailwind v4 + tokens) |
 
@@ -27,7 +27,7 @@ This is the live source of truth for task status. **Keep it updated** as work ha
 | Phase | Title | Status |
 |-------|-------|--------|
 | 0 | Foundation | 🟡 In Progress (apps scaffold ✅; Prisma + FE test runners pending) |
-| 1 | Data model & core domain (API) | ⬜ Not Started |
+| 1 | Data model & core domain (API) | ✅ Done |
 | 2 | Authentication & authorization | ⬜ Not Started |
 | 3 | Product catalog | ⬜ Not Started |
 | 4 | Cart & checkout | ⬜ Not Started |
@@ -35,7 +35,33 @@ This is the live source of truth for task status. **Keep it updated** as work ha
 | 6 | Customers, analytics, notifications | ⬜ Not Started |
 | 7 | Non-functional hardening | ⬜ Not Started |
 
-**Current focus:** Phase 0 nearly complete — three apps scaffolded, build & lint green, API on Jest (17 tests). Remaining before Phase 1: Prisma/Postgres setup (folds into Phase 1) and frontend test runners (Vitest+RTL / Playwright). Awaiting user verification.
+**Current focus:** Phase 1 ✅ complete — Prisma schema migrated to `ecom_dev`, seed working, 9 domain modules wired, API boots & serves HTTP 200. Next: Phase 2 (auth).
+
+---
+
+## Project State & Gotchas (read before resuming)
+
+Environment facts and hard-won lessons not derivable from the code. A fresh session loads `CLAUDE.md` (+ imports) and this file automatically — this note carries what those don't.
+
+**Local database (dev):**
+- Use Postgres DB **`ecom_dev`** (migrations shadow DB: **`ecom_shadow`**). Connect as local user `sotsys033`, **no password**.
+- ⚠️ A pre-existing **`ecomm`** database exists on the same server and is **NOT part of this project** (different owner role, unrelated tables). **Never migrate, seed, drop, or point Prisma at it.**
+- Connection strings live in `apps/api/.env` (gitignored); template in `apps/api/.env.example`.
+
+**Prisma 7 (≠ v5/v6 — see the `prisma-patterns` skill, now updated for v7):**
+- Connection URLs are in `apps/api/prisma.config.ts`, **not** `schema.prisma`.
+- `PrismaClient` **requires a driver adapter** (`@prisma/adapter-pg`); `PrismaService` is already wired this way.
+- `prisma db seed` reads `migrations.seed` from `prisma.config.ts`; seed file loads its own `dotenv`.
+
+**Build / run:**
+- NestJS compiled entry is **`dist/src/main.js`** (the `prisma/` dir widened rootDir). Use `npm run start:dev` / `start:prod`; don't hardcode `dist/main.js`.
+- Shell cwd resets between tool calls — use absolute paths or `npm --prefix`.
+
+**Conventions in play:**
+- Code `OrderStatus` enum values are UPPERCASE to match the Prisma DB enum (`apps/api/src/orders/order-status.ts`).
+- TDD is enforced via the `.claude/` plugin; one feature at a time, stop and verify (see `RULE.md`).
+
+**Open gap (from Phase 0):** frontend test runners (Vitest + RTL for admin/storefront, Playwright for storefront E2E) are **not yet set up** — only `apps/api` (Jest) has tests. The TDD hook only runs API tests until this is closed.
 
 ---
 
@@ -52,11 +78,13 @@ This is the live source of truth for task status. **Keep it updated** as work ha
 
 ## Phase 1 — Data model & core domain (API)
 
-- [ ] Prisma schema: `User`/role, `Product`, `Category` (self-referential hierarchy), `Cart`/`CartItem`, `Order`/`OrderItem`, `InventoryMovement`, `Address`, `Notification`, `AuditLog`.
-- [ ] Encode order-status enum and inventory available/reserved fields.
-- [ ] Initial migration + seed script (sample categories/products).
-- [ ] Module skeletons: `auth`, `products`, `categories`, `cart`, `orders`, `inventory`, `customers`, `analytics`, `notifications`.
-- [ ] **Exit:** schema migrated, modules wired, health check green.
+- [x] Prisma schema: `User`/role, `Product`, `Category` (self-referential hierarchy), `Cart`/`CartItem`, `Order`/`OrderItem`, `InventoryItem`, `InventoryMovement`, `ProductImage`, `Address`, `Notification`, `AuditLog`.
+- [x] Encode order-status enum and inventory available/reserved fields. (Code `OrderStatus` enum values aligned to Prisma enum.)
+- [x] Initial migration (`init`) applied to `ecom_dev` + idempotent seed script (categories + products + inventory).
+- [x] Module skeletons: `auth`, `products`, `categories`, `cart`, `orders`, `inventory`, `customers`, `analytics`, `notifications` — all wired into `AppModule`.
+- [x] **Exit:** schema migrated ✅, modules wired ✅, app boots & serves HTTP 200 with Prisma connected ✅.
+
+> Prisma 7 notes: connection URLs live in `prisma.config.ts` (not schema); `PrismaClient` requires a driver adapter (`@prisma/adapter-pg`). Env loaded via `@nestjs/config`. DBs: `ecom_dev` (+ `ecom_shadow` for migrations) — pre-existing `ecomm` DB left untouched.
 
 ## Phase 2 — Authentication & authorization (API + both frontends)
 

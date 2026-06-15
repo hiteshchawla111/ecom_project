@@ -104,7 +104,7 @@ describe('order status transition guard', () => {
     it('error message names both states', () => {
       expect(() =>
         assertTransition(OrderStatus.Shipped, OrderStatus.Pending),
-      ).toThrow(/Shipped.*Pending/);
+      ).toThrow(/SHIPPED.*PENDING/);
     });
   });
 });

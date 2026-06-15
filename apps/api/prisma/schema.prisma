@@ -1,0 +1,313 @@
+// E-Commerce Portal — data model (PRD domains).
+// Source of truth for the database. Every change ships with a migration.
+//
+// Conventions (see prisma-patterns):
+// - cuid() ids; @@index on every FK and on WHERE/ORDER BY columns.
+// - Money stored as Decimal(12, 2) — never float.
+// - Inventory uses an append-only movement ledger; available/reserved are
+//   maintained on InventoryItem and reconciled by movements (Phase 5 logic).
+// - Order status transitions are guarded in code (orders/order-status.ts).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Auth & users
+// ---------------------------------------------------------------------------
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  INVENTORY_MANAGER
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         Role      @default(CUSTOMER)
+  isActive     Boolean   @default(true)
+
+  addresses    Address[]
+  carts        Cart[]
+  orders       Order[]
+  auditLogs    AuditLog[]
+  notifications Notification[]
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([role])
+  @@index([deletedAt, createdAt])
+}
+
+model Address {
+  id         String  @id @default(cuid())
+  user       User    @relation(fields: [userId], references: [id])
+  userId     String
+  fullName   String
+  line1      String
+  line2      String?
+  city       String
+  state      String
+  country    String
+  postalCode String
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Catalog
+// ---------------------------------------------------------------------------
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  slug      String     @unique
+  // Self-referential hierarchy: a category may have a parent and children.
+  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  parentId  String?
+  children  Category[] @relation("CategoryHierarchy")
+  products  Product[]
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
+
+  @@index([parentId])
+  @@index([deletedAt])
+}
+
+model Product {
+  id          String         @id @default(cuid())
+  name        String
+  sku         String         @unique
+  description String
+  price       Decimal        @db.Decimal(12, 2)
+  salePrice   Decimal?       @db.Decimal(12, 2)
+  brand       String?
+  status      ProductStatus  @default(ACTIVE)
+
+  category    Category       @relation(fields: [categoryId], references: [id])
+  categoryId  String
+
+  images      ProductImage[]
+  inventory   InventoryItem?
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  deletedAt   DateTime?
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([deletedAt, createdAt])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  url       String
+  alt       String?
+  position  Int     @default(0)
+
+  @@index([productId])
+}
+
+// ---------------------------------------------------------------------------
+// Inventory (available vs reserved; append-only movement ledger)
+// ---------------------------------------------------------------------------
+
+model InventoryItem {
+  id             String              @id @default(cuid())
+  product        Product             @relation(fields: [productId], references: [id])
+  productId      String              @unique
+  available      Int                 @default(0)
+  reserved       Int                 @default(0)
+  lowStockThreshold Int              @default(0)
+
+  movements      InventoryMovement[]
+
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([available])
+}
+
+enum MovementType {
+  ADDITION
+  DEDUCTION
+  ADJUSTMENT
+  RESERVATION
+  RELEASE
+}
+
+model InventoryMovement {
+  id              String        @id @default(cuid())
+  item            InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  inventoryItemId String
+  type            MovementType
+  // Signed quantity delta applied by this movement (e.g. +10 addition, -2 deduction).
+  quantity        Int
+  reason          String?
+  // Optional link to the order that triggered the movement (reservation/release/deduction).
+  orderId         String?
+
+  createdAt       DateTime      @default(now())
+
+  @@index([inventoryItemId, createdAt])
+  @@index([orderId])
+}
+
+// ---------------------------------------------------------------------------
+// Cart
+// ---------------------------------------------------------------------------
+
+model Cart {
+  id        String     @id @default(cuid())
+  user      User?      @relation(fields: [userId], references: [id])
+  userId    String?
+  items     CartItem[]
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([userId])
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cartId    String
+  product   Product @relation(fields: [productId], references: [id])
+  productId String
+  quantity  Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId])
+  @@index([productId])
+}
+
+// ---------------------------------------------------------------------------
+// Orders (status state machine guarded in code)
+// ---------------------------------------------------------------------------
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  user            User        @relation(fields: [userId], references: [id])
+  userId          String
+  status          OrderStatus @default(PENDING)
+
+  // Snapshot of the totals pipeline at placement (server-authoritative).
+  subtotal        Decimal     @db.Decimal(12, 2)
+  discountTotal   Decimal     @db.Decimal(12, 2) @default(0)
+  taxTotal        Decimal     @db.Decimal(12, 2) @default(0)
+  shippingTotal   Decimal     @db.Decimal(12, 2) @default(0)
+  grandTotal      Decimal     @db.Decimal(12, 2)
+
+  // Shipping address captured at checkout (denormalized snapshot).
+  shipFullName    String
+  shipLine1       String
+  shipLine2       String?
+  shipCity        String
+  shipState       String
+  shipCountry     String
+  shipPostalCode  String
+
+  items           OrderItem[]
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId     String
+  product     Product  @relation(fields: [productId], references: [id])
+  productId   String
+  // Snapshot product name + unit price at time of order (price may change later).
+  productName String
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  quantity    Int
+  lineTotal   Decimal  @db.Decimal(12, 2)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications & audit
+// ---------------------------------------------------------------------------
+
+enum NotificationType {
+  REGISTRATION_CONFIRMATION
+  ORDER_CONFIRMATION
+  SHIPPING_UPDATE
+  DELIVERY_UPDATE
+  NEW_ORDER
+  LOW_STOCK
+  REFUND_REQUEST
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  user      User?            @relation(fields: [userId], references: [id])
+  userId    String?
+  type      NotificationType
+  payload   Json
+  readAt    DateTime?
+
+  createdAt DateTime         @default(now())
+
+  @@index([userId, createdAt])
+  @@index([type])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actor      User?    @relation(fields: [actorId], references: [id])
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+
+  createdAt  DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+}

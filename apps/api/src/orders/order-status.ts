@@ -9,14 +9,16 @@
  * `assertTransition` before persisting a status change.
  */
 
+// String values match the Prisma `OrderStatus` enum (DB source of truth),
+// so a status read from the DB maps directly onto this transition guard.
 export enum OrderStatus {
-  Pending = 'Pending',
-  Confirmed = 'Confirmed',
-  Processing = 'Processing',
-  Shipped = 'Shipped',
-  Delivered = 'Delivered',
-  Cancelled = 'Cancelled',
-  Refunded = 'Refunded',
+  Pending = 'PENDING',
+  Confirmed = 'CONFIRMED',
+  Processing = 'PROCESSING',
+  Shipped = 'SHIPPED',
+  Delivered = 'DELIVERED',
+  Cancelled = 'CANCELLED',
+  Refunded = 'REFUNDED',
 }
 
 /** Allowed next states for each status. Terminal states map to an empty list. */

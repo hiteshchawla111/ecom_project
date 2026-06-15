@@ -15,7 +15,7 @@ Not yet scaffolded. Planned scaffold: NestJS CLI + Prisma; empty domain modules 
 ## Commands (aspirational — verify once scaffolded)
 
 ```bash
-npm run start:dev   # watch mode
+npm run start:dev   # watch mode (listens on PORT from .env — fixed dev port :5000)
 npm run build
 npm run lint
 npm test            # unit; single: npm test -- <pattern>

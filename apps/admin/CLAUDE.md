@@ -12,14 +12,16 @@ Internal admin & inventory dashboard. Imported by the root `CLAUDE.md`. Read the
 
 Not yet scaffolded. Planned scaffold: Vite `react-ts` template + Tailwind.
 
-## Commands (aspirational — verify once scaffolded)
+## Commands
 
 ```bash
-npm run dev       # vite dev server
-npm run build     # production build (tsc + vite build)
-npm run preview   # preview prod build
-npm run lint      # eslint
-npm test          # unit tests; single: npm test -- <pattern>
+npm run dev        # vite dev server
+npm run build      # production build (tsc + vite build)
+npm run preview    # preview prod build
+npm run lint       # eslint
+npm test           # vitest run (unit/component); single: npm test -- <pattern>
+npm run test:watch # vitest watch mode
+npm run test:cov   # vitest run --coverage
 ```
 
 ## Scope (PRD — admin + inventory features)

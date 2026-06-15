@@ -12,13 +12,15 @@ Customer-facing e-commerce site. Imported by the root `CLAUDE.md`. Read the root
 
 Not yet scaffolded. Planned scaffold: `create-next-app` (TS, App Router, Tailwind, ESLint).
 
-## Commands (aspirational — verify once scaffolded)
+## Commands
 
 ```bash
-npm run dev      # local dev
-npm run build    # production build
-npm run lint     # eslint
-npm test         # unit tests; single: npm test -- <pattern>
+npm run dev        # local dev (next dev, Turbopack)
+npm run build      # production build
+npm run lint       # eslint
+npm test           # vitest run (unit/component); single: npm test -- <pattern>
+npm run test:cov   # vitest run --coverage
+npm run test:e2e   # playwright e2e (auto-starts dev server)
 ```
 
 ## Scope (PRD — customer features)

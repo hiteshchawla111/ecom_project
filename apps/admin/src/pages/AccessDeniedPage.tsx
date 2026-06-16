@@ -19,7 +19,7 @@ export function AccessDeniedPage() {
       <button
         type="button"
         onClick={onSignOut}
-        className="rounded-md bg-primary-500 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-600"
+        className="rounded-md bg-primary-500 px-4 py-2 font-medium text-white transition-colors hover:bg-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700"
       >
         Sign out
       </button>

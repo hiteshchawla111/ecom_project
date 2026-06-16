@@ -5,6 +5,7 @@ export function LogoutButton() {
   const { logout } = useAuth();
   const navigate = useNavigate();
 
+  // logout() is best-effort and never throws (see AuthContext), so navigate always runs.
   async function onClick() {
     await logout();
     navigate('/login', { replace: true });
@@ -14,7 +15,7 @@ export function LogoutButton() {
     <button
       type="button"
       onClick={onClick}
-      className="rounded-md px-3 py-1.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-primary-500"
+      className="rounded-md px-3 py-1.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
     >
       Sign out
     </button>

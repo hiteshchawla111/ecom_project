@@ -35,9 +35,10 @@ export class CategoriesService {
     }
   }
 
-  async findOne(id: string): Promise<Category> {
+  /** Resolve a non-deleted category by its id or its (unique) slug. */
+  async findOne(idOrSlug: string): Promise<Category> {
     const category = await this.prisma.category.findFirst({
-      where: { id, deletedAt: null },
+      where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }], deletedAt: null },
       include: CATEGORY_INCLUDE,
     });
     if (!category) throw new NotFoundException('Category not found');

@@ -35,3 +35,32 @@ test('unknown product id renders the not-found page', async ({ page, request }) 
   const res = await page.goto('/products/this-id-does-not-exist');
   expect(res?.status()).toBe(404);
 });
+
+test('categories index links to a category browse page', async ({
+  page,
+  request,
+}) => {
+  const list = await catalogReady(request);
+  test.skip(!list || list.total === 0, `No seeded catalog at ${apiUrl} — skipping`);
+
+  await page.goto('/categories');
+  await expect(page.getByRole('heading', { name: /categories/i })).toBeVisible();
+
+  // Click a category link; land on its slug-based browse page.
+  await page.getByRole('link', { name: /phones/i }).first().click();
+  await expect(page).toHaveURL(/\/categories\/[^/]+$/);
+  await expect(
+    page.getByRole('heading', { name: /phones/i }),
+  ).toBeVisible();
+});
+
+test('unknown category slug renders the not-found page', async ({
+  page,
+  request,
+}) => {
+  const list = await catalogReady(request);
+  test.skip(!list, `API not reachable at ${apiUrl} — skipping`);
+
+  const res = await page.goto('/categories/this-slug-does-not-exist');
+  expect(res?.status()).toBe(404);
+});

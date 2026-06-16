@@ -51,10 +51,21 @@ export interface Paginated<T> {
   totalPages: number;
 }
 
-/** Subset of the API list query this slice uses (pagination only). */
+/** A category with optional parent and (non-deleted) children, per the API. */
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  parent?: Category | null;
+  children?: Category[];
+}
+
+/** Subset of the API product list query this slice uses. */
 export interface ListProductsQuery {
   page?: number;
   pageSize?: number;
+  categoryId?: string;
 }
 
 /** Injectable deps so the client is unit-testable without a real server. */
@@ -104,6 +115,7 @@ export async function listProducts(
   const url = `${baseUrl}/products${toQuery({
     page: query.page,
     pageSize: query.pageSize,
+    categoryId: query.categoryId,
   })}`;
   const res = await fetchImpl(url, { cache: 'no-store' });
   const body = (await res.json().catch(() => null)) as unknown;
@@ -125,6 +137,31 @@ export async function getProduct(
   return body as Product;
 }
 
+/** Fetch the category tree (roots with nested children). */
+export async function listCategories({
+  baseUrl,
+  fetch: fetchImpl = fetch,
+}: CatalogOptions): Promise<Category[]> {
+  const res = await fetchImpl(`${baseUrl}/categories`, { cache: 'no-store' });
+  const body = (await res.json().catch(() => null)) as unknown;
+  if (!res.ok) throw new CatalogError(messageFrom(body, res.status), res.status);
+  return body as Category[];
+}
+
+/** Fetch a single category by id or slug; returns null on 404. */
+export async function getCategory(
+  idOrSlug: string,
+  { baseUrl, fetch: fetchImpl = fetch }: CatalogOptions,
+): Promise<Category | null> {
+  const res = await fetchImpl(`${baseUrl}/categories/${idOrSlug}`, {
+    cache: 'no-store',
+  });
+  if (res.status === 404) return null;
+  const body = (await res.json().catch(() => null)) as unknown;
+  if (!res.ok) throw new CatalogError(messageFrom(body, res.status), res.status);
+  return body as Category;
+}
+
 // --- Server-bound convenience wrappers (called from Server Components) -------
 // These bind the configured API base URL, mirroring session.ts/getCurrentUser.
 
@@ -138,4 +175,16 @@ export function getProducts(
 /** Fetch a single product against the configured API (null on 404). */
 export function getProductById(id: string): Promise<Product | null> {
   return getProduct(id, { baseUrl: apiBaseUrl() });
+}
+
+/** Fetch the category tree against the configured API. */
+export function getCategoryTree(): Promise<Category[]> {
+  return listCategories({ baseUrl: apiBaseUrl() });
+}
+
+/** Fetch a category by id or slug against the configured API (null on 404). */
+export function getCategoryByIdOrSlug(
+  idOrSlug: string,
+): Promise<Category | null> {
+  return getCategory(idOrSlug, { baseUrl: apiBaseUrl() });
 }

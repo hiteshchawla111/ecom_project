@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 
@@ -20,6 +21,15 @@ export default async function ResetPasswordPage({
         </p>
       </header>
       <ResetPasswordForm token={token ?? ''} />
+      <p className="text-sm text-neutral-600">
+        Remembered it?{' '}
+        <Link
+          href="/login"
+          className="font-medium text-primary-600 hover:text-primary-700"
+        >
+          Back to sign in
+        </Link>
+      </p>
     </div>
   );
 }

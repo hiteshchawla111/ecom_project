@@ -20,8 +20,11 @@ test('shop page renders the catalog and links to a product detail', async ({
   await page.goto('/products');
   await expect(page.getByRole('heading', { name: /^shop$/i })).toBeVisible();
 
-  // At least one product card links into a detail page.
-  const firstCard = page.getByRole('link', { name: /.+/ }).first();
+  // A product card (link to a detail URL) navigates to the detail page.
+  const firstCard = page
+    .locator('a[href^="/products/"]')
+    .filter({ hasNotText: '' })
+    .first();
   await firstCard.click();
   await expect(page).toHaveURL(/\/products\/.+/);
   // Detail page shows an availability indicator.
@@ -63,4 +66,23 @@ test('unknown category slug renders the not-found page', async ({
 
   const res = await page.goto('/categories/this-slug-does-not-exist');
   expect(res?.status()).toBe(404);
+});
+
+test('searching from the shop filter bar narrows the catalog via the URL', async ({
+  page,
+  request,
+}) => {
+  const list = await catalogReady(request);
+  test.skip(!list || list.total === 0, `No seeded catalog at ${apiUrl} — skipping`);
+
+  await page.goto('/products');
+  await page.getByRole('searchbox', { name: /search/i }).fill('phone');
+  await page.getByRole('button', { name: /apply/i }).click();
+
+  // The filter is reflected in the URL (server-rendered, shareable).
+  await expect(page).toHaveURL(/\/products\?.*search=phone/);
+  // At least one matching product card is shown.
+  await expect(
+    page.getByRole('link', { name: /phone/i }).first(),
+  ).toBeVisible();
 });

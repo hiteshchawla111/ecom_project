@@ -112,6 +112,9 @@ export async function handleConfirmReset(
   if (!token) {
     return badRequest('Reset token is required.');
   }
+  if (!password) {
+    return badRequest('Password is required.');
+  }
   if (password.length < 8) {
     return badRequest('Password must be at least 8 characters.');
   }

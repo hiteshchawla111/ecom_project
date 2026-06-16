@@ -207,6 +207,15 @@ describe('handleConfirmReset', () => {
     expect(d.confirmReset).not.toHaveBeenCalled();
   });
 
+  it('returns 400 with a clear message when the password is missing (no API call)', async () => {
+    const d = deps();
+    const res = await handleConfirmReset({ token: 'tok' }, d);
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ message: 'Password is required.' });
+    expect(d.confirmReset).not.toHaveBeenCalled();
+  });
+
   it('maps an invalid/expired token API error', async () => {
     const d = deps({
       confirmReset: vi.fn(async () => {

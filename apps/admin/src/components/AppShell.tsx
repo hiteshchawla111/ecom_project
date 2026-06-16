@@ -21,7 +21,7 @@ export function AppShell() {
         <header className="flex items-center justify-between border-b border-neutral-200 px-6 py-3">
           <span className="text-sm text-neutral-600">
             <span className="sr-only">Signed in as </span>
-            <span data-testid="current-user">{user?.email}</span>
+            <span data-testid="current-user">{user!.email}</span>
           </span>
           <LogoutButton />
         </header>

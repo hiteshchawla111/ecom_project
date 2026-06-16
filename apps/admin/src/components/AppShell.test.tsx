@@ -29,7 +29,7 @@ function renderShell() {
 }
 
 describe('AppShell', () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.clearAllMocks());
 
   it('shows the current user email', () => {
     renderShell();

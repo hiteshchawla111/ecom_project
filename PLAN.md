@@ -20,7 +20,7 @@ This is the live source of truth for task status. **Keep it updated** as work ha
 |-----|-----------|--------|
 | `apps/api` (NestJS+Prisma) | ✅ | Prisma 7 wired; schema migrated; 9 modules; boots OK |
 | `apps/storefront` (Next.js) | ✅ | Scaffolded (Tailwind v4 + tokens); Vitest+RTL + Playwright wired |
-| `apps/admin` (React+Vite) | ✅ | Scaffolded (Tailwind v4 + tokens); Vitest+RTL wired |
+| `apps/admin` (React+Vite) | ✅ | Auth shell live — login + role-gated routing (React Router); Vitest+RTL (26 tests) |
 
 ### Phase status
 
@@ -28,14 +28,16 @@ This is the live source of truth for task status. **Keep it updated** as work ha
 |-------|-------|--------|
 | 0 | Foundation | ✅ Done (apps scaffold ✅; Prisma ✅; test runners — Jest/Vitest/Playwright ✅) |
 | 1 | Data model & core domain (API) | ✅ Done |
-| 2 | Authentication & authorization | 🟡 In Progress (API auth ✅; storefront ✅; admin pending) |
+| 2 | Authentication & authorization | ✅ Done (API auth ✅; storefront ✅; admin ✅) |
 | 3 | Product catalog | ⬜ Not Started |
 | 4 | Cart & checkout | ⬜ Not Started |
 | 5 | Orders & inventory | ⬜ Not Started |
 | 6 | Customers, analytics, notifications | ⬜ Not Started |
 | 7 | Non-functional hardening | ⬜ Not Started |
 
-**Current focus:** Phase 2 storefront auth ✅ **complete** — login/register/logout + protected `/account` + **password-reset** (`/forgot-password` request + `/reset-password?token=` confirm) + a **guest guard** (logged-in users bounced off auth pages to `/`). httpOnly-cookie session via Next route handlers proxying the API; smoke-verified end-to-end against `ecom_dev` (reset request enumeration-safe, confirm consumes single-use token, login with new password works, guest guard 307s all four auth routes). Next (stop & verify first): **admin** login + role-gated shell.
+**Current focus:** **Phase 2 ✅ complete** — API auth, storefront auth, and admin auth shell all done and smoke-verified vs `ecom_dev`. Details live in the Phase 2 task list below; don't duplicate them here. **Next: Phase 3 — Product catalog** (see that section). Admin auth lives on branch `feat/admin-auth-shell` (spec/plan: `docs/superpowers/specs|plans/2026-06-16-admin-auth-shell*`); merge to `main` before starting Phase 3.
+
+**Carried-forward follow-ups (Phase 7 / later):** migrate admin session from localStorage → API-set httpOnly cookies (XSS-exposure tradeoff); add `eslint-plugin-jsx-a11y` to the admin lint config; convert the placeholder sidebar nav `<span aria-current>` to real `<a>`/`NavLink` when catalog routes land. Storefront reset-link email delivery still deferred to Phase 6.
 
 ---
 
@@ -92,8 +94,8 @@ Environment facts and hard-won lessons not derivable from the code. A fresh sess
 
 - [x] API: customer register/login/logout/password-reset/profile; admin secure login; session/JWT; role-based guards (Customer / Admin / Inventory Manager). *(JWT access + rotating refresh; `@Public`/`@Roles` guards; reset tokens emit-event-ready, email delivery deferred to Phase 6.)*
 - [x] Storefront: auth pages + session handling + protected customer routes. *(✅ Done — login + register + logout + protected `/account` + password-reset (`/forgot-password` request, `/reset-password?token=` confirm) + guest guard (logged-in users bounced off `/login`,`/register`,`/forgot-password`,`/reset-password` to `/`). httpOnly-cookie session (`sf_access`/`sf_refresh`) via Next route handlers proxying the API; `proxy.ts` (Next 16 middleware) runs both `loginRedirectFor` (protect `/account`) and `guestRedirectFor` (bounce auth pages); session helper refreshes on access-token expiry. 66 unit tests + Playwright E2E green; smoke-verified end-to-end against `ecom_dev`. Reset request is enumeration-safe; confirm consumes a single-use token then revokes sessions; password delivery of the reset link still deferred to Phase 6.)*
-- [ ] Admin: login + role-gated app shell (redirect UX only; API enforces).
-- [ ] **Exit:** each role can log in and only reach permitted endpoints.
+- [x] Admin: login + role-gated app shell (redirect UX only; API enforces). *(✅ Done — `LoginPage` → `useAuth().login()`; React Router (`createBrowserRouter`) with `ProtectedRoute` gating `AppShell`→`DashboardPage`: `guest`→`/login`, CUSTOMER→Access Denied, ADMIN/INVENTORY_MANAGER→shell. Session in localStorage behind a single `tokenStore`; `apiClient` attaches Bearer + does a concurrency-guarded single refresh-on-401; `/auth/me` is the sole role authority (no client-side JWT decode). 26 Vitest+RTL tests; smoke-verified end-to-end vs `ecom_dev` (admin/inventory log in & reach the shell, CUSTOMER hits Access Denied, bad creds → generic error, refresh persists session, logout clears, CORS allows `:5002` only). **localStorage token storage is a known XSS-exposure tradeoff → Phase 7 follow-up to migrate to API-set httpOnly cookies; also defer `eslint-plugin-jsx-a11y` + nav `<a>`/`NavLink`.** Spec/plan: `docs/superpowers/specs|plans/2026-06-16-admin-auth-shell*`.)*
+- [x] **Exit:** each role can log in and only reach permitted endpoints. *(API enforces per-role; both frontends do redirect/UX only.)*
 
 ## Phase 3 — Product catalog
 

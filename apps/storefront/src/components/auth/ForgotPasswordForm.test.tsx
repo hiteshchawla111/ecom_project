@@ -43,6 +43,7 @@ describe('ForgotPasswordForm', () => {
     await user.click(screen.getByRole('button', { name: /send reset link/i }));
 
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/login'));
+    expect(refreshMock).toHaveBeenCalled();
     expect(fetchSpy).toHaveBeenCalledWith(
       '/api/auth/password-reset/request',
       expect.objectContaining({ method: 'POST' }),
@@ -51,6 +52,24 @@ describe('ForgotPasswordForm', () => {
       (fetchSpy.mock.calls[0][1] as RequestInit).body as string,
     );
     expect(body).toEqual({ email: 'a@test.com' });
+  });
+
+  it('disables the submit button while the request is in flight', async () => {
+    let resolve!: (r: Response) => void;
+    vi.spyOn(globalThis, 'fetch').mockReturnValue(
+      new Promise<Response>((r) => {
+        resolve = r;
+      }),
+    );
+    const user = userEvent.setup();
+    render(<ForgotPasswordForm />);
+
+    await user.type(screen.getByLabelText(/email/i), 'a@test.com');
+    await user.click(screen.getByRole('button', { name: /send reset link/i }));
+
+    expect(screen.getByRole('button')).toBeDisabled();
+    resolve(jsonResponse(200, { ok: true }));
+    await waitFor(() => expect(pushMock).toHaveBeenCalled());
   });
 
   it('shows the API error and does not redirect on failure', async () => {

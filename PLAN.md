@@ -28,14 +28,16 @@ This is the live source of truth for task status. **Keep it updated** as work ha
 |-------|-------|--------|
 | 0 | Foundation | ✅ Done (apps scaffold ✅; Prisma ✅; test runners — Jest/Vitest/Playwright ✅) |
 | 1 | Data model & core domain (API) | ✅ Done |
-| 2 | Authentication & authorization | 🟡 In Progress (API auth ✅; storefront ✅; admin pending) |
+| 2 | Authentication & authorization | 🟡 In Progress (API auth ✅; storefront ✅; admin 🟡 in progress) |
 | 3 | Product catalog | ⬜ Not Started |
 | 4 | Cart & checkout | ⬜ Not Started |
 | 5 | Orders & inventory | ⬜ Not Started |
 | 6 | Customers, analytics, notifications | ⬜ Not Started |
 | 7 | Non-functional hardening | ⬜ Not Started |
 
-**Current focus:** Phase 2 storefront auth ✅ **complete** — login/register/logout + protected `/account` + **password-reset** (`/forgot-password` request + `/reset-password?token=` confirm) + a **guest guard** (logged-in users bounced off auth pages to `/`). httpOnly-cookie session via Next route handlers proxying the API; smoke-verified end-to-end against `ecom_dev` (reset request enumeration-safe, confirm consumes single-use token, login with new password works, guest guard 307s all four auth routes). Next (stop & verify first): **admin** login + role-gated shell.
+**Current focus:** Phase 2 storefront auth ✅ **complete** — login/register/logout + protected `/account` + **password-reset** (`/forgot-password` request + `/reset-password?token=` confirm) + a **guest guard** (logged-in users bounced off auth pages to `/`). httpOnly-cookie session via Next route handlers proxying the API; smoke-verified end-to-end against `ecom_dev` (reset request enumeration-safe, confirm consumes single-use token, login with new password works, guest guard 307s all four auth routes).
+
+**Admin auth 🟡 in progress** (branch `feat/admin-auth-shell`; spec + plan in `docs/superpowers/specs|plans/2026-06-16-admin-auth-shell*`). Executing the 14-task plan one task at a time. **Done so far:** Task 1 — API CORS enabled for `:5001`/`:5002` (`apps/api/src/main.ts`). **Next:** Task 2 — seed ADMIN + INVENTORY_MANAGER dev users.
 
 ---
 

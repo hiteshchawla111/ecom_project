@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import { PrismaClient, ProductStatus } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+import { PrismaClient, ProductStatus, Role } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 const adapter = new PrismaPg(process.env.DATABASE_URL as string);
@@ -79,6 +80,29 @@ async function main(): Promise<void> {
         available: p.available,
         reserved: 0,
         lowStockThreshold: p.lowStockThreshold,
+      },
+    });
+  }
+
+  // Dev users for each internal role (idempotent). Password: "Password123!".
+  const passwordHash = await bcrypt.hash('Password123!', 10);
+  const devUsers = [
+    { email: 'admin@example.com', name: 'Admin User', role: Role.ADMIN },
+    {
+      email: 'inventory@example.com',
+      name: 'Inventory Manager',
+      role: Role.INVENTORY_MANAGER,
+    },
+  ];
+  for (const u of devUsers) {
+    await prisma.user.upsert({
+      where: { email: u.email },
+      update: {},
+      create: {
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        passwordHash,
       },
     });
   }

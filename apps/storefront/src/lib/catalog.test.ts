@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   CatalogError,
+  getCategory,
   getProduct,
+  listCategories,
   listProducts,
+  type Category,
   type Product,
 } from './catalog';
 
@@ -75,6 +78,25 @@ describe('listProducts', () => {
     expect(url).not.toContain('undefined');
   });
 
+  it('includes categoryId in the query when provided', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse(200, {
+          data: [],
+          page: 1,
+          pageSize: 20,
+          total: 0,
+          totalPages: 1,
+        }),
+      );
+
+    await listProducts({ categoryId: 'c1' }, { ...opts, fetch: fetchMock });
+
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('categoryId=c1');
+  });
+
   it('throws CatalogError on a non-ok response', async () => {
     const fetchMock = vi
       .fn()
@@ -83,6 +105,62 @@ describe('listProducts', () => {
     await expect(
       listProducts({}, { ...opts, fetch: fetchMock }),
     ).rejects.toBeInstanceOf(CatalogError);
+  });
+});
+
+const sampleCategory: Category = {
+  id: 'c1',
+  name: 'Phones',
+  slug: 'phones',
+  parentId: 'root',
+  parent: null,
+  children: [],
+};
+
+describe('listCategories', () => {
+  it('requests /categories and returns the tree', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(200, [sampleCategory]));
+
+    const res = await listCategories({ ...opts, fetch: fetchMock });
+
+    expect(fetchMock.mock.calls[0][0]).toBe('http://api.test/categories');
+    expect(res).toHaveLength(1);
+    expect(res[0].slug).toBe('phones');
+  });
+
+  it('throws CatalogError on a non-ok response', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(500, { message: 'boom' }));
+
+    await expect(
+      listCategories({ ...opts, fetch: fetchMock }),
+    ).rejects.toBeInstanceOf(CatalogError);
+  });
+});
+
+describe('getCategory', () => {
+  it('requests /categories/:idOrSlug and returns the category', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(200, sampleCategory));
+
+    const res = await getCategory('phones', { ...opts, fetch: fetchMock });
+
+    expect(fetchMock.mock.calls[0][0]).toBe('http://api.test/categories/phones');
+    expect(res?.slug).toBe('phones');
+  });
+
+  it('returns null on a 404', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(404, { message: 'Category not found' }));
+
+    await expect(
+      getCategory('nope', { ...opts, fetch: fetchMock }),
+    ).resolves.toBeNull();
   });
 });
 

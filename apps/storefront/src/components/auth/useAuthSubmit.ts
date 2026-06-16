@@ -11,7 +11,7 @@ interface ErrorBody {
  * Shared submit logic for the auth forms: POST a JSON body to a route handler,
  * surface the API error message, and redirect home on success.
  */
-export function useAuthSubmit(endpoint: string) {
+export function useAuthSubmit(endpoint: string, redirectTo = '/') {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -30,7 +30,7 @@ export function useAuthSubmit(endpoint: string) {
         setError(data?.message ?? 'Something went wrong. Please try again.');
         return;
       }
-      router.push('/');
+      router.push(redirectTo);
       router.refresh();
     } catch {
       setError('Unable to reach the server. Please try again.');

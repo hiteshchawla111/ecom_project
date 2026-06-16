@@ -3,6 +3,7 @@ import {
   CatalogError,
   getCategory,
   getProduct,
+  getRelatedProducts,
   listCategories,
   listProducts,
   type Category,
@@ -129,6 +130,25 @@ describe('listProducts', () => {
     expect(url).toContain('sortDir=asc');
   });
 
+  it('includes status in the query when provided', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse(200, {
+          data: [],
+          page: 1,
+          pageSize: 20,
+          total: 0,
+          totalPages: 1,
+        }),
+      );
+
+    await listProducts({ status: 'ACTIVE' }, { ...opts, fetch: fetchMock });
+
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('status=ACTIVE');
+  });
+
   it('throws CatalogError on a non-ok response', async () => {
     const fetchMock = vi
       .fn()
@@ -226,5 +246,61 @@ describe('getProduct', () => {
     await expect(
       getProduct('p1', { ...opts, fetch: fetchMock }),
     ).rejects.toBeInstanceOf(CatalogError);
+  });
+});
+
+describe('getRelatedProducts', () => {
+  const inCategory = (ids: string[]) =>
+    jsonResponse(200, {
+      data: ids.map((id) => ({ ...sampleProduct, id })),
+      page: 1,
+      pageSize: 5,
+      total: ids.length,
+      totalPages: 1,
+    });
+
+  it('fetches ACTIVE products in the same category', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(inCategory(['p2', 'p3']));
+
+    await getRelatedProducts('c1', 'p1', { ...opts, fetch: fetchMock });
+
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('categoryId=c1');
+    expect(url).toContain('status=ACTIVE');
+  });
+
+  it('excludes the current product from the results', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(inCategory(['p1', 'p2', 'p3']));
+
+    const res = await getRelatedProducts('c1', 'p1', {
+      ...opts,
+      fetch: fetchMock,
+    });
+
+    expect(res.map((p) => p.id)).toEqual(['p2', 'p3']);
+  });
+
+  it('caps the result at 4 products', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(inCategory(['p2', 'p3', 'p4', 'p5', 'p6']));
+
+    const res = await getRelatedProducts('c1', 'p1', {
+      ...opts,
+      fetch: fetchMock,
+    });
+
+    expect(res).toHaveLength(4);
+  });
+
+  it('returns an empty array when there are no other products', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(inCategory(['p1']));
+
+    const res = await getRelatedProducts('c1', 'p1', {
+      ...opts,
+      fetch: fetchMock,
+    });
+
+    expect(res).toEqual([]);
   });
 });

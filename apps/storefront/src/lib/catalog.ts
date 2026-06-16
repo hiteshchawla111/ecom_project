@@ -65,12 +65,17 @@ export interface Category {
 export type ProductSortBy = 'createdAt' | 'price' | 'name';
 export type SortDir = 'asc' | 'desc';
 
-/** Product list query mirroring the API's search/filter/sort surface. */
+/**
+ * Product list query mirroring the API's search/filter/sort surface.
+ * `status` is supported by the API and used server-side (e.g. related
+ * products); it is intentionally not exposed in the storefront filter UI.
+ */
 export interface ListProductsQuery {
   page?: number;
   pageSize?: number;
   search?: string;
   categoryId?: string;
+  status?: ProductStatus;
   minPrice?: number;
   maxPrice?: number;
   sortBy?: ProductSortBy;
@@ -126,6 +131,7 @@ export async function listProducts(
     pageSize: query.pageSize,
     search: query.search,
     categoryId: query.categoryId,
+    status: query.status,
     minPrice: query.minPrice,
     maxPrice: query.maxPrice,
     sortBy: query.sortBy,
@@ -149,6 +155,31 @@ export async function getProduct(
   const body = (await res.json().catch(() => null)) as unknown;
   if (!res.ok) throw new CatalogError(messageFrom(body, res.status), res.status);
   return body as Product;
+}
+
+/** Max related products shown on a detail page. */
+const RELATED_LIMIT = 4;
+
+/**
+ * Related products: other ACTIVE products in the same category, excluding the
+ * current product, capped at RELATED_LIMIT. Simple, server-authoritative
+ * heuristic — PRD excludes recommendation engines.
+ */
+export async function getRelatedProducts(
+  categoryId: string,
+  excludeProductId: string,
+  opts: CatalogOptions,
+): Promise<Product[]> {
+  // Fetch a few extra so excluding the current product still yields a full row.
+  const { data } = await listProducts(
+    {
+      categoryId,
+      status: 'ACTIVE',
+      pageSize: RELATED_LIMIT + 1,
+    },
+    opts,
+  );
+  return data.filter((p) => p.id !== excludeProductId).slice(0, RELATED_LIMIT);
 }
 
 /** Fetch the category tree (roots with nested children). */
@@ -189,6 +220,16 @@ export function getProducts(
 /** Fetch a single product against the configured API (null on 404). */
 export function getProductById(id: string): Promise<Product | null> {
   return getProduct(id, { baseUrl: apiBaseUrl() });
+}
+
+/** Related products for a detail page against the configured API. */
+export function getRelatedProductsFor(
+  categoryId: string,
+  excludeProductId: string,
+): Promise<Product[]> {
+  return getRelatedProducts(categoryId, excludeProductId, {
+    baseUrl: apiBaseUrl(),
+  });
 }
 
 /** Fetch the category tree against the configured API. */

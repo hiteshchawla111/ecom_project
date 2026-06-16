@@ -86,3 +86,25 @@ test('searching from the shop filter bar narrows the catalog via the URL', async
     page.getByRole('link', { name: /phone/i }).first(),
   ).toBeVisible();
 });
+
+test('a product detail page shows related products from the same category', async ({
+  page,
+  request,
+}) => {
+  const list = await request
+    .get(`${apiUrl}/products?search=phone&status=ACTIVE`, {
+      failOnStatusCode: false,
+    })
+    .then(async (r) => (r.ok() ? ((await r.json()) as { data: { id: string }[] }) : null))
+    .catch(() => null);
+  // Need at least two products in one category for a related strip.
+  test.skip(
+    !list || list.data.length < 2,
+    `Need 2+ same-category products at ${apiUrl} — skipping`,
+  );
+
+  await page.goto(`/products/${list!.data[0].id}`);
+  await expect(
+    page.getByRole('heading', { name: /related products/i }),
+  ).toBeVisible();
+});

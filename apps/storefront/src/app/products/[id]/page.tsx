@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getProductById } from '@/lib/catalog';
+import { getProductById, getRelatedProductsFor } from '@/lib/catalog';
 import { Price } from '@/components/catalog/Price';
+import { RelatedProducts } from '@/components/catalog/RelatedProducts';
 
 type Params = { id: string };
 
@@ -27,10 +28,12 @@ export default async function ProductDetailPage({
 
   const image = product.images?.[0];
   const available = product.status === 'ACTIVE';
+  const related = await getRelatedProductsFor(product.categoryId, product.id);
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-10 md:flex-row">
-      <div className="w-full md:w-1/2">
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-12 px-4 py-10">
+      <div className="flex flex-col gap-8 md:flex-row">
+        <div className="w-full md:w-1/2">
         <div className="aspect-square w-full overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100">
           {image ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -77,7 +80,10 @@ export default async function ProductDetailPage({
         <p className="whitespace-pre-line text-neutral-900">
           {product.description}
         </p>
+        </div>
       </div>
+
+      <RelatedProducts products={related} />
     </main>
   );
 }

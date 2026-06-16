@@ -29,15 +29,15 @@ This is the live source of truth for task status. **Keep it updated** as work ha
 | 0 | Foundation | ✅ Done (apps scaffold ✅; Prisma ✅; test runners — Jest/Vitest/Playwright ✅) |
 | 1 | Data model & core domain (API) | ✅ Done |
 | 2 | Authentication & authorization | ✅ Done (API auth ✅; storefront ✅; admin ✅) |
-| 3 | Product catalog | ⬜ Not Started |
+| 3 | Product catalog | 🟡 In Progress (API product CRUD ✅; categories + search/filter/sort + FE pending) |
 | 4 | Cart & checkout | ⬜ Not Started |
 | 5 | Orders & inventory | ⬜ Not Started |
 | 6 | Customers, analytics, notifications | ⬜ Not Started |
 | 7 | Non-functional hardening | ⬜ Not Started |
 
-**Current focus:** **Phase 2 ✅ complete** — API auth, storefront auth, and admin auth shell all done and smoke-verified vs `ecom_dev`. Details live in the Phase 2 task list below; don't duplicate them here. **Next: Phase 3 — Product catalog** (see that section). Admin auth lives on branch `feat/admin-auth-shell` (spec/plan: `docs/superpowers/specs|plans/2026-06-16-admin-auth-shell*`); merge to `main` before starting Phase 3.
+**Current focus:** **Phase 3 — Product catalog, in progress.** First slice **done & smoke-verified**: API product CRUD (`apps/api/src/products/*`) — create / update / archive / activate-deactivate + paginated list + get-by-id, reads public, writes `@Roles(ADMIN)`. 13 unit tests; full suite 59 green; lint + build clean; HTTP-smoked vs `ecom_dev` (role boundary 401/403, dup-SKU 409, bad-FK 400, validation 400, 404, lifecycle transitions). **Next slices (separate stop-and-verify tasks):** API category CRUD + hierarchy → API search/filter/sort on product list → storefront catalog → admin product/category UIs. (Phase 2 ✅ complete — API/storefront/admin auth, smoke-verified; details in the Phase 2 task list. Admin auth merged to `main`.)
 
-**Carried-forward follow-ups (Phase 7 / later):** migrate admin session from localStorage → API-set httpOnly cookies (XSS-exposure tradeoff); add `eslint-plugin-jsx-a11y` to the admin lint config; convert the placeholder sidebar nav `<span aria-current>` to real `<a>`/`NavLink` when catalog routes land. Storefront reset-link email delivery still deferred to Phase 6.
+**Carried-forward follow-ups (Phase 7 / later):** migrate admin session from localStorage → API-set httpOnly cookies (XSS-exposure tradeoff); add `eslint-plugin-jsx-a11y` to the admin lint config; convert the placeholder sidebar nav `<span aria-current>` to real `<a>`/`NavLink` when catalog routes land. Storefront reset-link email delivery still deferred to Phase 6. **Audit logging** of product mutations (and other sensitive writes — order status, refunds, stock adjustments) deferred to Phase 7 to land once app-wide via a shared `AuditLog` helper (the model exists; no audit service yet). **Stale script:** `apps/api` `start:prod` is `node dist/main` but the compiled entry is `dist/src/main.js` (see Gotchas) — `start:prod` currently crashes; use `start:dev` for smoke runs until the script is fixed.
 
 ---
 
@@ -99,7 +99,7 @@ Environment facts and hard-won lessons not derivable from the code. A fresh sess
 
 ## Phase 3 — Product catalog
 
-- [ ] API: product CRUD (create/update/archive/activate-deactivate) with all PRD fields; category CRUD + hierarchy; search/filter/sort; pagination + indexes.
+- [ ] API: product CRUD (create/update/archive/activate-deactivate) with all PRD fields; category CRUD + hierarchy; search/filter/sort; pagination + indexes. *(🟡 **Product CRUD ✅** — `products.service`/`products.controller` + DTOs; create/update/archive/activate-deactivate, get-by-id, paginated list (`{data,page,pageSize,total,totalPages}`, soft-deleted excluded, newest-first). Reads `@Public()`, writes `@Roles(ADMIN)` via global guards (API-enforced). Prisma write errors mapped: P2002→409 dup SKU, P2003/P2025→400 bad category. SKU + status immutable via generic update (status flows through archive/active endpoints). 13 Jest unit tests; smoke-verified vs `ecom_dev`. **Still pending in this task:** category CRUD + hierarchy; product search/filter/sort. Indexes already exist in schema.)*
 - [ ] Storefront: SSR catalog, category browse, search/filter/sort, product detail (images, pricing, availability, related).
 - [ ] Admin: product management UI, category management (hierarchical).
 - [ ] **Exit:** products manageable in admin, discoverable in storefront.

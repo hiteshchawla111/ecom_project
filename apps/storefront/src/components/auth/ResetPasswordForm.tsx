@@ -59,7 +59,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
         type="password"
         value={confirm}
         onChange={setConfirm}
-        autoComplete="new-password"
+        autoComplete="off"
         required
       />
       <SubmitButton pending={pending}>Reset password</SubmitButton>

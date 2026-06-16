@@ -9,12 +9,12 @@ describe('tokenStore', () => {
   });
 
   it('round-trips a token pair', () => {
-    tokenStore.set({ accessToken: 'a', refreshToken: 'r' });
-    expect(tokenStore.get()).toEqual({ accessToken: 'a', refreshToken: 'r' });
+    tokenStore.set({ accessToken: 'access-token-abc', refreshToken: 'refresh-token-xyz' });
+    expect(tokenStore.get()).toEqual({ accessToken: 'access-token-abc', refreshToken: 'refresh-token-xyz' });
   });
 
   it('clears stored tokens', () => {
-    tokenStore.set({ accessToken: 'a', refreshToken: 'r' });
+    tokenStore.set({ accessToken: 'access-token-abc', refreshToken: 'refresh-token-xyz' });
     tokenStore.clear();
     expect(tokenStore.get()).toBeNull();
   });
@@ -28,5 +28,6 @@ describe('tokenStore', () => {
   it('treats unparseable storage as empty', () => {
     localStorage.setItem('admin.auth', 'not json');
     expect(tokenStore.get()).toBeNull();
+    expect(localStorage.getItem('admin.auth')).toBeNull();
   });
 });

@@ -11,6 +11,7 @@ export function ProtectedRoute() {
       <div
         role="status"
         aria-live="polite"
+        aria-label="Loading"
         className="flex min-h-screen items-center justify-center text-neutral-600"
       >
         Loading…
@@ -22,6 +23,7 @@ export function ProtectedRoute() {
     return <Navigate to="/login" replace />;
   }
 
+  // UX-only gate — the API enforces real authorization on every request.
   if (!isInternalRole(user.role)) {
     return <AccessDeniedPage />;
   }

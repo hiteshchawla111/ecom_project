@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { ApiError } from '../lib/types';
@@ -11,6 +11,11 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const errorRef = useRef<HTMLParagraphElement>(null);
+
+  // Move focus to the error alert once it renders, so keyboard/SR users notice it.
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,7 +30,6 @@ export function LoginPage() {
           ? 'Invalid email or password.'
           : 'Something went wrong. Please try again.';
       setError(msg);
-      requestAnimationFrame(() => errorRef.current?.focus());
     } finally {
       setPending(false);
     }
@@ -33,6 +37,7 @@ export function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
+      {/* noValidate: all errors funnel through the catch handler to keep messages generic (no account-existence leak). */}
       <form
         onSubmit={onSubmit}
         noValidate
@@ -43,6 +48,7 @@ export function LoginPage() {
         {error && (
           <p
             role="alert"
+            id="login-error"
             tabIndex={-1}
             ref={errorRef}
             className="rounded-md bg-error-500/10 px-3 py-2 text-sm text-error-600"
@@ -60,6 +66,7 @@ export function LoginPage() {
             required
             value={email}
             aria-invalid={!!error}
+            aria-describedby={error ? 'login-error' : undefined}
             onChange={(e) => setEmail(e.target.value)}
             className="rounded-md border border-neutral-200 px-3 py-2 text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
           />
@@ -74,6 +81,7 @@ export function LoginPage() {
             required
             value={password}
             aria-invalid={!!error}
+            aria-describedby={error ? 'login-error' : undefined}
             onChange={(e) => setPassword(e.target.value)}
             className="rounded-md border border-neutral-200 px-3 py-2 text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
           />

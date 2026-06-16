@@ -28,14 +28,14 @@ This is the live source of truth for task status. **Keep it updated** as work ha
 |-------|-------|--------|
 | 0 | Foundation | ✅ Done (apps scaffold ✅; Prisma ✅; test runners — Jest/Vitest/Playwright ✅) |
 | 1 | Data model & core domain (API) | ✅ Done |
-| 2 | Authentication & authorization | 🟡 In Progress (API auth ✅; storefront 🟡; admin pending) |
+| 2 | Authentication & authorization | 🟡 In Progress (API auth ✅; storefront ✅; admin pending) |
 | 3 | Product catalog | ⬜ Not Started |
 | 4 | Cart & checkout | ⬜ Not Started |
 | 5 | Orders & inventory | ⬜ Not Started |
 | 6 | Customers, analytics, notifications | ⬜ Not Started |
 | 7 | Non-functional hardening | ⬜ Not Started |
 
-**Current focus:** Phase 2 storefront auth ✅ — login/register/logout + protected `/account`, httpOnly-cookie session via Next route handlers proxying the API; smoke-verified end-to-end against `ecom_dev`. Next (stop & verify first): storefront **password-reset** UI (request + confirm pages), then **admin** login + role-gated shell.
+**Current focus:** Phase 2 storefront auth ✅ **complete** — login/register/logout + protected `/account` + **password-reset** (`/forgot-password` request + `/reset-password?token=` confirm) + a **guest guard** (logged-in users bounced off auth pages to `/`). httpOnly-cookie session via Next route handlers proxying the API; smoke-verified end-to-end against `ecom_dev` (reset request enumeration-safe, confirm consumes single-use token, login with new password works, guest guard 307s all four auth routes). Next (stop & verify first): **admin** login + role-gated shell.
 
 ---
 
@@ -91,7 +91,7 @@ Environment facts and hard-won lessons not derivable from the code. A fresh sess
 ## Phase 2 — Authentication & authorization (API + both frontends)
 
 - [x] API: customer register/login/logout/password-reset/profile; admin secure login; session/JWT; role-based guards (Customer / Admin / Inventory Manager). *(JWT access + rotating refresh; `@Public`/`@Roles` guards; reset tokens emit-event-ready, email delivery deferred to Phase 6.)*
-- [x] Storefront: auth pages + session handling + protected customer routes. *(✅ Slice done — login + register + logout + protected `/account`. httpOnly-cookie session (`sf_access`/`sf_refresh`) via Next route handlers proxying the API; `proxy.ts` (Next 16 middleware) guards `/account`; server session helper refreshes on access-token expiry. 41 unit tests + 4 Playwright E2E green; smoke-verified against `ecom_dev`. **Follow-up:** password-reset request/confirm pages.)*
+- [x] Storefront: auth pages + session handling + protected customer routes. *(✅ Done — login + register + logout + protected `/account` + password-reset (`/forgot-password` request, `/reset-password?token=` confirm) + guest guard (logged-in users bounced off `/login`,`/register`,`/forgot-password`,`/reset-password` to `/`). httpOnly-cookie session (`sf_access`/`sf_refresh`) via Next route handlers proxying the API; `proxy.ts` (Next 16 middleware) runs both `loginRedirectFor` (protect `/account`) and `guestRedirectFor` (bounce auth pages); session helper refreshes on access-token expiry. 66 unit tests + Playwright E2E green; smoke-verified end-to-end against `ecom_dev`. Reset request is enumeration-safe; confirm consumes a single-use token then revokes sessions; password delivery of the reset link still deferred to Phase 6.)*
 - [ ] Admin: login + role-gated app shell (redirect UX only; API enforces).
 - [ ] **Exit:** each role can log in and only reach permitted endpoints.
 

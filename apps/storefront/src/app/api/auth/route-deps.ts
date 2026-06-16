@@ -1,9 +1,11 @@
 import 'server-only';
 import { cookies } from 'next/headers';
 import {
+  confirmReset as apiConfirmReset,
   login as apiLogin,
   logout as apiLogout,
   register as apiRegister,
+  requestReset as apiRequestReset,
 } from '@/lib/api-auth';
 import { apiBaseUrl } from '@/lib/env';
 import {
@@ -26,5 +28,8 @@ export function liveRouteDeps(): RouteDeps {
       const store = await cookies();
       return store.get(REFRESH_COOKIE)?.value;
     },
+    requestReset: (email) => apiRequestReset(email, { baseUrl }),
+    confirmReset: (token, password) =>
+      apiConfirmReset(token, password, { baseUrl }),
   };
 }

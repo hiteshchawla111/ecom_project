@@ -19,6 +19,8 @@ export interface RouteDeps {
   setSession(pair: TokenPair): Promise<void>;
   clearSession(): Promise<void>;
   getRefreshToken(): Promise<string | undefined>;
+  requestReset(email: string): Promise<{ ok: true }>;
+  confirmReset(token: string, password: string): Promise<{ ok: true }>;
 }
 
 function badRequest(message: string): HandlerResult {
@@ -82,4 +84,44 @@ export async function handleLogout(deps: RouteDeps): Promise<HandlerResult> {
   }
   await deps.clearSession();
   return { status: 200, body: { ok: true } };
+}
+
+export async function handleRequestReset(
+  input: { email?: string },
+  deps: RouteDeps,
+): Promise<HandlerResult> {
+  const email = input.email?.trim() ?? '';
+  if (!email) {
+    return badRequest('Email is required.');
+  }
+  try {
+    // Enumeration-safe: the API returns { ok: true } regardless of existence.
+    await deps.requestReset(email);
+    return { status: 200, body: { ok: true } };
+  } catch (err) {
+    return fromApiError(err);
+  }
+}
+
+export async function handleConfirmReset(
+  input: { token?: string; password?: string },
+  deps: RouteDeps,
+): Promise<HandlerResult> {
+  const token = input.token?.trim() ?? '';
+  const password = input.password ?? '';
+  if (!token) {
+    return badRequest('Reset token is required.');
+  }
+  if (!password) {
+    return badRequest('Password is required.');
+  }
+  if (password.length < 8) {
+    return badRequest('Password must be at least 8 characters.');
+  }
+  try {
+    await deps.confirmReset(token, password);
+    return { status: 200, body: { ok: true } };
+  } catch (err) {
+    return fromApiError(err);
+  }
 }

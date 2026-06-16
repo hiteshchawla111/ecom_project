@@ -15,6 +15,14 @@ export default function LoginPage() {
       </header>
       <LoginForm />
       <p className="text-sm text-neutral-600">
+        <Link
+          href="/forgot-password"
+          className="font-medium text-primary-600 hover:text-primary-700"
+        >
+          Forgot password?
+        </Link>
+      </p>
+      <p className="text-sm text-neutral-600">
         New here?{' '}
         <Link
           href="/register"

@@ -85,16 +85,17 @@ describe('CategoriesService', () => {
   });
 
   describe('findOne', () => {
-    it('returns a non-deleted category with parent and children', async () => {
+    it('resolves a non-deleted category by id OR slug, with parent and children', async () => {
       const { svc, prisma } = build();
       prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
-      await expect(svc.findOne('c1')).resolves.toEqual(
+      await expect(svc.findOne('phones')).resolves.toEqual(
         expect.objectContaining({ id: 'c1' }),
       );
       const [call] = prisma.category.findFirst.mock.calls as Array<
-        [{ where: unknown; include?: unknown }]
+        [{ where: { OR?: unknown; deletedAt?: unknown }; include?: unknown }]
       >;
-      expect(call[0].where).toEqual({ id: 'c1', deletedAt: null });
+      expect(call[0].where.deletedAt).toBeNull();
+      expect(call[0].where.OR).toEqual([{ id: 'phones' }, { slug: 'phones' }]);
       expect(call[0].include).toBeDefined();
     });
 

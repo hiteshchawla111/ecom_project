@@ -31,9 +31,9 @@ export class CategoriesController {
   }
 
   @Public()
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.categories.findOne(id);
+  @Get(':idOrSlug')
+  findOne(@Param('idOrSlug') idOrSlug: string) {
+    return this.categories.findOne(idOrSlug);
   }
 
   @Roles(Role.ADMIN)

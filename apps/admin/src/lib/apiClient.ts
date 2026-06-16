@@ -48,6 +48,19 @@ async function rawFetch(path: string, init: RequestInit | undefined, token?: str
 }
 
 export const apiClient = {
+  /**
+   * Make an authenticated request to the API.
+   *
+   * - Attaches `Authorization: Bearer <accessToken>` when a token is stored.
+   * - On a `401` with a token present, refreshes the session **once** (concurrent
+   *   callers share a single in-flight refresh), then retries the request with the
+   *   rotated token. Refresh is attempted at most once per request — a second `401`
+   *   on the retry surfaces as an {@link ApiError}, not another refresh.
+   * - Throws {@link SessionExpiredError} when refresh fails (store is cleared); throws
+   *   {@link ApiError} for any other non-OK response.
+   * - A `204 No Content` resolves to `undefined` regardless of the declared `T`, so
+   *   call no-content endpoints as `request<void>(...)`.
+   */
   async request<T = unknown>(path: string, init?: RequestInit): Promise<T> {
     const tokens = tokenStore.get();
     let res = await rawFetch(path, init, tokens?.accessToken);

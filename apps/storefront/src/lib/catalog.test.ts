@@ -97,6 +97,38 @@ describe('listProducts', () => {
     expect(url).toContain('categoryId=c1');
   });
 
+  it('includes search, price range and sort params when provided', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse(200, {
+          data: [],
+          page: 1,
+          pageSize: 20,
+          total: 0,
+          totalPages: 1,
+        }),
+      );
+
+    await listProducts(
+      {
+        search: 'phone',
+        minPrice: 100,
+        maxPrice: 900,
+        sortBy: 'price',
+        sortDir: 'asc',
+      },
+      { ...opts, fetch: fetchMock },
+    );
+
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('search=phone');
+    expect(url).toContain('minPrice=100');
+    expect(url).toContain('maxPrice=900');
+    expect(url).toContain('sortBy=price');
+    expect(url).toContain('sortDir=asc');
+  });
+
   it('throws CatalogError on a non-ok response', async () => {
     const fetchMock = vi
       .fn()

@@ -61,11 +61,20 @@ export interface Category {
   children?: Category[];
 }
 
-/** Subset of the API product list query this slice uses. */
+/** Sortable product columns (mirrors the API's ProductSortBy). */
+export type ProductSortBy = 'createdAt' | 'price' | 'name';
+export type SortDir = 'asc' | 'desc';
+
+/** Product list query mirroring the API's search/filter/sort surface. */
 export interface ListProductsQuery {
   page?: number;
   pageSize?: number;
+  search?: string;
   categoryId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  sortBy?: ProductSortBy;
+  sortDir?: SortDir;
 }
 
 /** Injectable deps so the client is unit-testable without a real server. */
@@ -115,7 +124,12 @@ export async function listProducts(
   const url = `${baseUrl}/products${toQuery({
     page: query.page,
     pageSize: query.pageSize,
+    search: query.search,
     categoryId: query.categoryId,
+    minPrice: query.minPrice,
+    maxPrice: query.maxPrice,
+    sortBy: query.sortBy,
+    sortDir: query.sortDir,
   })}`;
   const res = await fetchImpl(url, { cache: 'no-store' });
   const body = (await res.json().catch(() => null)) as unknown;

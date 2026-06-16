@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma, ProductStatus } from '@prisma/client';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
+import { ProductSortBy, SortDir } from './dto/list-products.dto';
 
 const makePrisma = () => ({
   product: {
@@ -126,6 +127,104 @@ describe('ProductsService', () => {
 
       expect(prisma.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 20, take: 10 }),
+      );
+    });
+
+    /** Captures the `where` passed to the most recent findMany call. */
+    const whereOf = (prisma: ReturnType<typeof makePrisma>) => {
+      const calls = prisma.product.findMany.mock.calls as Array<
+        [{ where: Record<string, unknown> }]
+      >;
+      return calls[calls.length - 1][0].where;
+    };
+
+    const orderByOf = (prisma: ReturnType<typeof makePrisma>) => {
+      const calls = prisma.product.findMany.mock.calls as Array<
+        [{ orderBy: Record<string, unknown> }]
+      >;
+      return calls[calls.length - 1][0].orderBy;
+    };
+
+    it('applies a case-insensitive search across name, sku and description', async () => {
+      const { svc, prisma } = build();
+      prisma.product.findMany.mockResolvedValue([]);
+      prisma.product.count.mockResolvedValue(0);
+
+      await svc.list({ search: 'phone' });
+
+      const where = whereOf(prisma);
+      expect(where.deletedAt).toBeNull();
+      expect(where.OR).toEqual([
+        { name: { contains: 'phone', mode: 'insensitive' } },
+        { sku: { contains: 'phone', mode: 'insensitive' } },
+        { description: { contains: 'phone', mode: 'insensitive' } },
+      ]);
+    });
+
+    it('filters by categoryId and status', async () => {
+      const { svc, prisma } = build();
+      prisma.product.findMany.mockResolvedValue([]);
+      prisma.product.count.mockResolvedValue(0);
+
+      await svc.list({ categoryId: 'cat1', status: ProductStatus.ACTIVE });
+
+      const where = whereOf(prisma);
+      expect(where.categoryId).toBe('cat1');
+      expect(where.status).toBe(ProductStatus.ACTIVE);
+    });
+
+    it('filters by a price range (gte/lte)', async () => {
+      const { svc, prisma } = build();
+      prisma.product.findMany.mockResolvedValue([]);
+      prisma.product.count.mockResolvedValue(0);
+
+      await svc.list({ minPrice: 10, maxPrice: 100 });
+
+      expect(whereOf(prisma).price).toEqual({ gte: 10, lte: 100 });
+    });
+
+    it('supports an open-ended minPrice without maxPrice', async () => {
+      const { svc, prisma } = build();
+      prisma.product.findMany.mockResolvedValue([]);
+      prisma.product.count.mockResolvedValue(0);
+
+      await svc.list({ minPrice: 10 });
+
+      expect(whereOf(prisma).price).toEqual({ gte: 10 });
+    });
+
+    it('sorts by the requested column and direction', async () => {
+      const { svc, prisma } = build();
+      prisma.product.findMany.mockResolvedValue([]);
+      prisma.product.count.mockResolvedValue(0);
+
+      await svc.list({ sortBy: ProductSortBy.Price, sortDir: SortDir.Asc });
+
+      expect(orderByOf(prisma)).toEqual({ price: 'asc' });
+    });
+
+    it('defaults sort to createdAt desc when unspecified', async () => {
+      const { svc, prisma } = build();
+      prisma.product.findMany.mockResolvedValue([]);
+      prisma.product.count.mockResolvedValue(0);
+
+      await svc.list({});
+
+      expect(orderByOf(prisma)).toEqual({ createdAt: 'desc' });
+    });
+
+    it('applies the same filter to the count query so totals match', async () => {
+      const { svc, prisma } = build();
+      prisma.product.findMany.mockResolvedValue([]);
+      prisma.product.count.mockResolvedValue(0);
+
+      await svc.list({ categoryId: 'cat1' });
+
+      const countCalls = prisma.product.count.mock.calls as Array<
+        [{ where: Record<string, unknown> }]
+      >;
+      expect(countCalls[0][0].where).toEqual(
+        expect.objectContaining({ categoryId: 'cat1', deletedAt: null }),
       );
     });
   });

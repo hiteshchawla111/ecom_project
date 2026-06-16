@@ -8,7 +8,11 @@ import { Prisma, Product, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { ListProductsDto } from './dto/list-products.dto';
+import {
+  ListProductsDto,
+  ProductSortBy,
+  SortDir,
+} from './dto/list-products.dto';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
@@ -65,14 +69,12 @@ export class ProductsService {
     const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
     const skip = (page - 1) * pageSize;
 
+    const where = this.buildWhere(query);
+    const orderBy = this.buildOrderBy(query);
+
     const [data, total] = await Promise.all([
-      this.prisma.product.findMany({
-        where: { deletedAt: null },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: pageSize,
-      }),
-      this.prisma.product.count({ where: { deletedAt: null } }),
+      this.prisma.product.findMany({ where, orderBy, skip, take: pageSize }),
+      this.prisma.product.count({ where }),
     ]);
 
     return {
@@ -82,6 +84,40 @@ export class ProductsService {
       total,
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
     };
+  }
+
+  /** Translates list filters into a Prisma `where` (always excludes soft-deleted). */
+  private buildWhere(query: ListProductsDto): Prisma.ProductWhereInput {
+    const where: Prisma.ProductWhereInput = { deletedAt: null };
+
+    if (query.search) {
+      const contains = { contains: query.search, mode: 'insensitive' as const };
+      where.OR = [
+        { name: contains },
+        { sku: contains },
+        { description: contains },
+      ];
+    }
+    if (query.categoryId) where.categoryId = query.categoryId;
+    if (query.status) where.status = query.status;
+
+    if (query.minPrice !== undefined || query.maxPrice !== undefined) {
+      where.price = {
+        ...(query.minPrice !== undefined ? { gte: query.minPrice } : {}),
+        ...(query.maxPrice !== undefined ? { lte: query.maxPrice } : {}),
+      };
+    }
+
+    return where;
+  }
+
+  /** Whitelisted sort column + direction; defaults to newest-first. */
+  private buildOrderBy(
+    query: ListProductsDto,
+  ): Prisma.ProductOrderByWithRelationInput {
+    const column = query.sortBy ?? ProductSortBy.CreatedAt;
+    const dir = query.sortDir ?? SortDir.Desc;
+    return { [column]: dir };
   }
 
   async update(id: string, dto: UpdateProductDto): Promise<Product> {

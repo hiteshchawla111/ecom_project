@@ -6,14 +6,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  CartTotals,
-  TotalsConfig,
-  TotalsLine,
-  centsToString,
-  computeTotals,
-} from './totals';
+import { CartTotals, TotalsConfig } from './totals';
 import { resolveTotalsConfig } from './cart.config';
+import { priceItems } from './cart-pricing';
 
 /** One line as returned to the client. */
 export interface CartItemView {
@@ -44,14 +39,6 @@ const CART_INCLUDE = {
 } satisfies Prisma.CartInclude;
 
 type CartWithItems = Prisma.CartGetPayload<{ include: typeof CART_INCLUDE }>;
-
-/** Effective unit price in integer cents: sale price when strictly below regular. */
-function effectiveUnitCents(price: string, salePrice: string | null): number {
-  const regular = Math.round(Number(price) * 100);
-  if (salePrice === null) return regular;
-  const sale = Math.round(Number(salePrice) * 100);
-  return sale < regular ? sale : regular;
-}
 
 @Injectable()
 export class CartService {
@@ -152,34 +139,36 @@ export class CartService {
     }
   }
 
-  /** Map a loaded cart → priced envelope via the pure totals pipeline. */
+  /** Map a loaded cart → priced envelope via the shared pricer. */
   protected buildEnvelope(cart: CartWithItems): CartView {
-    const items: CartItemView[] = [];
-    const lines: TotalsLine[] = [];
-
-    for (const item of cart.items) {
-      const unitCents = effectiveUnitCents(
-        item.product.price.toString(),
-        item.product.salePrice !== null
-          ? item.product.salePrice.toString()
-          : null,
-      );
-      const lineCents = unitCents * item.quantity;
-      lines.push({ unitPriceCents: unitCents, quantity: item.quantity });
-      items.push({
+    const { lines, totals } = priceItems(
+      cart.items.map((item) => ({
         productId: item.productId,
-        name: item.product.name,
-        unitPrice: centsToString(unitCents),
         quantity: item.quantity,
-        lineTotal: centsToString(lineCents),
-        image: item.product.images[0]?.url ?? null,
-      });
-    }
+        product: {
+          name: item.product.name,
+          price: item.product.price.toString(),
+          salePrice:
+            item.product.salePrice !== null
+              ? item.product.salePrice.toString()
+              : null,
+        },
+        imageUrl: item.product.images[0]?.url ?? null,
+      })),
+      this.totalsConfig,
+    );
 
     return {
       id: cart.id,
-      items,
-      totals: computeTotals(lines, this.totalsConfig),
+      items: lines.map((line) => ({
+        productId: line.productId,
+        name: line.name,
+        unitPrice: line.unitPrice,
+        quantity: line.quantity,
+        lineTotal: line.lineTotal,
+        image: line.imageUrl,
+      })),
+      totals,
     };
   }
 

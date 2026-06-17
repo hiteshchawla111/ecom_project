@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   archiveProduct,
   listProducts,
@@ -84,6 +85,12 @@ export function ProductsPage() {
         <h2 className="font-heading text-2xl font-semibold text-neutral-900">
           Products
         </h2>
+        <Link
+          to="/products/new"
+          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+        >
+          Add product
+        </Link>
       </header>
 
       {error && (
@@ -142,6 +149,14 @@ export function ProductsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
+                        {!isArchived && (
+                          <Link
+                            to={`/products/${product.id}/edit`}
+                            className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                          >
+                            Edit
+                          </Link>
+                        )}
                         {!isArchived && (
                           <button
                             type="button"

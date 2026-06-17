@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import type { Paginated, Product } from '../lib/products';
 
 const listProducts = vi.fn();
@@ -14,6 +15,13 @@ vi.mock('../lib/products', () => ({
 }));
 
 import { ProductsPage } from './ProductsPage';
+
+const renderPage = () =>
+  render(
+    <MemoryRouter>
+      <ProductsPage />
+    </MemoryRouter>,
+  );
 
 const product = (over: Partial<Product> = {}): Product => ({
   id: 'p1',
@@ -46,7 +54,7 @@ afterEach(() => vi.restoreAllMocks());
 describe('ProductsPage', () => {
   it('loads and renders products in a table', async () => {
     listProducts.mockResolvedValue(page([product()]));
-    render(<ProductsPage />);
+    renderPage();
 
     expect(await screen.findByText('Aurora Phone')).toBeInTheDocument();
     expect(screen.getByText('PH-001')).toBeInTheDocument();
@@ -55,7 +63,7 @@ describe('ProductsPage', () => {
 
   it('shows an empty state when there are no products', async () => {
     listProducts.mockResolvedValue(page([]));
-    render(<ProductsPage />);
+    renderPage();
     expect(await screen.findByText(/no products/i)).toBeInTheDocument();
   });
 
@@ -66,7 +74,7 @@ describe('ProductsPage', () => {
     archiveProduct.mockResolvedValue(product({ status: 'ARCHIVED' }));
     vi.spyOn(window, 'confirm').mockReturnValue(true);
 
-    render(<ProductsPage />);
+    renderPage();
     const row = (await screen.findByText('Aurora Phone')).closest('tr')!;
     await userEvent.click(within(row).getByRole('button', { name: /archive/i }));
 
@@ -78,7 +86,7 @@ describe('ProductsPage', () => {
     listProducts.mockResolvedValue(page([product({ status: 'ACTIVE' })]));
     vi.spyOn(window, 'confirm').mockReturnValue(false);
 
-    render(<ProductsPage />);
+    renderPage();
     const row = (await screen.findByText('Aurora Phone')).closest('tr')!;
     await userEvent.click(within(row).getByRole('button', { name: /archive/i }));
 
@@ -91,7 +99,7 @@ describe('ProductsPage', () => {
       .mockResolvedValueOnce(page([product({ status: 'INACTIVE' })]));
     setProductActive.mockResolvedValue(product({ status: 'INACTIVE' }));
 
-    render(<ProductsPage />);
+    renderPage();
     const row = (await screen.findByText('Aurora Phone')).closest('tr')!;
     await userEvent.click(
       within(row).getByRole('button', { name: /deactivate/i }),
@@ -106,7 +114,7 @@ describe('ProductsPage', () => {
       .mockResolvedValueOnce(page([product({ status: 'ACTIVE' })]));
     setProductActive.mockResolvedValue(product({ status: 'ACTIVE' }));
 
-    render(<ProductsPage />);
+    renderPage();
     const row = (await screen.findByText('Aurora Phone')).closest('tr')!;
     await userEvent.click(within(row).getByRole('button', { name: /activate/i }));
 
@@ -115,7 +123,7 @@ describe('ProductsPage', () => {
 
   it('shows an error message when loading fails', async () => {
     listProducts.mockRejectedValue(new Error('boom'));
-    render(<ProductsPage />);
+    renderPage();
     expect(await screen.findByRole('alert')).toBeInTheDocument();
   });
 });

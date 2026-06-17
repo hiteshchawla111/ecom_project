@@ -43,7 +43,7 @@ describe('AppShell', () => {
     await waitFor(() => expect(screen.getByText('LOGIN PAGE')).toBeInTheDocument());
   });
 
-  it('renders nav links to Dashboard and Products for an ADMIN', () => {
+  it('renders nav links to Dashboard, Products and Categories for an ADMIN', () => {
     renderShell();
     expect(screen.getByRole('link', { name: /dashboard/i })).toHaveAttribute(
       'href',
@@ -52,6 +52,10 @@ describe('AppShell', () => {
     expect(screen.getByRole('link', { name: /products/i })).toHaveAttribute(
       'href',
       '/products',
+    );
+    expect(screen.getByRole('link', { name: /categories/i })).toHaveAttribute(
+      'href',
+      '/categories',
     );
   });
 });

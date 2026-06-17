@@ -20,9 +20,14 @@ export function AppShell() {
             Dashboard
           </NavLink>
           {user!.role === 'ADMIN' && (
-            <NavLink to="/products" className={navLinkClass}>
-              Products
-            </NavLink>
+            <>
+              <NavLink to="/products" className={navLinkClass}>
+                Products
+              </NavLink>
+              <NavLink to="/categories" className={navLinkClass}>
+                Categories
+              </NavLink>
+            </>
           )}
         </nav>
       </aside>

@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { apiClient } from './apiClient';
-import { flattenCategories, listCategories, type Category } from './categories';
+import {
+  createCategory,
+  deleteCategory,
+  flattenCategories,
+  listCategories,
+  type Category,
+} from './categories';
 
 const requestMock = vi.spyOn(apiClient, 'request');
 // Default to a no-op resolve so the spy never calls through to real fetch.
@@ -34,5 +40,44 @@ describe('flattenCategories', () => {
     expect(opts[1].label).toContain('Phones');
     // Child is indented relative to its parent.
     expect(opts[1].label.length).toBeGreaterThan('Phones'.length);
+  });
+});
+
+describe('createCategory', () => {
+  it('POSTs /categories with name, slug and parentId', async () => {
+    requestMock.mockResolvedValue({ id: 'new' });
+
+    await createCategory({ name: 'Books', slug: 'books', parentId: 'c1' });
+
+    const [path, init] = requestMock.mock.calls[0] as [string, RequestInit];
+    expect(path).toBe('/categories');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: 'Books',
+      slug: 'books',
+      parentId: 'c1',
+    });
+  });
+
+  it('omits parentId when creating a root category', async () => {
+    requestMock.mockResolvedValue({ id: 'new' });
+
+    await createCategory({ name: 'Books', slug: 'books' });
+
+    const [, init] = requestMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect('parentId' in body).toBe(false);
+  });
+});
+
+describe('deleteCategory', () => {
+  it('DELETEs /categories/:id', async () => {
+    requestMock.mockResolvedValue(undefined);
+
+    await deleteCategory('c1');
+
+    const [path, init] = requestMock.mock.calls[0] as [string, RequestInit];
+    expect(path).toBe('/categories/c1');
+    expect(init.method).toBe('DELETE');
   });
 });

@@ -1,11 +1,17 @@
 import { Module } from '@nestjs/common';
+import { PrismaModule } from '../prisma/prisma.module';
+import { OrdersController } from './orders.controller';
+import { OrdersService } from './orders.service';
 
 /**
- * Orders domain module.
- *
- * Owns the order lifecycle and its state-machine guard (`order-status.ts`).
- * Controllers/services land here in Phase 5; the status transition logic is
- * already test-driven and ready to back them.
+ * Orders domain module. Owns the order lifecycle and its state-machine guard
+ * (`order-status.ts`). This slice adds customer order placement + reads;
+ * admin status transitions and inventory land in Phase 5.
  */
-@Module({})
+@Module({
+  imports: [PrismaModule],
+  controllers: [OrdersController],
+  providers: [OrdersService],
+  exports: [OrdersService],
+})
 export class OrdersModule {}

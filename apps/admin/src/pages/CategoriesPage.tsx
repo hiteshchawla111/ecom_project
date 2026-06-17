@@ -1,0 +1,256 @@
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import {
+  createCategory,
+  deleteCategory,
+  flattenCategories,
+  listCategories,
+  type Category,
+} from '../lib/categories';
+import { ApiError } from '../lib/types';
+
+const inputClass =
+  'w-full rounded-md border border-neutral-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
+
+export function CategoriesPage() {
+  const [tree, setTree] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Create-form state.
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [parentId, setParentId] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      setTree(await listCategories());
+    } catch {
+      setError('Could not load categories.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function boot() {
+      try {
+        const data = await listCategories();
+        if (!cancelled) setTree(data);
+      } catch {
+        if (!cancelled) setError('Could not load categories.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void boot();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function onCreate(e: FormEvent) {
+    e.preventDefault();
+    setFormError(null);
+    if (!name.trim() || !slug.trim()) {
+      setFormError('Name and slug are required.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await createCategory({
+        name: name.trim(),
+        slug: slug.trim(),
+        parentId: parentId || undefined,
+      });
+      setName('');
+      setSlug('');
+      setParentId('');
+      await reload();
+    } catch (err) {
+      setFormError(createErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function onDelete(category: Category) {
+    const ok = window.confirm(`Delete category “${category.name}”?`);
+    if (!ok) return;
+    setError(null);
+    setBusyId(category.id);
+    try {
+      await deleteCategory(category.id);
+      await reload();
+    } catch (err) {
+      setError(deleteErrorMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const parentOptions = flattenCategories(tree);
+
+  return (
+    <section className="flex flex-col gap-8">
+      <header>
+        <h2 className="font-heading text-2xl font-semibold text-neutral-900">
+          Categories
+        </h2>
+      </header>
+
+      <form
+        onSubmit={onCreate}
+        className="flex max-w-2xl flex-col gap-4 rounded-lg border border-neutral-200 p-4 sm:flex-row sm:items-end"
+        noValidate
+      >
+        <div className="flex flex-1 flex-col gap-1">
+          <label htmlFor="cat-name" className="text-sm font-medium text-neutral-900">
+            Name
+          </label>
+          <input
+            id="cat-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+        <div className="flex flex-1 flex-col gap-1">
+          <label htmlFor="cat-slug" className="text-sm font-medium text-neutral-900">
+            Slug
+          </label>
+          <input
+            id="cat-slug"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            placeholder="lowercase-with-hyphens"
+            className={inputClass}
+          />
+        </div>
+        <div className="flex flex-1 flex-col gap-1">
+          <label
+            htmlFor="cat-parent"
+            className="text-sm font-medium text-neutral-900"
+          >
+            Parent (optional)
+          </label>
+          <select
+            id="cat-parent"
+            value={parentId}
+            onChange={(e) => setParentId(e.target.value)}
+            className={inputClass}
+          >
+            <option value="">No parent (root)</option>
+            {parentOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50"
+        >
+          Add category
+        </button>
+      </form>
+
+      {formError && (
+        <p
+          role="alert"
+          className="max-w-2xl rounded-md bg-error-500/10 px-4 py-3 text-sm text-error-500"
+        >
+          {formError}
+        </p>
+      )}
+      {error && (
+        <p
+          role="alert"
+          className="max-w-2xl rounded-md bg-error-500/10 px-4 py-3 text-sm text-error-500"
+        >
+          {error}
+        </p>
+      )}
+
+      {loading ? (
+        <p role="status" aria-live="polite" className="text-neutral-600">
+          Loading…
+        </p>
+      ) : tree.length === 0 ? (
+        <p className="text-neutral-600">No categories yet.</p>
+      ) : (
+        <CategoryNodes
+          categories={tree}
+          busyId={busyId}
+          onDelete={onDelete}
+        />
+      )}
+    </section>
+  );
+}
+
+function CategoryNodes({
+  categories,
+  busyId,
+  onDelete,
+}: {
+  categories: Category[];
+  busyId: string | null;
+  onDelete: (c: Category) => void;
+}) {
+  return (
+    <ul className="flex flex-col gap-1">
+      {categories.map((category) => (
+        <li key={category.id}>
+          <div className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-neutral-100">
+            <span className="text-neutral-900">
+              <span>{category.name}</span>{' '}
+              <span className="text-xs text-neutral-400">/{category.slug}</span>
+            </span>
+            <button
+              type="button"
+              disabled={busyId === category.id}
+              onClick={() => onDelete(category)}
+              className="rounded-md border border-error-500 px-2.5 py-1 text-xs font-medium text-error-500 transition-colors hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50"
+            >
+              Delete
+            </button>
+          </div>
+          {category.children && category.children.length > 0 && (
+            <div className="ml-4 border-l border-neutral-200 pl-2">
+              <CategoryNodes
+                categories={category.children}
+                busyId={busyId}
+                onDelete={onDelete}
+              />
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Friendly message for create failures (duplicate slug, bad parent). */
+function createErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 409) return 'That slug is already taken. Choose another.';
+    if (err.status === 400) {
+      return 'Invalid input. Check the slug format and parent category.';
+    }
+  }
+  return 'Could not create the category. Please try again.';
+}
+
+/** Friendly message for delete failures (in-use guard). */
+function deleteErrorMessage(err: unknown): string {
+  if (err instanceof ApiError && err.status === 409) {
+    return 'This category is in use — it still has subcategories or products. Move or remove them first.';
+  }
+  return 'Could not delete the category. Please try again.';
+}

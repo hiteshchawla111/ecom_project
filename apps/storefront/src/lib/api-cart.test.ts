@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  cartRequest,
   getCart,
   addItem,
   type CartApiDeps,
@@ -95,6 +94,22 @@ describe('cartRequest', () => {
 
     await expect(getCart(deps)).rejects.toBeInstanceOf(ApiAuthError);
     expect(onSessionInvalid).toHaveBeenCalled();
+  });
+
+  it('surfaces a non-401 retry error honestly without invalidating the session', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(errResponse(401, { message: 'expired' }))
+      .mockResolvedValueOnce(errResponse(500, { message: 'boom' }));
+    const onSessionInvalid = vi.fn();
+    const deps = baseDeps({
+      fetch: fetchMock,
+      onSessionInvalid,
+      refresh: vi.fn().mockResolvedValue({ accessToken: 'access-2', refreshToken: 'refresh-2' }),
+    } as Partial<CartApiDeps>);
+
+    await expect(getCart(deps)).rejects.toMatchObject({ status: 500 });
+    expect(onSessionInvalid).not.toHaveBeenCalled();
   });
 
   it('flattens an array message from the API error body', async () => {

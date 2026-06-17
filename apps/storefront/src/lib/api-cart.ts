@@ -101,13 +101,24 @@ export async function cartRequest<T>(
     await deps.onSessionInvalid();
     throw new ApiAuthError('Session expired', 401);
   }
+  let pair: TokenPair;
   try {
-    const pair = await refreshFn(refreshToken);
-    await deps.onTokensRefreshed(pair);
-    return await callOnce<T>(path, init, pair.accessToken, deps);
+    pair = await refreshFn(refreshToken);
   } catch {
     await deps.onSessionInvalid();
     throw new ApiAuthError('Session expired', 401);
+  }
+
+  await deps.onTokensRefreshed(pair);
+
+  try {
+    return await callOnce<T>(path, init, pair.accessToken, deps);
+  } catch (retryErr) {
+    if (retryErr instanceof ApiAuthError && retryErr.status === 401) {
+      await deps.onSessionInvalid();
+      throw new ApiAuthError('Session expired', 401);
+    }
+    throw retryErr;
   }
 }
 

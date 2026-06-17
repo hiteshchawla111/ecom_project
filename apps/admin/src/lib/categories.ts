@@ -22,6 +22,17 @@ export interface CreateCategoryInput {
   parentId?: string;
 }
 
+/**
+ * Fields accepted when updating a category. `parentId` is tri-state:
+ * a string reparents, `null` detaches to a root, `undefined` leaves it
+ * unchanged (mirrors the API UpdateCategoryDto).
+ */
+export interface UpdateCategoryInput {
+  name?: string;
+  slug?: string;
+  parentId?: string | null;
+}
+
 /** Fetch the category tree. */
 export function listCategories(): Promise<Category[]> {
   return apiClient.request<Category[]>('/categories');
@@ -36,6 +47,22 @@ export function createCategory(input: CreateCategoryInput): Promise<Category> {
   if (input.parentId) body.parentId = input.parentId;
   return apiClient.request<Category>('/categories', {
     method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Update a category (ADMIN): rename, re-slug, or reparent (parentId tri-state). */
+export function updateCategory(
+  id: string,
+  input: UpdateCategoryInput,
+): Promise<Category> {
+  const body: Record<string, unknown> = {};
+  if (input.name !== undefined) body.name = input.name;
+  if (input.slug !== undefined) body.slug = input.slug;
+  // Tri-state: include parentId only when set (string or explicit null).
+  if (input.parentId !== undefined) body.parentId = input.parentId;
+  return apiClient.request<Category>(`/categories/${id}`, {
+    method: 'PATCH',
     body: JSON.stringify(body),
   });
 }

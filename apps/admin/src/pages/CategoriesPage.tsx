@@ -4,9 +4,13 @@ import {
   deleteCategory,
   flattenCategories,
   listCategories,
+  updateCategory,
   type Category,
+  type CategoryOption,
+  type UpdateCategoryInput,
 } from '../lib/categories';
 import { ApiError } from '../lib/types';
+import { CategoryEditForm } from '../components/categories/CategoryEditForm';
 
 const inputClass =
   'w-full rounded-md border border-neutral-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
@@ -23,6 +27,7 @@ export function CategoriesPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -90,6 +95,12 @@ export function CategoriesPage() {
     } finally {
       setBusyId(null);
     }
+  }
+
+  async function onEditSubmit(id: string, input: UpdateCategoryInput) {
+    await updateCategory(id, input); // errors surface in the edit form
+    setEditingId(null);
+    await reload();
   }
 
   const parentOptions = flattenCategories(tree);
@@ -187,22 +198,39 @@ export function CategoriesPage() {
         <CategoryNodes
           categories={tree}
           busyId={busyId}
+          editingId={editingId}
+          parentOptions={parentOptions}
           onDelete={onDelete}
+          onEditStart={(c) => setEditingId(c.id)}
+          onEditCancel={() => setEditingId(null)}
+          onEditSubmit={onEditSubmit}
         />
       )}
     </section>
   );
 }
 
+interface CategoryNodesProps {
+  categories: Category[];
+  busyId: string | null;
+  editingId: string | null;
+  parentOptions: CategoryOption[];
+  onDelete: (c: Category) => void;
+  onEditStart: (c: Category) => void;
+  onEditCancel: () => void;
+  onEditSubmit: (id: string, input: UpdateCategoryInput) => Promise<void>;
+}
+
 function CategoryNodes({
   categories,
   busyId,
+  editingId,
+  parentOptions,
   onDelete,
-}: {
-  categories: Category[];
-  busyId: string | null;
-  onDelete: (c: Category) => void;
-}) {
+  onEditStart,
+  onEditCancel,
+  onEditSubmit,
+}: CategoryNodesProps) {
   return (
     <ul className="flex flex-col gap-1">
       {categories.map((category) => (
@@ -212,21 +240,48 @@ function CategoryNodes({
               <span>{category.name}</span>{' '}
               <span className="text-xs text-neutral-400">/{category.slug}</span>
             </span>
-            <button
-              type="button"
-              disabled={busyId === category.id}
-              onClick={() => onDelete(category)}
-              className="rounded-md border border-error-500 px-2.5 py-1 text-xs font-medium text-error-500 transition-colors hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50"
-            >
-              Delete
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => onEditStart(category)}
+                className="rounded-md border border-neutral-200 px-2.5 py-1 text-xs font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                disabled={busyId === category.id}
+                onClick={() => onDelete(category)}
+                className="rounded-md border border-error-500 px-2.5 py-1 text-xs font-medium text-error-500 transition-colors hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50"
+              >
+                Delete
+              </button>
+            </div>
           </div>
+          {editingId === category.id && (
+            <CategoryEditForm
+              category={{
+                id: category.id,
+                name: category.name,
+                slug: category.slug,
+                parentId: category.parentId,
+              }}
+              parentOptions={parentOptions}
+              onSubmit={(input) => onEditSubmit(category.id, input)}
+              onCancel={onEditCancel}
+            />
+          )}
           {category.children && category.children.length > 0 && (
             <div className="ml-4 border-l border-neutral-200 pl-2">
               <CategoryNodes
                 categories={category.children}
                 busyId={busyId}
+                editingId={editingId}
+                parentOptions={parentOptions}
                 onDelete={onDelete}
+                onEditStart={onEditStart}
+                onEditCancel={onEditCancel}
+                onEditSubmit={onEditSubmit}
               />
             </div>
           )}

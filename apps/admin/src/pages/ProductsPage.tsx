@@ -7,6 +7,7 @@ import {
   type Product,
 } from '../lib/products';
 import { StatusBadge } from '../components/products/StatusBadge';
+import { Pagination } from '../components/ui/Pagination';
 
 const PAGE_SIZE = 20;
 const usd = new Intl.NumberFormat('en-US', {
@@ -16,49 +17,56 @@ const usd = new Intl.NumberFormat('en-US', {
 
 export function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Bumped to force a refetch of the current page after a row action.
+  const [refreshTick, setRefreshTick] = useState(0);
 
-  // Reloads keep the table visible (per-row `busyId` shows action progress);
-  // the full-page loader is only for the initial mount (loading starts true).
-  const load = useCallback(async () => {
-    try {
-      const res = await listProducts({ page: 1, pageSize: PAGE_SIZE });
-      setProducts(res.data);
-    } catch {
-      setError('Could not load products. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Mount fetch. State updates run after the await and are cancellation-guarded,
-  // mirroring AuthContext's boot effect (no synchronous setState in the effect).
+  // Single source of fetching: refetch whenever the page (or refresh tick)
+  // changes. State updates are cancellation-guarded — each effect run owns its
+  // own `cancelled` flag, so a slow stale response can't clobber a newer page
+  // (mirrors AuthContext's boot effect; no synchronous setState in the effect).
   useEffect(() => {
     let cancelled = false;
-    async function boot() {
+    async function load() {
       try {
-        const res = await listProducts({ page: 1, pageSize: PAGE_SIZE });
-        if (!cancelled) setProducts(res.data);
+        const res = await listProducts({ page, pageSize: PAGE_SIZE });
+        if (cancelled) return;
+        // If a non-first page came back empty (e.g. the last item was removed),
+        // step back one page; the dep change triggers a fresh fetch.
+        if (res.data.length === 0 && page > 1) {
+          setPage(page - 1);
+          return;
+        }
+        setProducts(res.data);
+        setTotal(res.total);
+        setTotalPages(res.totalPages);
+        setError(null);
       } catch {
         if (!cancelled) setError('Could not load products. Please try again.');
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-    void boot();
+    void load();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [page, refreshTick]);
+
+  // Refetch the current page (used after a row action mutates a product).
+  const reload = useCallback(() => setRefreshTick((t) => t + 1), []);
 
   async function runAction(id: string, action: () => Promise<unknown>) {
     setBusyId(id);
     setError(null);
     try {
       await action();
-      await load();
+      reload();
     } catch {
       setError('The action could not be completed. Please try again.');
     } finally {
@@ -94,38 +102,45 @@ export function ProductsPage() {
       </header>
 
       {error && (
-        <p
+        <div
           role="alert"
-          className="rounded-md bg-error-500/10 px-4 py-3 text-sm text-error-500"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-error-500/10 px-4 py-3 text-sm text-error-500"
         >
-          {error}
-        </p>
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={reload}
+            className="rounded-md border border-error-500 px-3 py-1.5 text-xs font-medium text-error-500 transition-colors hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500"
+          >
+            Try again
+          </button>
+        </div>
       )}
 
       {loading ? (
         <p role="status" aria-live="polite" className="text-neutral-600">
           Loading…
         </p>
-      ) : products.length === 0 ? (
+      ) : error ? null : products.length === 0 ? (
         <p className="text-neutral-600">No products yet.</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-neutral-200">
           <table className="w-full text-left text-sm">
             <thead className="bg-neutral-100 text-neutral-600">
               <tr>
-                <th scope="col" className="px-4 py-3 font-medium">
+                <th scope="col" className="px-4 py-2.5 font-medium">
                   Name
                 </th>
-                <th scope="col" className="px-4 py-3 font-medium">
+                <th scope="col" className="px-4 py-2.5 font-medium">
                   SKU
                 </th>
-                <th scope="col" className="px-4 py-3 font-medium">
+                <th scope="col" className="px-4 py-2.5 font-medium">
                   Price
                 </th>
-                <th scope="col" className="px-4 py-3 font-medium">
+                <th scope="col" className="px-4 py-2.5 font-medium">
                   Status
                 </th>
-                <th scope="col" className="px-4 py-3 text-right font-medium">
+                <th scope="col" className="px-4 py-2.5 text-right font-medium">
                   Actions
                 </th>
               </tr>
@@ -137,17 +152,17 @@ export function ProductsPage() {
                 return (
                   <tr
                     key={product.id}
-                    className="border-t border-neutral-200 text-neutral-900"
+                    className="border-t border-neutral-200 text-neutral-900 transition-colors hover:bg-neutral-50"
                   >
-                    <td className="px-4 py-3">{product.name}</td>
-                    <td className="px-4 py-3 text-neutral-600">{product.sku}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2 font-medium">{product.name}</td>
+                    <td className="px-4 py-2 text-neutral-600">{product.sku}</td>
+                    <td className="px-4 py-2">
                       {usd.format(Number(product.price))}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2">
                       <StatusBadge status={product.status} />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2">
                       <div className="flex justify-end gap-2">
                         {!isArchived && (
                           <Link
@@ -187,6 +202,16 @@ export function ProductsPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {!loading && !error && products.length > 0 && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
       )}
     </section>
   );

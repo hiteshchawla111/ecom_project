@@ -36,12 +36,16 @@ const product = (over: Partial<Product> = {}): Product => ({
   ...over,
 });
 
-const page = (data: Product[]): Paginated<Product> => ({
+const page = (
+  data: Product[],
+  over: Partial<Paginated<Product>> = {},
+): Paginated<Product> => ({
   data,
   page: 1,
   pageSize: 20,
   total: data.length,
   totalPages: 1,
+  ...over,
 });
 
 beforeEach(() => {
@@ -125,5 +129,67 @@ describe('ProductsPage', () => {
     listProducts.mockRejectedValue(new Error('boom'));
     renderPage();
     expect(await screen.findByRole('alert')).toBeInTheDocument();
+  });
+
+  it('retries the fetch when "Try again" is clicked after an error', async () => {
+    listProducts
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce(page([product()]));
+    renderPage();
+
+    await screen.findByRole('alert');
+    await userEvent.click(screen.getByRole('button', { name: /try again/i }));
+
+    expect(await screen.findByText('Aurora Phone')).toBeInTheDocument();
+    expect(listProducts).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows the total count and paginates when there is more than one page', async () => {
+    listProducts.mockResolvedValue(
+      page([product()], { total: 45, totalPages: 3 }),
+    );
+    renderPage();
+
+    expect(await screen.findByText('Aurora Phone')).toBeInTheDocument();
+    expect(screen.getByText(/of 45/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
+  });
+
+  it('refetches with the new page when a page button is clicked', async () => {
+    listProducts
+      .mockResolvedValueOnce(page([product()], { total: 45, totalPages: 3 }))
+      .mockResolvedValueOnce(
+        page([product({ id: 'p2', name: 'Beta Phone' })], {
+          page: 2,
+          total: 45,
+          totalPages: 3,
+        }),
+      );
+    renderPage();
+
+    await screen.findByText('Aurora Phone');
+    await userEvent.click(screen.getByRole('button', { name: 'Page 2' }));
+
+    await waitFor(() =>
+      expect(listProducts).toHaveBeenLastCalledWith({ page: 2, pageSize: 20 }),
+    );
+    expect(await screen.findByText('Beta Phone')).toBeInTheDocument();
+  });
+
+  it('steps back a page when the current page becomes empty', async () => {
+    // Start on a multi-page list, navigate to page 2, which comes back empty —
+    // the page should step back to page 1 and refetch it.
+    listProducts
+      .mockResolvedValueOnce(page([product()], { total: 21, totalPages: 2 }))
+      .mockResolvedValueOnce(page([], { page: 2, total: 21, totalPages: 2 }))
+      .mockResolvedValueOnce(page([product()], { total: 21, totalPages: 2 }));
+    renderPage();
+
+    await screen.findByText('Aurora Phone');
+    await userEvent.click(screen.getByRole('button', { name: 'Page 2' }));
+
+    await waitFor(() =>
+      expect(listProducts).toHaveBeenLastCalledWith({ page: 1, pageSize: 20 }),
+    );
   });
 });

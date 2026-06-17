@@ -69,6 +69,55 @@ export class CartService {
     return this.buildEnvelope(cart);
   }
 
+  async addItem(
+    userId: string,
+    productId: string,
+    quantity: number,
+  ): Promise<CartView> {
+    const cart = await this.getOrCreateCart(userId);
+    await this.requirePurchasableProduct(productId);
+    await this.prisma.cartItem.upsert({
+      where: { cartId_productId: { cartId: cart.id, productId } },
+      create: { cartId: cart.id, productId, quantity },
+      update: { quantity: { increment: quantity } },
+    });
+    return this.getCart(userId);
+  }
+
+  async setItemQuantity(
+    userId: string,
+    productId: string,
+    quantity: number,
+  ): Promise<CartView> {
+    const cart = await this.getOrCreateCart(userId);
+    if (quantity === 0) {
+      await this.prisma.cartItem.deleteMany({
+        where: { cartId: cart.id, productId },
+      });
+      return this.getCart(userId);
+    }
+    await this.requirePurchasableProduct(productId);
+    await this.prisma.cartItem.update({
+      where: { cartId_productId: { cartId: cart.id, productId } },
+      data: { quantity },
+    });
+    return this.getCart(userId);
+  }
+
+  async removeItem(userId: string, productId: string): Promise<CartView> {
+    const cart = await this.getOrCreateCart(userId);
+    await this.prisma.cartItem.deleteMany({
+      where: { cartId: cart.id, productId },
+    });
+    return this.getCart(userId);
+  }
+
+  async clear(userId: string): Promise<CartView> {
+    const cart = await this.getOrCreateCart(userId);
+    await this.prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+    return this.getCart(userId);
+  }
+
   /** Find the user's cart (with items) or create an empty one. */
   protected async getOrCreateCart(userId: string): Promise<CartWithItems> {
     const existing = await this.prisma.cart.findFirst({
@@ -90,7 +139,9 @@ export class CartService {
     for (const item of cart.items) {
       const unitCents = effectiveUnitCents(
         item.product.price.toString(),
-        item.product.salePrice ? item.product.salePrice.toString() : null,
+        item.product.salePrice !== null
+          ? item.product.salePrice.toString()
+          : null,
       );
       const lineCents = unitCents * item.quantity;
       lines.push({ unitPriceCents: unitCents, quantity: item.quantity });

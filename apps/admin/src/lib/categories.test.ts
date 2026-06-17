@@ -5,6 +5,7 @@ import {
   deleteCategory,
   flattenCategories,
   listCategories,
+  updateCategory,
   type Category,
 } from './categories';
 
@@ -79,5 +80,35 @@ describe('deleteCategory', () => {
     const [path, init] = requestMock.mock.calls[0] as [string, RequestInit];
     expect(path).toBe('/categories/c1');
     expect(init.method).toBe('DELETE');
+  });
+});
+
+describe('updateCategory', () => {
+  it('PATCHes /categories/:id with name, slug and a string parentId (reparent)', async () => {
+    requestMock.mockResolvedValue({ id: 'c2' });
+
+    await updateCategory('c2', { name: 'Phones', slug: 'phones', parentId: 'c1' });
+
+    const [path, init] = requestMock.mock.calls[0] as [string, RequestInit];
+    expect(path).toBe('/categories/c2');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: 'Phones',
+      slug: 'phones',
+      parentId: 'c1',
+    });
+  });
+
+  it('sends parentId: null to detach to a root category', async () => {
+    requestMock.mockResolvedValue({ id: 'c2' });
+
+    await updateCategory('c2', { name: 'Phones', slug: 'phones', parentId: null });
+
+    const [, init] = requestMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: 'Phones',
+      slug: 'phones',
+      parentId: null,
+    });
   });
 });

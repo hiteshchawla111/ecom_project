@@ -7,12 +7,14 @@ import type { Category } from '../lib/categories';
 const listCategories = vi.fn();
 const createCategory = vi.fn();
 const deleteCategory = vi.fn();
+const updateCategory = vi.fn();
 
 vi.mock('../lib/categories', async (orig) => ({
   ...(await orig<typeof import('../lib/categories')>()),
   listCategories: () => listCategories(),
   createCategory: (...a: unknown[]) => createCategory(...a),
   deleteCategory: (...a: unknown[]) => deleteCategory(...a),
+  updateCategory: (...a: unknown[]) => updateCategory(...a),
 }));
 
 import { CategoriesPage } from './CategoriesPage';
@@ -94,6 +96,28 @@ describe('CategoriesPage', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(/in use|subcategories|products/i);
+  });
+
+  it('edits a category (rename) and reloads', async () => {
+    updateCategory.mockResolvedValue({ id: 'c2' });
+    render(<CategoriesPage />);
+    const node = (await screen.findByText('Phones', { selector: 'span' })).closest(
+      'li',
+    )!;
+
+    await userEvent.click(within(node).getByRole('button', { name: /^edit$/i }));
+    const nameInput = within(node).getByLabelText(/name/i);
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, 'Smartphones');
+    await userEvent.click(within(node).getByRole('button', { name: /save/i }));
+
+    await waitFor(() =>
+      expect(updateCategory).toHaveBeenCalledWith(
+        'c2',
+        expect.objectContaining({ name: 'Smartphones' }),
+      ),
+    );
+    expect(listCategories).toHaveBeenCalledTimes(2); // reloaded
   });
 
   it('shows a validation message when create fails with 409 (duplicate slug)', async () => {

@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OrderStatus, Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,6 +10,7 @@ import { resolveTotalsConfig } from '../cart/cart.config';
 import { priceItems, PricingItem } from '../cart/cart-pricing';
 import { TotalsConfig } from '../cart/totals';
 import { CheckoutDto } from './dto/checkout.dto';
+import { ListOrdersDto } from './dto/list-orders.dto';
 
 export interface OrderItemView {
   productId: string;
@@ -32,6 +37,22 @@ export interface OrderView {
   shipPostalCode: string;
   items: OrderItemView[];
   createdAt: Date;
+}
+
+export interface OrderSummary {
+  id: string;
+  status: OrderStatus;
+  grandTotal: string;
+  itemCount: number;
+  createdAt: Date;
+}
+
+export interface Paginated<T> {
+  data: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }
 
 /** Cart load for placement: items + the product fields the pricer + validation need. */
@@ -158,6 +179,56 @@ export class OrdersService {
         lineTotal: item.lineTotal.toString(),
       })),
       createdAt: order.createdAt,
+    };
+  }
+
+  async getOrder(userId: string, orderId: string): Promise<OrderView> {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, userId },
+      include: ORDER_INCLUDE,
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    return this.toOrderView(order);
+  }
+
+  async listOrders(
+    userId: string,
+    query: ListOrdersDto,
+  ): Promise<Paginated<OrderSummary>> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const skip = (page - 1) * pageSize;
+    const where = { userId };
+
+    const [rows, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: pageSize,
+        select: {
+          id: true,
+          status: true,
+          grandTotal: true,
+          createdAt: true,
+          _count: { select: { items: true } },
+        },
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      data: rows.map((row) => ({
+        id: row.id,
+        status: row.status,
+        grandTotal: row.grandTotal.toString(),
+        itemCount: row._count.items,
+        createdAt: row.createdAt,
+      })),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
     };
   }
 }

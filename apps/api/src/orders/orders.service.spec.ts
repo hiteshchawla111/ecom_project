@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { OrderStatus, ProductStatus } from '@prisma/client';
 import { OrdersService } from './orders.service';
 import { CheckoutDto } from './dto/checkout.dto';
@@ -159,5 +159,68 @@ describe('OrdersService.placeOrder', () => {
       BadRequestException,
     );
     expect(prisma.order.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('OrdersService.getOrder', () => {
+  it("returns the caller's own order", async () => {
+    const { svc, prisma } = build();
+    prisma.order.findFirst.mockResolvedValue(createdOrder);
+
+    const view = await svc.getOrder('u1', 'order1');
+
+    expect(prisma.order.findFirst).toHaveBeenCalledWith({
+      where: { id: 'order1', userId: 'u1' },
+      include: { items: true },
+    });
+    expect(view.id).toBe('order1');
+  });
+
+  it('throws 404 for an unknown or non-owned order', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findFirst.mockResolvedValue(null);
+    await expect(svc.getOrder('u1', 'nope')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+});
+
+describe('OrdersService.listOrders', () => {
+  it('returns a paginated, newest-first summary scoped to the user', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findMany.mockResolvedValue([
+      {
+        id: 'o2',
+        status: OrderStatus.PENDING,
+        grandTotal: '48.98',
+        createdAt: new Date('2026-06-17T12:00:00Z'),
+        _count: { items: 2 },
+      },
+    ]);
+    prisma.order.count.mockResolvedValue(1);
+
+    const res = await svc.listOrders('u1', {});
+
+    const findArg = prisma.order.findMany.mock.calls[0][0];
+    expect(findArg.where).toEqual({ userId: 'u1' });
+    expect(findArg.orderBy).toEqual({ createdAt: 'desc' });
+    expect(prisma.order.count).toHaveBeenCalledWith({
+      where: { userId: 'u1' },
+    });
+    expect(res).toEqual({
+      data: [
+        {
+          id: 'o2',
+          status: OrderStatus.PENDING,
+          grandTotal: '48.98',
+          itemCount: 2,
+          createdAt: new Date('2026-06-17T12:00:00Z'),
+        },
+      ],
+      page: 1,
+      pageSize: 20,
+      total: 1,
+      totalPages: 1,
+    });
   });
 });

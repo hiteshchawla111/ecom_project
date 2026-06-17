@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getCategoryByIdOrSlug, getProducts } from '@/lib/catalog';
 import { ProductCard } from '@/components/catalog/ProductCard';
+import { Pagination } from '@/components/catalog/Pagination';
 
 type Params = { slug: string };
 type Search = { page?: string | string[] };
@@ -90,61 +91,13 @@ export default async function CategoryPage({
         </ul>
       )}
 
-      {totalPages > 1 && (
-        <nav
-          className="flex items-center justify-between gap-4"
-          aria-label="Pagination"
-        >
-          <PageLink slug={slug} page={page - 1} disabled={page <= 1} rel="prev">
-            Previous
-          </PageLink>
-          <span className="text-sm text-neutral-600">
-            Page {page} of {totalPages}
-          </span>
-          <PageLink
-            slug={slug}
-            page={page + 1}
-            disabled={page >= totalPages}
-            rel="next"
-          >
-            Next
-          </PageLink>
-        </nav>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        hrefForPage={(p) => `/categories/${slug}?page=${p}`}
+      />
     </main>
-  );
-}
-
-function PageLink({
-  slug,
-  page,
-  disabled,
-  rel,
-  children,
-}: {
-  slug: string;
-  page: number;
-  disabled: boolean;
-  rel: 'prev' | 'next';
-  children: React.ReactNode;
-}) {
-  if (disabled) {
-    return (
-      <span
-        aria-disabled="true"
-        className="rounded-md border border-neutral-200 px-4 py-2 text-sm text-neutral-400"
-      >
-        {children}
-      </span>
-    );
-  }
-  return (
-    <Link
-      href={`/categories/${slug}?page=${page}`}
-      rel={rel}
-      className="rounded-md border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
-    >
-      {children}
-    </Link>
   );
 }

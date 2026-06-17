@@ -3,30 +3,53 @@ import type { Category } from '@/lib/catalog';
 
 interface CategoryTreeProps {
   categories: Category[];
+  /** Nesting depth — drives the visual hierarchy (0 = top level). */
+  depth?: number;
 }
 
 /**
  * Renders the category hierarchy as nested lists of links. Each category links
- * to its slug-based browse page. Children render recursively underneath.
+ * to its slug-based browse page; children render recursively underneath with a
+ * guide line. Top-level rows read heavier than nested ones.
  */
-export function CategoryTree({ categories }: CategoryTreeProps) {
+export function CategoryTree({ categories, depth = 0 }: CategoryTreeProps) {
+  const isTop = depth === 0;
+
   return (
-    <ul className="flex flex-col gap-1">
-      {categories.map((category) => (
-        <li key={category.id}>
-          <Link
-            href={`/categories/${category.slug}`}
-            className="inline-block rounded-md px-2 py-1 text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
-          >
-            {category.name}
-          </Link>
-          {category.children && category.children.length > 0 && (
-            <div className="ml-4 border-l border-neutral-200 pl-2">
-              <CategoryTree categories={category.children} />
-            </div>
-          )}
-        </li>
-      ))}
+    <ul className={isTop ? 'flex flex-col gap-1' : 'flex flex-col'}>
+      {categories.map((category) => {
+        const hasChildren =
+          Boolean(category.children) && category.children!.length > 0;
+
+        return (
+          <li key={category.id}>
+            <Link
+              href={`/categories/${category.slug}`}
+              className={`group flex items-center gap-2 rounded-md px-3 py-2 transition-colors hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 ${
+                isTop
+                  ? 'font-heading text-base font-semibold text-neutral-900'
+                  : 'text-sm text-neutral-700 hover:text-neutral-900'
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`inline-block shrink-0 rounded-full ${
+                  isTop
+                    ? 'h-2 w-2 bg-primary-500'
+                    : 'h-1.5 w-1.5 bg-neutral-300 group-hover:bg-primary-500'
+                }`}
+              />
+              <span className="truncate">{category.name}</span>
+            </Link>
+
+            {hasChildren && (
+              <div className="ml-4 border-l border-neutral-200 pl-2">
+                <CategoryTree categories={category.children!} depth={depth + 1} />
+              </div>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

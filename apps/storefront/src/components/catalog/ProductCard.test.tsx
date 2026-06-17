@@ -49,6 +49,16 @@ describe('ProductCard', () => {
     expect(screen.getByAltText('Front view')).toBeInTheDocument();
   });
 
+  it('shows the brand when present', () => {
+    render(<ProductCard product={base} />);
+    expect(screen.getByText('Aurora')).toBeInTheDocument();
+  });
+
+  it('omits the brand line when the product has no brand', () => {
+    render(<ProductCard product={{ ...base, brand: null }} />);
+    expect(screen.queryByText('Aurora')).not.toBeInTheDocument();
+  });
+
   it('falls back to the product name for image alt when none is provided', () => {
     render(
       <ProductCard

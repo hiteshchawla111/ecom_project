@@ -1,8 +1,21 @@
 @import "tailwindcss";
 @import "../../../../packages/design-tokens/theme.css";
 
+/* Bridge the next/font CSS variables to the design-token font slots.
+   Must come AFTER the token import so these override the token defaults. */
+@theme {
+  --font-sans: var(--font-inter), Inter, system-ui, sans-serif;
+  --font-heading: var(--font-jakarta), "Plus Jakarta Sans", Inter, sans-serif;
+}
+
 body {
   background: var(--color-neutral-50);
   color: var(--color-neutral-900);
   font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
 }

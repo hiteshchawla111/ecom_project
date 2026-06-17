@@ -1,0 +1,67 @@
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import type { CurrentUser } from '@/lib/api-auth';
+import { SiteHeaderView } from './SiteHeaderView';
+
+const user: CurrentUser = {
+  sub: 'u1',
+  email: 'shopper@example.com',
+  role: 'CUSTOMER',
+};
+
+describe('SiteHeaderView', () => {
+  it('renders the brand link to the home page', () => {
+    render(<SiteHeaderView user={null} />);
+    const brand = screen.getByRole('link', { name: /home/i });
+    expect(brand).toHaveAttribute('href', '/');
+  });
+
+  it('renders primary navigation to products and categories', () => {
+    render(<SiteHeaderView user={null} />);
+    expect(screen.getByRole('link', { name: /^products$/i })).toHaveAttribute(
+      'href',
+      '/products',
+    );
+    expect(screen.getByRole('link', { name: /^categories$/i })).toHaveAttribute(
+      'href',
+      '/categories',
+    );
+  });
+
+  it('renders a cart link', () => {
+    render(<SiteHeaderView user={null} />);
+    expect(screen.getByRole('link', { name: /cart/i })).toHaveAttribute(
+      'href',
+      '/cart',
+    );
+  });
+
+  it('shows log in and sign up when logged out, not the account link', () => {
+    render(<SiteHeaderView user={null} />);
+    expect(screen.getByRole('link', { name: /log in/i })).toHaveAttribute(
+      'href',
+      '/login',
+    );
+    expect(screen.getByRole('link', { name: /sign up/i })).toHaveAttribute(
+      'href',
+      '/register',
+    );
+    expect(
+      screen.queryByRole('link', { name: /my account/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows the account link when logged in, not log in / sign up', () => {
+    render(<SiteHeaderView user={user} />);
+    expect(screen.getByRole('link', { name: /my account/i })).toHaveAttribute(
+      'href',
+      '/account',
+    );
+    expect(
+      screen.queryByRole('link', { name: /log in/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /sign up/i }),
+    ).not.toBeInTheDocument();
+  });
+});

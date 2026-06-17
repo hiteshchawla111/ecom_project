@@ -1,65 +1,69 @@
-import Image from "next/image";
+import { getProducts, getCategoryTree } from '@/lib/catalog';
+import type { Product, Category } from '@/lib/catalog';
+import { ProductCard } from '@/components/catalog/ProductCard';
+import { Hero } from '@/components/home/Hero';
+import { CategoryShortcuts } from '@/components/home/CategoryShortcuts';
 
-export default function Home() {
+/** Number of newest products to feature on the home page. */
+const FEATURED_COUNT = 8;
+/** Top-level categories to surface as quick shortcuts. */
+const SHORTCUT_COUNT = 6;
+
+/**
+ * Home page. Fetches newest products + the category tree from the public API.
+ * Both fetches degrade gracefully — if the API is unavailable, the page still
+ * renders the hero and simply hides the data-backed sections.
+ */
+export default async function Home() {
+  const [featured, categories] = await Promise.all([
+    fetchFeatured(),
+    fetchCategories(),
+  ]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-12 px-4 py-10">
+      <Hero />
+
+      {featured.length > 0 && (
+        <section className="flex flex-col gap-4">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-xl font-semibold text-neutral-900">
+              New arrivals
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+            {featured.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <CategoryShortcuts categories={categories.slice(0, SHORTCUT_COUNT)} />
+    </main>
   );
+}
+
+/** Newest active products; empty array if the API is unavailable. */
+async function fetchFeatured(): Promise<Product[]> {
+  try {
+    const { data } = await getProducts({
+      sortBy: 'createdAt',
+      sortDir: 'desc',
+      status: 'ACTIVE',
+      pageSize: FEATURED_COUNT,
+    });
+    return data;
+  } catch {
+    return [];
+  }
+}
+
+/** Top-level categories; empty array if the API is unavailable. */
+async function fetchCategories(): Promise<Category[]> {
+  try {
+    return await getCategoryTree();
+  } catch {
+    return [];
+  }
 }

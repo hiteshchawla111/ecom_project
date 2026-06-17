@@ -2,8 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { apiClient } from './apiClient';
 import {
   archiveProduct,
+  createProduct,
+  getProduct,
   listProducts,
   setProductActive,
+  updateProduct,
 } from './products';
 
 const requestMock = vi.spyOn(apiClient, 'request');
@@ -78,5 +81,81 @@ describe('setProductActive', () => {
 
     const [, init] = requestMock.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({ active: false });
+  });
+});
+
+describe('getProduct', () => {
+  it('GETs /products/:id', async () => {
+    requestMock.mockResolvedValue({ id: 'p1', name: 'X' });
+    const res = await getProduct('p1');
+    expect(requestMock.mock.calls[0][0]).toBe('/products/p1');
+    expect(res.id).toBe('p1');
+  });
+});
+
+describe('createProduct', () => {
+  it('POSTs /products with the full payload', async () => {
+    requestMock.mockResolvedValue({ id: 'new', name: 'Widget' });
+
+    await createProduct({
+      name: 'Widget',
+      sku: 'WID-1',
+      description: 'd',
+      price: 19.99,
+      salePrice: 9.99,
+      brand: 'Acme',
+      categoryId: 'c1',
+    });
+
+    const [path, init] = requestMock.mock.calls[0] as [string, RequestInit];
+    expect(path).toBe('/products');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: 'Widget',
+      sku: 'WID-1',
+      description: 'd',
+      price: 19.99,
+      salePrice: 9.99,
+      brand: 'Acme',
+      categoryId: 'c1',
+    });
+  });
+
+  it('omits optional fields when not provided', async () => {
+    requestMock.mockResolvedValue({ id: 'new' });
+
+    await createProduct({
+      name: 'Widget',
+      sku: 'WID-2',
+      description: 'd',
+      price: 5,
+      categoryId: 'c1',
+    });
+
+    const [, init] = requestMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect('salePrice' in body).toBe(false);
+    expect('brand' in body).toBe(false);
+  });
+});
+
+describe('updateProduct', () => {
+  it('PATCHes /products/:id with the changed fields (no sku/status)', async () => {
+    requestMock.mockResolvedValue({ id: 'p1', name: 'New' });
+
+    await updateProduct('p1', {
+      name: 'New',
+      description: 'd',
+      price: 12,
+      categoryId: 'c1',
+    });
+
+    const [path, init] = requestMock.mock.calls[0] as [string, RequestInit];
+    expect(path).toBe('/products/p1');
+    expect(init.method).toBe('PATCH');
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect('sku' in body).toBe(false);
+    expect('status' in body).toBe(false);
+    expect(body.name).toBe('New');
   });
 });

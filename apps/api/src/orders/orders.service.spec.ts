@@ -64,24 +64,28 @@ const activeLine = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-/** What order.create resolves to (Decimal-as-string via the mapper's .toString()). */
+/**
+ * What order.create resolves to.  Money fields intentionally use integer-like
+ * strings (e.g. '16', '5') that Prisma.Decimal.toString() would return without
+ * trailing zeros — the money() helper must normalise them to 2-dp strings.
+ */
 const createdOrder = {
   id: 'order1',
   status: OrderStatus.PENDING,
-  subtotal: '39.98',
-  discountTotal: '0.00',
-  taxTotal: '4.00',
-  shippingTotal: '5.00',
-  grandTotal: '48.98',
+  subtotal: '10',
+  discountTotal: '0',
+  taxTotal: '1',
+  shippingTotal: '5',
+  grandTotal: '16',
   ...shipping,
   shipLine2: null,
   items: [
     {
       productId: 'p1',
       productName: 'Mouse',
-      unitPrice: '19.99',
+      unitPrice: '5',
       quantity: 2,
-      lineTotal: '39.98',
+      lineTotal: '10',
     },
   ],
   createdAt: new Date('2026-06-17T12:00:00Z'),
@@ -119,6 +123,14 @@ describe('OrdersService.placeOrder', () => {
     expect(prisma.$transaction).toHaveBeenCalled();
     expect(view.id).toBe('order1');
     expect(view.status).toBe(OrderStatus.PENDING);
+    // money fields must be 2-dp strings regardless of what Prisma Decimal returns
+    expect(view.subtotal).toBe('10.00');
+    expect(view.discountTotal).toBe('0.00');
+    expect(view.taxTotal).toBe('1.00');
+    expect(view.shippingTotal).toBe('5.00');
+    expect(view.grandTotal).toBe('16.00');
+    expect(view.items[0].unitPrice).toBe('5.00');
+    expect(view.items[0].lineTotal).toBe('10.00');
   });
 
   it('rejects an empty cart with 400 and creates no order', async () => {
@@ -174,6 +186,10 @@ describe('OrdersService.getOrder', () => {
       include: { items: true },
     });
     expect(view.id).toBe('order1');
+    // money fields must be 2-dp strings
+    expect(view.grandTotal).toBe('16.00');
+    expect(view.items[0].unitPrice).toBe('5.00');
+    expect(view.items[0].lineTotal).toBe('10.00');
   });
 
   it('throws 404 for an unknown or non-owned order', async () => {
@@ -192,7 +208,7 @@ describe('OrdersService.listOrders', () => {
       {
         id: 'o2',
         status: OrderStatus.PENDING,
-        grandTotal: '48.98',
+        grandTotal: '16', // integer-like string — must become '16.00'
         createdAt: new Date('2026-06-17T12:00:00Z'),
         _count: { items: 2 },
       },
@@ -212,7 +228,7 @@ describe('OrdersService.listOrders', () => {
         {
           id: 'o2',
           status: OrderStatus.PENDING,
-          grandTotal: '48.98',
+          grandTotal: '16.00', // 2-dp normalised
           itemCount: 2,
           createdAt: new Date('2026-06-17T12:00:00Z'),
         },

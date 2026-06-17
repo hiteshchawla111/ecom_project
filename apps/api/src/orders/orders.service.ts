@@ -12,6 +12,11 @@ import { TotalsConfig } from '../cart/totals';
 import { CheckoutDto } from './dto/checkout.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 
+/** Format a money value (Prisma Decimal, string, or number) as a 2-dp string. */
+function money(value: Prisma.Decimal | string | number): string {
+  return new Prisma.Decimal(value).toFixed(2);
+}
+
 export interface OrderItemView {
   productId: string;
   productName: string;
@@ -159,11 +164,11 @@ export class OrdersService {
     return {
       id: order.id,
       status: order.status,
-      subtotal: order.subtotal.toString(),
-      discountTotal: order.discountTotal.toString(),
-      taxTotal: order.taxTotal.toString(),
-      shippingTotal: order.shippingTotal.toString(),
-      grandTotal: order.grandTotal.toString(),
+      subtotal: money(order.subtotal),
+      discountTotal: money(order.discountTotal),
+      taxTotal: money(order.taxTotal),
+      shippingTotal: money(order.shippingTotal),
+      grandTotal: money(order.grandTotal),
       shipFullName: order.shipFullName,
       shipLine1: order.shipLine1,
       shipLine2: order.shipLine2,
@@ -174,9 +179,9 @@ export class OrdersService {
       items: order.items.map((item) => ({
         productId: item.productId,
         productName: item.productName,
-        unitPrice: item.unitPrice.toString(),
+        unitPrice: money(item.unitPrice),
         quantity: item.quantity,
-        lineTotal: item.lineTotal.toString(),
+        lineTotal: money(item.lineTotal),
       })),
       createdAt: order.createdAt,
     };
@@ -221,7 +226,7 @@ export class OrdersService {
       data: rows.map((row) => ({
         id: row.id,
         status: row.status,
-        grandTotal: row.grandTotal.toString(),
+        grandTotal: money(row.grandTotal),
         itemCount: row._count.items,
         createdAt: row.createdAt,
       })),

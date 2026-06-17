@@ -120,6 +120,31 @@ describe('CartService.getCart', () => {
     expect(view.items[0].image).toBeNull();
   });
 
+  it('uses a $0 sale price (Decimal 0 is not coerced to null)', async () => {
+    const { svc, prisma } = build();
+    prisma.cart.findFirst.mockResolvedValue({
+      id: 'cart1',
+      items: [
+        {
+          productId: 'p1',
+          quantity: 1,
+          product: {
+            id: 'p1',
+            name: 'Freebie',
+            price: '19.99',
+            salePrice: '0.00',
+            status: ProductStatus.ACTIVE,
+            images: [],
+          },
+        },
+      ],
+    });
+
+    const view = await svc.getCart('u1');
+    expect(view.items[0].unitPrice).toBe('0.00');
+    expect(view.items[0].lineTotal).toBe('0.00');
+  });
+
   it('uses the regular price when salePrice is NOT strictly below price', async () => {
     const { svc, prisma } = build();
     prisma.cart.findFirst.mockResolvedValue({

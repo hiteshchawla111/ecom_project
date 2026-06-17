@@ -1,0 +1,163 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { OrderStatus, Prisma, ProductStatus } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { resolveTotalsConfig } from '../cart/cart.config';
+import { priceItems, PricingItem } from '../cart/cart-pricing';
+import { TotalsConfig } from '../cart/totals';
+import { CheckoutDto } from './dto/checkout.dto';
+
+export interface OrderItemView {
+  productId: string;
+  productName: string;
+  unitPrice: string;
+  quantity: number;
+  lineTotal: string;
+}
+
+export interface OrderView {
+  id: string;
+  status: OrderStatus;
+  subtotal: string;
+  discountTotal: string;
+  taxTotal: string;
+  shippingTotal: string;
+  grandTotal: string;
+  shipFullName: string;
+  shipLine1: string;
+  shipLine2: string | null;
+  shipCity: string;
+  shipState: string;
+  shipCountry: string;
+  shipPostalCode: string;
+  items: OrderItemView[];
+  createdAt: Date;
+}
+
+/** Cart load for placement: items + the product fields the pricer + validation need. */
+const CART_FOR_CHECKOUT = {
+  items: {
+    include: {
+      product: {
+        select: {
+          name: true,
+          price: true,
+          salePrice: true,
+          status: true,
+          deletedAt: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.CartInclude;
+
+/** Order load shape for views. */
+export const ORDER_INCLUDE = { items: true } satisfies Prisma.OrderInclude;
+type OrderWithItems = Prisma.OrderGetPayload<{ include: typeof ORDER_INCLUDE }>;
+
+@Injectable()
+export class OrdersService {
+  private readonly totalsConfig: TotalsConfig;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    config: ConfigService,
+  ) {
+    this.totalsConfig = resolveTotalsConfig(config);
+  }
+
+  async placeOrder(userId: string, dto: CheckoutDto): Promise<OrderView> {
+    const cart = await this.prisma.cart.findFirst({
+      where: { userId },
+      include: CART_FOR_CHECKOUT,
+    });
+
+    if (!cart || cart.items.length === 0) {
+      throw new BadRequestException('Your cart is empty');
+    }
+
+    // Re-validate each line and build pricer input from current product data.
+    const pricingItems: PricingItem[] = cart.items.map((item) => {
+      const p = item.product;
+      if (p.deletedAt !== null || p.status !== ProductStatus.ACTIVE) {
+        throw new BadRequestException(
+          `'${p.name}' is no longer available; remove it to checkout`,
+        );
+      }
+      return {
+        productId: item.productId,
+        quantity: item.quantity,
+        product: {
+          name: p.name,
+          price: p.price.toString(),
+          salePrice: p.salePrice !== null ? p.salePrice.toString() : null,
+        },
+      };
+    });
+
+    const { lines, totals } = priceItems(pricingItems, this.totalsConfig);
+
+    const order = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.order.create({
+        data: {
+          userId,
+          status: OrderStatus.PENDING,
+          subtotal: totals.subtotal,
+          discountTotal: totals.discountTotal,
+          taxTotal: totals.taxTotal,
+          shippingTotal: totals.shippingTotal,
+          grandTotal: totals.grandTotal,
+          shipFullName: dto.shipFullName,
+          shipLine1: dto.shipLine1,
+          shipLine2: dto.shipLine2 ?? null,
+          shipCity: dto.shipCity,
+          shipState: dto.shipState,
+          shipCountry: dto.shipCountry,
+          shipPostalCode: dto.shipPostalCode,
+          items: {
+            create: lines.map((line) => ({
+              productId: line.productId,
+              productName: line.name,
+              unitPrice: line.unitPrice,
+              quantity: line.quantity,
+              lineTotal: line.lineTotal,
+            })),
+          },
+        },
+        include: ORDER_INCLUDE,
+      });
+      await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+      return created;
+    });
+
+    return this.toOrderView(order);
+  }
+
+  /** Map a loaded order (Prisma Decimals) → the string-money view. */
+  protected toOrderView(order: OrderWithItems): OrderView {
+    return {
+      id: order.id,
+      status: order.status,
+      subtotal: order.subtotal.toString(),
+      discountTotal: order.discountTotal.toString(),
+      taxTotal: order.taxTotal.toString(),
+      shippingTotal: order.shippingTotal.toString(),
+      grandTotal: order.grandTotal.toString(),
+      shipFullName: order.shipFullName,
+      shipLine1: order.shipLine1,
+      shipLine2: order.shipLine2,
+      shipCity: order.shipCity,
+      shipState: order.shipState,
+      shipCountry: order.shipCountry,
+      shipPostalCode: order.shipPostalCode,
+      items: order.items.map((item) => ({
+        productId: item.productId,
+        productName: item.productName,
+        unitPrice: item.unitPrice.toString(),
+        quantity: item.quantity,
+        lineTotal: item.lineTotal.toString(),
+      })),
+      createdAt: order.createdAt,
+    };
+  }
+}

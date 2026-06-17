@@ -58,4 +58,12 @@ describe('AppShell', () => {
       '/categories',
     );
   });
+
+  it('marks the Dashboard link active on the index route', () => {
+    renderShell();
+    expect(screen.getByRole('link', { name: /dashboard/i })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
 });

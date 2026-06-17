@@ -38,11 +38,18 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
         )}
       </div>
-      <div className="flex flex-col gap-2 p-4">
-        <h3 className="text-base font-medium text-neutral-900">
+      <div className="flex flex-1 flex-col gap-1.5 p-4">
+        {product.brand && (
+          <span className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+            {product.brand}
+          </span>
+        )}
+        <h3 className="line-clamp-2 text-base font-medium text-neutral-900 transition-colors group-hover:text-primary-700">
           {product.name}
         </h3>
-        <Price price={product.price} salePrice={product.salePrice} />
+        <div className="mt-auto pt-1">
+          <Price price={product.price} salePrice={product.salePrice} />
+        </div>
       </div>
     </Link>
   );

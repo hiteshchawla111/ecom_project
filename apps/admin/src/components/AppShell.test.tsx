@@ -42,4 +42,16 @@ describe('AppShell', () => {
     expect(logout).toHaveBeenCalled();
     await waitFor(() => expect(screen.getByText('LOGIN PAGE')).toBeInTheDocument());
   });
+
+  it('renders nav links to Dashboard and Products for an ADMIN', () => {
+    renderShell();
+    expect(screen.getByRole('link', { name: /dashboard/i })).toHaveAttribute(
+      'href',
+      '/',
+    );
+    expect(screen.getByRole('link', { name: /products/i })).toHaveAttribute(
+      'href',
+      '/products',
+    );
+  });
 });

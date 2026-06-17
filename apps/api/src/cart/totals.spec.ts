@@ -75,4 +75,11 @@ describe('computeTotals', () => {
     // 3998 - 0 + 400 + 500 = 4898
     expect(res.grandTotal).toBe('48.98');
   });
+
+  it('rounds tax half-up when raw tax lands exactly on .5 cent boundary', () => {
+    // subtotal 10 cents; taxRate 0.05 → raw tax = 0.5 → half-up → 1 cent → "0.01"
+    const halfUpConfig = { ...config, taxRate: 0.05 };
+    const res = computeTotals([{ unitPriceCents: 10, quantity: 1 }], halfUpConfig);
+    expect(res.taxTotal).toBe('0.01');
+  });
 });

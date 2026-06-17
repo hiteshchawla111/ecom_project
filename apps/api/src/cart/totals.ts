@@ -38,9 +38,13 @@ export function centsToString(cents: number): string {
   return `${sign}${dollars}.${remainder}`;
 }
 
-/** Round half-up to the nearest integer cent. */
+/** Round half-up to the nearest integer cent.
+ *  Uses Math.floor(value + 0.5) rather than Math.round so that values
+ *  sitting right on a .5 boundary are always rounded up, even when
+ *  IEEE-754 float arithmetic produces a result infinitesimally below .5.
+ */
 function roundCents(value: number): number {
-  return Math.round(value);
+  return Math.floor(value + 0.5);
 }
 
 export function computeTotals(

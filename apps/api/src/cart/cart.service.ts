@@ -97,10 +97,14 @@ export class CartService {
       return this.getCart(userId);
     }
     await this.requirePurchasableProduct(productId);
-    await this.prisma.cartItem.update({
-      where: { cartId_productId: { cartId: cart.id, productId } },
-      data: { quantity },
-    });
+    try {
+      await this.prisma.cartItem.update({
+        where: { cartId_productId: { cartId: cart.id, productId } },
+        data: { quantity },
+      });
+    } catch (err) {
+      throw this.mapWriteError(err);
+    }
     return this.getCart(userId);
   }
 
@@ -118,17 +122,34 @@ export class CartService {
     return this.getCart(userId);
   }
 
-  /** Find the user's cart (with items) or create an empty one. */
+  /** Find the user's cart (with items) or create an empty one.
+   * Tolerates a P2002 unique violation from a concurrent first-touch request:
+   * re-reads and returns the cart the other request created. */
   protected async getOrCreateCart(userId: string): Promise<CartWithItems> {
     const existing = await this.prisma.cart.findFirst({
       where: { userId },
       include: CART_INCLUDE,
     });
     if (existing) return existing;
-    return this.prisma.cart.create({
-      data: { userId },
-      include: CART_INCLUDE,
-    });
+    try {
+      return await this.prisma.cart.create({
+        data: { userId },
+        include: CART_INCLUDE,
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        // Another concurrent request created the cart first; re-read it.
+        const raced = await this.prisma.cart.findFirst({
+          where: { userId },
+          include: CART_INCLUDE,
+        });
+        if (raced) return raced;
+      }
+      throw err;
+    }
   }
 
   /** Map a loaded cart → priced envelope via the pure totals pipeline. */
@@ -160,6 +181,19 @@ export class CartService {
       items,
       totals: computeTotals(lines, this.totalsConfig),
     };
+  }
+
+  /** Translates known Prisma write errors into HTTP-meaningful exceptions. */
+  private mapWriteError(err: unknown): Error {
+    if (err instanceof Prisma.PrismaClientKnownRequestError) {
+      if (err.code === 'P2025') {
+        return new NotFoundException('Cart item not found');
+      }
+      if (err.code === 'P2003') {
+        return new BadRequestException('Referenced product does not exist');
+      }
+    }
+    return err instanceof Error ? err : new Error('Unknown error');
   }
 
   /** Load an ACTIVE product or throw: 404 if absent, 400 if not purchasable. */

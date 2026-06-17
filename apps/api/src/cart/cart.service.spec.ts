@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { ProductStatus } from '@prisma/client';
+import { Prisma, ProductStatus } from '@prisma/client';
 import { CartService } from './cart.service';
 
 const makePrisma = () => ({
@@ -292,5 +292,61 @@ describe('CartService.clear', () => {
     expect(prisma.cartItem.deleteMany).toHaveBeenCalledWith({
       where: { cartId: 'cart1' },
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// I1 — P2025 on cartItem.update maps to 404 NotFoundException
+// ---------------------------------------------------------------------------
+describe('CartService.setItemQuantity — Prisma error mapping', () => {
+  it('throws NotFoundException (404) when cartItem.update rejects with P2025', async () => {
+    const { svc, prisma } = build();
+    // getOrCreateCart: cart already exists
+    prisma.cart.findFirst.mockResolvedValueOnce(emptyCart);
+    // requirePurchasableProduct: product is ACTIVE
+    prisma.product.findFirst.mockResolvedValue({
+      id: 'p1',
+      status: ProductStatus.ACTIVE,
+    });
+    // cartItem.update: the line doesn't exist in the cart → P2025
+    prisma.cartItem.update.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('not found', {
+        code: 'P2025',
+        clientVersion: 'x',
+      }),
+    );
+
+    await expect(svc.setItemQuantity('u1', 'p1', 5)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// I2 — getOrCreateCart is tolerant of P2002 race (duplicate cart creation)
+// ---------------------------------------------------------------------------
+describe('CartService.getOrCreateCart — race tolerance', () => {
+  it('returns the existing cart when cart.create rejects with P2002', async () => {
+    const { svc, prisma } = build();
+    const existingCart = { id: 'cart-race', userId: 'u1', items: [] };
+
+    // First findFirst: no cart yet
+    // Second findFirst (retry after P2002): the cart created by the other request
+    prisma.cart.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(existingCart);
+
+    // create: another concurrent request won the race → P2002
+    prisma.cart.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('unique violation', {
+        code: 'P2002',
+        clientVersion: 'x',
+      }),
+    );
+
+    const view = await svc.getCart('u1');
+
+    expect(view.id).toBe('cart-race');
+    expect(prisma.cart.findFirst).toHaveBeenCalledTimes(2);
   });
 });

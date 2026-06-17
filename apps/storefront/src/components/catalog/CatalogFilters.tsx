@@ -53,17 +53,19 @@ export function CatalogFilters({ categories, current }: CatalogFiltersProps) {
       ? `${current.sortBy}:${current.sortDir}`
       : 'createdAt:desc';
 
+  const labelClass =
+    'text-xs font-semibold uppercase tracking-wide text-neutral-500';
+  const fieldClass =
+    'rounded-md border border-neutral-200 bg-neutral-0 px-3 py-2 text-sm text-neutral-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
+
   return (
     <form
       method="get"
       action="/products"
-      className="flex flex-col gap-4 rounded-lg border border-neutral-200 bg-neutral-0 p-4 sm:flex-row sm:flex-wrap sm:items-end"
+      className="flex flex-col gap-4 rounded-lg border border-neutral-200 bg-neutral-0 p-4 shadow-sm sm:flex-row sm:flex-wrap sm:items-end"
     >
-      <div className="flex flex-1 flex-col gap-1">
-        <label
-          htmlFor="filter-search"
-          className="text-xs font-medium text-neutral-600"
-        >
+      <div className="flex min-w-48 flex-1 flex-col gap-1.5">
+        <label htmlFor="filter-search" className={labelClass}>
           Search
         </label>
         <input
@@ -72,22 +74,19 @@ export function CatalogFilters({ categories, current }: CatalogFiltersProps) {
           name="search"
           defaultValue={current?.search ?? ''}
           placeholder="Search products"
-          className="rounded-md border border-neutral-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className={fieldClass}
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="filter-category"
-          className="text-xs font-medium text-neutral-600"
-        >
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="filter-category" className={labelClass}>
           Category
         </label>
         <select
           id="filter-category"
           name="category"
           defaultValue={current?.categoryId ?? ''}
-          className="rounded-md border border-neutral-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className={fieldClass}
         >
           <option value="">All categories</option>
           {options.map((o) => (
@@ -98,54 +97,46 @@ export function CatalogFilters({ categories, current }: CatalogFiltersProps) {
         </select>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="filter-min"
-          className="text-xs font-medium text-neutral-600"
-        >
-          Min price
-        </label>
-        <input
-          id="filter-min"
-          type="number"
-          name="minPrice"
-          min={0}
-          step="0.01"
-          defaultValue={current?.minPrice ?? ''}
-          className="w-28 rounded-md border border-neutral-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-        />
-      </div>
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className={labelClass}>Price range</legend>
+        <div className="flex items-center gap-2">
+          <input
+            id="filter-min"
+            type="number"
+            name="minPrice"
+            min={0}
+            step="0.01"
+            aria-label="Min price"
+            placeholder="Min"
+            defaultValue={current?.minPrice ?? ''}
+            className={`w-24 ${fieldClass}`}
+          />
+          <span aria-hidden="true" className="text-neutral-400">
+            –
+          </span>
+          <input
+            id="filter-max"
+            type="number"
+            name="maxPrice"
+            min={0}
+            step="0.01"
+            aria-label="Max price"
+            placeholder="Max"
+            defaultValue={current?.maxPrice ?? ''}
+            className={`w-24 ${fieldClass}`}
+          />
+        </div>
+      </fieldset>
 
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="filter-max"
-          className="text-xs font-medium text-neutral-600"
-        >
-          Max price
-        </label>
-        <input
-          id="filter-max"
-          type="number"
-          name="maxPrice"
-          min={0}
-          step="0.01"
-          defaultValue={current?.maxPrice ?? ''}
-          className="w-28 rounded-md border border-neutral-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-        />
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="filter-sort"
-          className="text-xs font-medium text-neutral-600"
-        >
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="filter-sort" className={labelClass}>
           Sort
         </label>
         <select
           id="filter-sort"
           name="sort"
           defaultValue={currentSort}
-          className="rounded-md border border-neutral-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className={fieldClass}
         >
           {SORT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -158,7 +149,7 @@ export function CatalogFilters({ categories, current }: CatalogFiltersProps) {
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-neutral-0 transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
         >
           Apply
         </button>

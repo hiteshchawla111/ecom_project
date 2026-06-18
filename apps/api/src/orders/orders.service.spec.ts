@@ -2,10 +2,16 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { OrderStatus, ProductStatus } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { OrderStatus, ProductStatus, Role } from '@prisma/client';
 import { OrdersService } from './orders.service';
 import { CheckoutDto } from './dto/checkout.dto';
+import type { AccessTokenPayload } from '../auth/auth-tokens';
 
 const makeConfig = () => ({
   get: (key: string) =>
@@ -24,7 +30,9 @@ const makePrisma = () => {
     order: {
       create: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       findMany: jest.fn(),
+      update: jest.fn(),
       count: jest.fn(),
     },
     cartItem: { deleteMany: jest.fn() },
@@ -238,5 +246,109 @@ describe('OrdersService.listOrders', () => {
       total: 1,
       totalPages: 1,
     });
+  });
+});
+
+describe('OrdersService.updateStatus', () => {
+  const admin: AccessTokenPayload = {
+    sub: 'admin1',
+    email: 'admin@shop.test',
+    role: Role.ADMIN,
+  };
+  const customer: AccessTokenPayload = {
+    sub: 'u1',
+    email: 'cust@shop.test',
+    role: Role.CUSTOMER,
+  };
+
+  /** A stored order row at a given status, owned by `userId` (default u1). */
+  const orderAt = (status: OrderStatus, userId = 'u1') => ({
+    ...createdOrder,
+    status,
+    userId,
+  });
+
+  it('lets an ADMIN make a valid transition and returns the updated view', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
+    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.CONFIRMED));
+
+    const view = await svc.updateStatus(admin, 'order1', OrderStatus.CONFIRMED);
+
+    const updateArg = prisma.order.update.mock.calls[0][0];
+    expect(updateArg.where).toEqual({ id: 'order1' });
+    expect(updateArg.data).toEqual({ status: OrderStatus.CONFIRMED });
+    expect(view.status).toBe(OrderStatus.CONFIRMED);
+  });
+
+  it('rejects an ADMIN invalid transition with 409 and writes nothing', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
+
+    await expect(
+      svc.updateStatus(admin, 'order1', OrderStatus.SHIPPED),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.order.update).not.toHaveBeenCalled();
+  });
+
+  it('throws 404 for an unknown order', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findUnique.mockResolvedValue(null);
+
+    await expect(
+      svc.updateStatus(admin, 'nope', OrderStatus.CONFIRMED),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.order.update).not.toHaveBeenCalled();
+  });
+
+  it('lets a CUSTOMER cancel their own PENDING order', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
+    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.CANCELLED));
+
+    const view = await svc.updateStatus(
+      customer,
+      'order1',
+      OrderStatus.CANCELLED,
+    );
+
+    expect(view.status).toBe(OrderStatus.CANCELLED);
+    expect(prisma.order.update).toHaveBeenCalledWith({
+      where: { id: 'order1' },
+      data: { status: OrderStatus.CANCELLED },
+      include: { items: true },
+    });
+  });
+
+  it('forbids a CUSTOMER from any non-cancel transition (403)', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
+
+    await expect(
+      svc.updateStatus(customer, 'order1', OrderStatus.CONFIRMED),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.order.update).not.toHaveBeenCalled();
+  });
+
+  it("treats another customer's order as 404 (no existence leak)", async () => {
+    const { svc, prisma } = build();
+    prisma.order.findUnique.mockResolvedValue(
+      orderAt(OrderStatus.PENDING, 'someoneElse'),
+    );
+
+    await expect(
+      svc.updateStatus(customer, 'order1', OrderStatus.CANCELLED),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.order.update).not.toHaveBeenCalled();
+  });
+
+  it('forbids a CUSTOMER cancelling a non-PENDING order (403)', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.SHIPPED));
+
+    await expect(
+      svc.updateStatus(customer, 'order1', OrderStatus.CANCELLED),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.order.update).not.toHaveBeenCalled();
   });
 });

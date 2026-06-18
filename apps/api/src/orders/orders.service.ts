@@ -1,14 +1,22 @@
 import {
   BadRequestException,
+  ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OrderStatus, Prisma, ProductStatus } from '@prisma/client';
+import { OrderStatus, Prisma, ProductStatus, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { AccessTokenPayload } from '../auth/auth-tokens';
 import { resolveTotalsConfig } from '../cart/cart.config';
 import { priceItems, PricingItem } from '../cart/cart-pricing';
 import { TotalsConfig } from '../cart/totals';
+import {
+  assertTransition,
+  InvalidOrderTransitionError,
+  OrderStatus as OrderStatusFlow,
+} from './order-status';
 import { CheckoutDto } from './dto/checkout.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 
@@ -235,5 +243,62 @@ export class OrdersService {
       total,
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
     };
+  }
+
+  /**
+   * Drive an order through the status state machine.
+   *
+   * - **ADMIN** may apply any transition the state machine permits.
+   * - **CUSTOMER** may only cancel their own still-`PENDING` order
+   *   (`PENDING → CANCELLED`); any other transition is forbidden.
+   *
+   * The transition itself is validated by the pure `assertTransition` guard, so
+   * an illegal move (e.g. `PENDING → SHIPPED`) is rejected as a 409 Conflict.
+   * A non-owned order is reported as 404 to a customer (no existence leak).
+   */
+  async updateStatus(
+    actor: AccessTokenPayload,
+    orderId: string,
+    nextStatus: OrderStatus,
+  ): Promise<OrderView> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (actor.role !== Role.ADMIN) {
+      // Customers can only act on their own orders; hide others as 404.
+      if (order.userId !== actor.sub) {
+        throw new NotFoundException('Order not found');
+      }
+      // The only self-service transition is cancelling a pending order.
+      const isSelfCancel =
+        order.status === OrderStatus.PENDING &&
+        nextStatus === OrderStatus.CANCELLED;
+      if (!isSelfCancel) {
+        throw new ForbiddenException(
+          'You can only cancel an order while it is pending',
+        );
+      }
+    }
+
+    try {
+      assertTransition(
+        order.status as unknown as OrderStatusFlow,
+        nextStatus as unknown as OrderStatusFlow,
+      );
+    } catch (err) {
+      if (err instanceof InvalidOrderTransitionError) {
+        throw new ConflictException(err.message);
+      }
+      throw err;
+    }
+
+    const updated = await this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: nextStatus },
+      include: ORDER_INCLUDE,
+    });
+    return this.toOrderView(updated);
   }
 }

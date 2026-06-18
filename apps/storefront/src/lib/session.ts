@@ -65,13 +65,35 @@ export async function resolveSession(
 
   try {
     const pair = await deps.refresh(refreshToken);
-    store.set(ACCESS_COOKIE, pair.accessToken);
-    store.set(REFRESH_COOKIE, pair.refreshToken);
+    // Persist the rotated tokens. In a Server Component *render* Next forbids
+    // cookie writes; that must not abort session resolution (a Route Handler /
+    // proxy will re-persist on the next request), so the write is best-effort.
+    persistTokens(store, pair);
     return await deps.fetchCurrentUser(pair.accessToken);
   } catch {
+    clearTokens(store);
+    return null;
+  }
+}
+
+/** Best-effort token write — ignores the "can't modify cookies during render"
+ *  error so session resolution still succeeds in a Server Component. */
+function persistTokens(store: CookieStore, pair: TokenPair): void {
+  try {
+    store.set(ACCESS_COOKIE, pair.accessToken);
+    store.set(REFRESH_COOKIE, pair.refreshToken);
+  } catch {
+    // Read-only (render) context — skip persistence.
+  }
+}
+
+/** Best-effort cookie clear — ignores the render-context write restriction. */
+function clearTokens(store: CookieStore): void {
+  try {
     store.delete(ACCESS_COOKIE);
     store.delete(REFRESH_COOKIE);
-    return null;
+  } catch {
+    // Read-only (render) context — skip clearing.
   }
 }
 

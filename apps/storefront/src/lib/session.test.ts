@@ -120,6 +120,56 @@ describe('resolveSession', () => {
     );
   });
 
+  // In a Server Component render, Next forbids cookie writes — the store's
+  // set/delete throw. Session resolution must still succeed (best-effort write):
+  // returning the user/null, not aborting the whole render.
+  function readOnlyStore(initial: Record<string, string> = {}) {
+    const map = new Map(Object.entries(initial));
+    return {
+      get: (name: string) =>
+        map.has(name) ? { name, value: map.get(name)! } : undefined,
+      set: () => {
+        throw new Error(
+          'Cookies can only be modified in a Server Action or Route Handler',
+        );
+      },
+      delete: () => {
+        throw new Error(
+          'Cookies can only be modified in a Server Action or Route Handler',
+        );
+      },
+    };
+  }
+
+  it('still returns the refreshed user when the cookie write is forbidden (render context)', async () => {
+    const store = readOnlyStore({ [ACCESS_COOKIE]: 'expired', [REFRESH_COOKIE]: 'r1' });
+    const newPair: TokenPair = { accessToken: 'a2', refreshToken: 'r2' };
+    const fetchCurrentUser = vi
+      .fn<(t: string) => Promise<CurrentUser>>()
+      .mockRejectedValueOnce(new ApiAuthError('expired', 401))
+      .mockResolvedValueOnce(user);
+    const deps: SessionDeps = { fetchCurrentUser, refresh: vi.fn(async () => newPair) };
+
+    // Must NOT throw the cookie-write error; resolves to the user.
+    expect(await resolveSession(store, deps)).toEqual(user);
+    expect(fetchCurrentUser).toHaveBeenLastCalledWith('a2');
+  });
+
+  it('still returns null when refresh fails and the cookie delete is forbidden (render context)', async () => {
+    const store = readOnlyStore({ [ACCESS_COOKIE]: 'expired', [REFRESH_COOKIE]: 'bad' });
+    const deps: SessionDeps = {
+      fetchCurrentUser: vi.fn(async () => {
+        throw new ApiAuthError('expired', 401);
+      }),
+      refresh: vi.fn(async () => {
+        throw new ApiAuthError('invalid refresh', 401);
+      }),
+    };
+
+    // Must NOT throw the cookie-write error; resolves to null.
+    expect(await resolveSession(store, deps)).toBeNull();
+  });
+
   it('does not swallow non-auth (500) errors from /me', async () => {
     const { store } = memStore({ [ACCESS_COOKIE]: 'good', [REFRESH_COOKIE]: 'r' });
     const deps: SessionDeps = {

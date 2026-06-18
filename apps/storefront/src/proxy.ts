@@ -22,6 +22,8 @@ export function proxy(req: NextRequest) {
 export const config = {
   matcher: [
     '/account/:path*',
+    '/cart',
+    '/cart/:path*',
     '/login',
     '/register',
     '/forgot-password',

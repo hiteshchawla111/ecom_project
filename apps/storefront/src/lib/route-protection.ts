@@ -1,5 +1,5 @@
 /** Route prefixes that require an authenticated customer. */
-const PROTECTED_PREFIXES = ['/account'];
+const PROTECTED_PREFIXES = ['/account', '/cart'];
 
 export function isProtected(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(

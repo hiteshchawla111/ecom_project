@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { MovementType } from '@prisma/client';
 import { InventoryService } from './inventory.service';
@@ -121,6 +122,44 @@ describe('InventoryService.release', () => {
       BadRequestException,
     );
     expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('transaction passthrough', () => {
+  // A caller-supplied tx client: the op must use THIS for reads/writes and must
+  // NOT open its own nested $transaction (it joins the caller's transaction).
+  const makeTx = () => ({
+    inventoryItem: { findUnique: jest.fn(), update: jest.fn() },
+    inventoryMovement: { create: jest.fn() },
+  });
+
+  it('reserve uses the passed tx and opens no nested transaction', async () => {
+    const { svc, prisma } = build();
+    const tx: any = makeTx();
+    tx.inventoryItem.findUnique.mockResolvedValue(item());
+
+    await svc.reserve('p1', 2, 'order1', tx);
+
+    expect(tx.inventoryItem.findUnique).toHaveBeenCalledWith({
+      where: { productId: 'p1' },
+    });
+    expect(tx.inventoryItem.update).toHaveBeenCalled();
+    expect(tx.inventoryMovement.create).toHaveBeenCalled();
+    // joined the caller's tx — no own transaction, no client-level writes
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+  });
+
+  it('release uses the passed tx and opens no nested transaction', async () => {
+    const { svc, prisma } = build();
+    const tx: any = makeTx();
+    tx.inventoryItem.findUnique.mockResolvedValue(item({ reserved: 3 }));
+
+    await svc.release('p1', 1, 'order1', tx);
+
+    expect(tx.inventoryItem.update).toHaveBeenCalled();
+    expect(tx.inventoryMovement.create).toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });
 

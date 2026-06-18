@@ -43,10 +43,21 @@ const makePrisma = () => {
   return prisma;
 };
 
+const makeInventory = () => ({
+  reserve: jest.fn().mockResolvedValue(undefined),
+  release: jest.fn().mockResolvedValue(undefined),
+  deduct: jest.fn().mockResolvedValue(undefined),
+});
+
 const build = () => {
   const prisma = makePrisma();
-  const svc = new OrdersService(prisma as never, makeConfig() as never);
-  return { svc, prisma };
+  const inventory = makeInventory();
+  const svc = new OrdersService(
+    prisma as never,
+    makeConfig() as never,
+    inventory as never,
+  );
+  return { svc, prisma, inventory };
 };
 
 const shipping: CheckoutDto = {
@@ -101,11 +112,14 @@ const createdOrder = {
 
 describe('OrdersService.placeOrder', () => {
   it('creates a PENDING order with snapshotted totals + items and clears the cart', async () => {
-    const { svc, prisma } = build();
+    const { svc, prisma, inventory } = build();
     prisma.cart.findFirst.mockResolvedValue(cartWith([activeLine()]));
     prisma.order.create.mockResolvedValue(createdOrder);
 
     const view = await svc.placeOrder('u1', shipping);
+
+    // reserves each line's stock within the placement transaction (tx passed)
+    expect(inventory.reserve).toHaveBeenCalledWith('p1', 2, 'order1', prisma);
 
     // order.create called with PENDING status + computed totals + nested items
     const createArg = prisma.order.create.mock.calls[0][0];
@@ -158,6 +172,22 @@ describe('OrdersService.placeOrder', () => {
       BadRequestException,
     );
     expect(prisma.order.create).not.toHaveBeenCalled();
+  });
+
+  it('does not complete placement if reserving stock fails (rolls back)', async () => {
+    const { svc, prisma, inventory } = build();
+    prisma.cart.findFirst.mockResolvedValue(cartWith([activeLine()]));
+    prisma.order.create.mockResolvedValue(createdOrder);
+    // e.g. insufficient stock or no inventory item -> reserve throws
+    inventory.reserve.mockRejectedValue(
+      new BadRequestException('Insufficient stock available to reserve'),
+    );
+
+    await expect(svc.placeOrder('u1', shipping)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    // cart must NOT be cleared when the transaction fails
+    expect(prisma.cartItem.deleteMany).not.toHaveBeenCalled();
   });
 
   it('rejects a non-ACTIVE line with 400 and creates no order', async () => {
@@ -269,7 +299,7 @@ describe('OrdersService.updateStatus', () => {
   });
 
   it('lets an ADMIN make a valid transition and returns the updated view', async () => {
-    const { svc, prisma } = build();
+    const { svc, prisma, inventory } = build();
     prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
     prisma.order.update.mockResolvedValue(orderAt(OrderStatus.CONFIRMED));
 
@@ -279,6 +309,20 @@ describe('OrdersService.updateStatus', () => {
     expect(updateArg.where).toEqual({ id: 'order1' });
     expect(updateArg.data).toEqual({ status: OrderStatus.CONFIRMED });
     expect(view.status).toBe(OrderStatus.CONFIRMED);
+    // a non-cancel transition releases no stock
+    expect(inventory.release).not.toHaveBeenCalled();
+  });
+
+  it('releases each line’s reserved stock when an order is CANCELLED', async () => {
+    const { svc, prisma, inventory } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
+    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.CANCELLED));
+
+    await svc.updateStatus(admin, 'order1', OrderStatus.CANCELLED);
+
+    // releases the reserved qty for each order line within the same tx (prisma)
+    expect(inventory.release).toHaveBeenCalledWith('p1', 2, 'order1', prisma);
+    expect(prisma.$transaction).toHaveBeenCalled();
   });
 
   it('rejects an ADMIN invalid transition with 409 and writes nothing', async () => {

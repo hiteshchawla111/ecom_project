@@ -19,6 +19,19 @@ describe('loginRedirectFor', () => {
     expect(loginRedirectFor('/cart', true)).toBeNull();
   });
 
+  it('redirects /checkout to /login when there is no session', () => {
+    expect(loginRedirectFor('/checkout', false)).toBe('/login');
+  });
+
+  it('redirects /orders to /login when there is no session', () => {
+    expect(loginRedirectFor('/orders/order1', false)).toBe('/login');
+  });
+
+  it('allows /checkout and /orders when a session is present', () => {
+    expect(loginRedirectFor('/checkout', true)).toBeNull();
+    expect(loginRedirectFor('/orders/order1', true)).toBeNull();
+  });
+
   it('never redirects public routes regardless of auth', () => {
     expect(loginRedirectFor('/', false)).toBeNull();
     expect(loginRedirectFor('/login', false)).toBeNull();

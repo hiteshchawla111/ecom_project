@@ -42,6 +42,9 @@ async function main(): Promise<void> {
       categoryId: phones.id,
       available: 25,
       lowStockThreshold: 5,
+      imageUrl:
+        'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=600&h=600&q=80',
+      imageAlt: 'Aurora Smartphone X front and back',
     },
     {
       sku: 'PH-002',
@@ -53,6 +56,9 @@ async function main(): Promise<void> {
       categoryId: phones.id,
       available: 3,
       lowStockThreshold: 5,
+      imageUrl:
+        'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?auto=format&fit=crop&w=600&h=600&q=80',
+      imageAlt: 'Aurora Smartphone Lite held in hand',
     },
   ];
 
@@ -82,6 +88,22 @@ async function main(): Promise<void> {
         lowStockThreshold: p.lowStockThreshold,
       },
     });
+
+    // Seed a primary image (idempotent: only when the product has none yet).
+    // ProductImage has no natural unique key, so guard on an existing count.
+    const imageCount = await prisma.productImage.count({
+      where: { productId: product.id },
+    });
+    if (imageCount === 0) {
+      await prisma.productImage.create({
+        data: {
+          productId: product.id,
+          url: p.imageUrl,
+          alt: p.imageAlt,
+          position: 0,
+        },
+      });
+    }
   }
 
   // Dev users for each internal role (idempotent). Password: "Password123!".

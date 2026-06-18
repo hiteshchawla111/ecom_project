@@ -73,7 +73,13 @@ export class ProductsService {
     const orderBy = this.buildOrderBy(query);
 
     const [data, total] = await Promise.all([
-      this.prisma.product.findMany({ where, orderBy, skip, take: pageSize }),
+      this.prisma.product.findMany({
+        where,
+        orderBy,
+        skip,
+        take: pageSize,
+        include: PRODUCT_INCLUDE,
+      }),
       this.prisma.product.count({ where }),
     ]);
 

@@ -127,7 +127,7 @@ export default async function ProductsPage({
       ) : (
         <ul className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
           {data.map((product) => (
-            <li key={product.id}>
+            <li key={product.id} className="flex">
               <ProductCard product={product} />
             </li>
           ))}

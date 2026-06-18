@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { OrderStatus, Prisma, ProductStatus, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
+import { InventoryService } from '../inventory/inventory.service';
 import { resolveTotalsConfig } from '../cart/cart.config';
 import { priceItems, PricingItem } from '../cart/cart-pricing';
 import { TotalsConfig } from '../cart/totals';
@@ -96,6 +97,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     config: ConfigService,
+    private readonly inventory: InventoryService,
   ) {
     this.totalsConfig = resolveTotalsConfig(config);
   }
@@ -160,6 +162,16 @@ export class OrdersService {
         },
         include: ORDER_INCLUDE,
       });
+      // Reserve stock for each line within the same transaction: any failure
+      // (insufficient stock or no inventory item) rolls back the whole order.
+      for (const line of lines) {
+        await this.inventory.reserve(
+          line.productId,
+          line.quantity,
+          created.id,
+          tx,
+        );
+      }
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
       return created;
     });
@@ -263,6 +275,7 @@ export class OrdersService {
   ): Promise<OrderView> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
+      include: ORDER_INCLUDE,
     });
     if (!order) throw new NotFoundException('Order not found');
 
@@ -292,6 +305,27 @@ export class OrdersService {
         throw new ConflictException(err.message);
       }
       throw err;
+    }
+
+    // Cancelling frees the stock reserved at placement. Release each line and
+    // update the status atomically so the ledger can't drift from the order.
+    if (nextStatus === OrderStatus.CANCELLED) {
+      const updated = await this.prisma.$transaction(async (tx) => {
+        for (const item of order.items) {
+          await this.inventory.release(
+            item.productId,
+            item.quantity,
+            order.id,
+            tx,
+          );
+        }
+        return tx.order.update({
+          where: { id: orderId },
+          data: { status: nextStatus },
+          include: ORDER_INCLUDE,
+        });
+      });
+      return this.toOrderView(updated);
     }
 
     const updated = await this.prisma.order.update({

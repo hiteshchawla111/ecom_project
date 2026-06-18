@@ -1,8 +1,17 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { OrdersService } from './orders.service';
 import { CheckoutDto } from './dto/checkout.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
@@ -31,5 +40,20 @@ export class OrdersController {
   @Get(':id')
   getOne(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
     return this.orders.getOrder(user.sub, id);
+  }
+
+  /**
+   * Drive an order through the status state machine. ADMINs may apply any valid
+   * transition; CUSTOMERs may only cancel their own pending order. The service
+   * enforces the per-role rule and the state-machine guard.
+   */
+  @Patch(':id/status')
+  @Roles(Role.ADMIN, Role.CUSTOMER)
+  updateStatus(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
+    return this.orders.updateStatus(user, id, dto.status);
   }
 }

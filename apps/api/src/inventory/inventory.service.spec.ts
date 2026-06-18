@@ -1,0 +1,163 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { MovementType } from '@prisma/client';
+import { InventoryService } from './inventory.service';
+
+// $transaction(cb) runs the callback with a tx client proxying to the same
+// mocks, so assertions can target prisma.inventoryItem.update etc.
+const makePrisma = () => {
+  const prisma: any = {
+    inventoryItem: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    inventoryMovement: { create: jest.fn() },
+  };
+  prisma.$transaction = jest.fn(async (cb: (tx: any) => Promise<unknown>) =>
+    cb(prisma),
+  );
+  return prisma;
+};
+
+const build = () => {
+  const prisma = makePrisma();
+  const svc = new InventoryService(prisma as never);
+  return { svc, prisma };
+};
+
+/** A stored inventory row for `productId` (default p1). */
+const item = (over: Record<string, unknown> = {}) => ({
+  id: 'inv1',
+  productId: 'p1',
+  available: 10,
+  reserved: 0,
+  lowStockThreshold: 5,
+  ...over,
+});
+
+describe('InventoryService.reserve', () => {
+  it('moves stock available→reserved and appends a RESERVATION movement atomically', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item());
+    prisma.inventoryItem.update.mockResolvedValue(
+      item({ available: 7, reserved: 3 }),
+    );
+
+    await svc.reserve('p1', 3, 'order1');
+
+    expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
+      where: { id: 'inv1' },
+      data: { available: { decrement: 3 }, reserved: { increment: 3 } },
+    });
+    expect(prisma.inventoryMovement.create).toHaveBeenCalledWith({
+      data: {
+        inventoryItemId: 'inv1',
+        type: MovementType.RESERVATION,
+        quantity: -3,
+        orderId: 'order1',
+        reason: null,
+      },
+    });
+    expect(prisma.$transaction).toHaveBeenCalled();
+  });
+
+  it('rejects reserving more than available with 400 and writes nothing', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 2 }));
+
+    await expect(svc.reserve('p1', 3, 'order1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+    expect(prisma.inventoryMovement.create).not.toHaveBeenCalled();
+  });
+
+  it('throws 404 when the product has no inventory item', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(null);
+
+    await expect(svc.reserve('ghost', 1)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('InventoryService.release', () => {
+  it('moves stock reserved→available and appends a RELEASE movement', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(
+      item({ available: 7, reserved: 3 }),
+    );
+    prisma.inventoryItem.update.mockResolvedValue(
+      item({ available: 9, reserved: 1 }),
+    );
+
+    await svc.release('p1', 2, 'order1');
+
+    expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
+      where: { id: 'inv1' },
+      data: { available: { increment: 2 }, reserved: { decrement: 2 } },
+    });
+    expect(prisma.inventoryMovement.create).toHaveBeenCalledWith({
+      data: {
+        inventoryItemId: 'inv1',
+        type: MovementType.RELEASE,
+        quantity: 2,
+        orderId: 'order1',
+        reason: null,
+      },
+    });
+  });
+
+  it('rejects releasing more than reserved with 400', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ reserved: 1 }));
+
+    await expect(svc.release('p1', 2)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('InventoryService.deduct', () => {
+  it('reduces reserved on fulfillment and appends a DEDUCTION movement', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(
+      item({ available: 7, reserved: 3 }),
+    );
+    prisma.inventoryItem.update.mockResolvedValue(
+      item({ available: 7, reserved: 1 }),
+    );
+
+    await svc.deduct('p1', 2, 'order1');
+
+    expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
+      where: { id: 'inv1' },
+      data: { reserved: { decrement: 2 } },
+    });
+    expect(prisma.inventoryMovement.create).toHaveBeenCalledWith({
+      data: {
+        inventoryItemId: 'inv1',
+        type: MovementType.DEDUCTION,
+        quantity: -2,
+        orderId: 'order1',
+        reason: null,
+      },
+    });
+  });
+
+  it('rejects deducting more than reserved with 400', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ reserved: 1 }));
+
+    await expect(svc.deduct('p1', 2)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+  });
+});

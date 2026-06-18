@@ -23,4 +23,23 @@ describe('AddToCartButton', () => {
     render(<CartProvider initialCart={cart}><AddToCartButton productId="p1" disabled /></CartProvider>);
     expect(screen.getByRole('button', { name: /add to cart|unavailable/i })).toBeDisabled();
   });
+
+  it('is disabled while an add is in flight (pending)', async () => {
+    // Use a never-resolving fetch so the button stays in the pending state.
+    let resolveAdd!: () => void;
+    const inflight = new Promise<{ ok: boolean; status: number; json: () => Promise<CartView> }>((resolve) => {
+      resolveAdd = () => resolve({ ok: true, status: 200, json: async () => cart });
+    });
+    (global.fetch as ReturnType<typeof vi.fn>).mockReturnValue(inflight);
+
+    render(<CartProvider initialCart={cart}><AddToCartButton productId="p1" /></CartProvider>);
+
+    // Click but do not await resolution — button should be disabled mid-flight.
+    act(() => { screen.getByRole('button', { name: /add to cart/i }).click(); });
+
+    expect(screen.getByRole('button', { name: /add to cart/i })).toBeDisabled();
+
+    // Resolve the fetch so timers / state settle before the test ends.
+    await act(async () => { resolveAdd(); });
+  });
 });

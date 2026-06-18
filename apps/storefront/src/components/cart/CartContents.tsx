@@ -77,6 +77,7 @@ export function CartContents({ initial }: { initial: CartView }) {
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-600">Order summary</h2>
         <dl className="flex flex-col gap-2 text-sm">
           <Row label="Subtotal" value={view.totals.subtotal} />
+          {/* discountTotal intentionally omitted — discounts/coupons are out of PRD scope (always 0.00) */}
           <Row label="Tax" value={view.totals.taxTotal} />
           <Row label="Shipping" value={view.totals.shippingTotal} />
           <div className="mt-2 border-t border-neutral-200 pt-2">

@@ -18,6 +18,7 @@ export default defineConfig({
       // Server-only markers Next resolves at build time but Vitest cannot.
       'server-only': path.resolve(__dirname, './src/test/server-only-stub.ts'),
       'next/headers': path.resolve(__dirname, './src/test/next-headers-stub.ts'),
+      'next/navigation': path.resolve(__dirname, './src/test/next-navigation-stub.ts'),
     },
   },
 });

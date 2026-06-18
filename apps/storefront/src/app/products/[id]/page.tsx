@@ -4,6 +4,7 @@ import { getProductById, getRelatedProductsFor } from '@/lib/catalog';
 import { Price } from '@/components/catalog/Price';
 import { ProductGallery } from '@/components/catalog/ProductGallery';
 import { RelatedProducts } from '@/components/catalog/RelatedProducts';
+import { AddToCartButton } from '@/components/cart/AddToCartButton';
 
 type Params = { id: string };
 
@@ -65,6 +66,8 @@ export default async function ProductDetailPage({
           >
             {available ? 'In stock' : 'Unavailable'}
           </p>
+
+          <AddToCartButton productId={product.id} disabled={!available} />
 
           <div className="mt-2 border-t border-neutral-200 pt-4">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-600">

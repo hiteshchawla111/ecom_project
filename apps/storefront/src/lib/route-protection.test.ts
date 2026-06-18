@@ -11,6 +11,14 @@ describe('loginRedirectFor', () => {
     expect(loginRedirectFor('/account', true)).toBeNull();
   });
 
+  it('redirects /cart to /login when there is no session', () => {
+    expect(loginRedirectFor('/cart', false)).toBe('/login');
+  });
+
+  it('allows /cart when a session is present', () => {
+    expect(loginRedirectFor('/cart', true)).toBeNull();
+  });
+
   it('never redirects public routes regardless of auth', () => {
     expect(loginRedirectFor('/', false)).toBeNull();
     expect(loginRedirectFor('/login', false)).toBeNull();

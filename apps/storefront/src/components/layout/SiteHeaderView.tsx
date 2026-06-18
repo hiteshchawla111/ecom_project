@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { CurrentUser } from '@/lib/api-auth';
 import { MobileNav } from './MobileNav';
+import { CartCountBadge } from '@/components/cart/CartCountBadge';
 
 /** Primary navigation links, shared by the desktop bar and the mobile menu. */
 export const NAV_LINKS = [
@@ -47,9 +48,10 @@ export function SiteHeaderView({ user }: SiteHeaderViewProps) {
         <div className="flex items-center gap-2">
           <Link
             href="/cart"
-            className="rounded-md p-2 text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+            className="relative rounded-md p-2 text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
           >
             <CartIcon />
+            <CartCountBadge />
             <span className="sr-only">Cart</span>
           </Link>
 

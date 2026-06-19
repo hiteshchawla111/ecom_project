@@ -43,6 +43,24 @@ export interface CheckoutInput {
   shipPostalCode: string;
 }
 
+/** A row in the order-history list (mirrors API OrderSummary). */
+export interface OrderSummaryRow {
+  id: string;
+  status: string;
+  grandTotal: string;
+  itemCount: number;
+  createdAt: string;
+}
+
+/** Paginated envelope mirroring the API list response. */
+export interface Paginated<T> {
+  data: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 export function placeOrder(input: CheckoutInput, deps: AuthedApiDeps): Promise<OrderView> {
   return authedRequest<OrderView>(
     '/orders',
@@ -54,6 +72,17 @@ export function placeOrder(input: CheckoutInput, deps: AuthedApiDeps): Promise<O
 export function getOrder(id: string, deps: AuthedApiDeps): Promise<OrderView> {
   return authedRequest<OrderView>(
     `/orders/${encodeURIComponent(id)}`,
+    { method: 'GET' },
+    deps,
+  );
+}
+
+/** The caller's own order history, newest-first (mirrors API GET /orders). */
+export function listOrders(
+  deps: AuthedApiDeps,
+): Promise<Paginated<OrderSummaryRow>> {
+  return authedRequest<Paginated<OrderSummaryRow>>(
+    '/orders',
     { method: 'GET' },
     deps,
   );

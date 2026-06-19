@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { placeOrder, getOrder, type CheckoutInput, type OrderView, type AuthedApiDeps } from './api-orders';
+import { placeOrder, getOrder, listOrders, type CheckoutInput, type OrderView, type AuthedApiDeps } from './api-orders';
 
 const order: OrderView = {
   id: 'order1',
@@ -48,5 +48,30 @@ describe('orders API client', () => {
       expect.objectContaining({ method: 'GET' }),
     );
     expect(res).toEqual(order);
+  });
+
+  it('listOrders GETs /orders and returns the paginated history', async () => {
+    const history = {
+      data: [
+        {
+          id: 'order1',
+          status: 'PENDING',
+          grandTotal: '48.98',
+          itemCount: 2,
+          createdAt: '2026-06-17T12:00:00.000Z',
+        },
+      ],
+      page: 1,
+      pageSize: 20,
+      total: 1,
+      totalPages: 1,
+    };
+    const fetchMock = vi.fn().mockResolvedValue(okResponse(history));
+    const res = await listOrders(baseDeps({ fetch: fetchMock }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://api.test/orders',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(res).toEqual(history);
   });
 });

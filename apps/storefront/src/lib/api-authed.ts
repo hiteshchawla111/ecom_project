@@ -103,13 +103,26 @@ export async function liveAuthedDeps(): Promise<AuthedApiDeps> {
     baseUrl: apiBaseUrl(),
     getAccessToken: () => store.get(ACCESS_COOKIE)?.value,
     getRefreshToken: () => store.get(REFRESH_COOKIE)?.value,
+    // Cookie writes are best-effort: Next throws if cookies() is mutated
+    // during a Server Component render (only Server Actions / Route Handlers
+    // may write). The refreshed token still flows through this request via the
+    // live adapter; persistence just no-ops in a render context. Mirrors
+    // session.ts persistTokens/clearTokens (the documented render-cookie trap).
     onTokensRefreshed: (pair) => {
-      store.set(ACCESS_COOKIE, pair.accessToken, cookieOptions(isProd));
-      store.set(REFRESH_COOKIE, pair.refreshToken, cookieOptions(isProd));
+      try {
+        store.set(ACCESS_COOKIE, pair.accessToken, cookieOptions(isProd));
+        store.set(REFRESH_COOKIE, pair.refreshToken, cookieOptions(isProd));
+      } catch {
+        // rendering context — cookies are read-only here
+      }
     },
     onSessionInvalid: () => {
-      store.delete(ACCESS_COOKIE);
-      store.delete(REFRESH_COOKIE);
+      try {
+        store.delete(ACCESS_COOKIE);
+        store.delete(REFRESH_COOKIE);
+      } catch {
+        // rendering context — cookies are read-only here
+      }
     },
   };
 }

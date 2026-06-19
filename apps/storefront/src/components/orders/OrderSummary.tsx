@@ -1,5 +1,6 @@
 import { formatPrice } from '@/lib/money';
 import type { OrderView } from '@/lib/api-orders';
+import { OrderStatusBadge } from './OrderStatusBadge';
 
 /** Presentational order detail — items, totals, shipping snapshot. Reusable by
  *  the order confirmation page and (later) order history. */
@@ -9,9 +10,7 @@ export function OrderSummary({ order }: { order: OrderView }) {
       <div className="flex-1">
         <div className="mb-4 flex items-center gap-3">
           <span className="text-sm text-neutral-600">Status</span>
-          <span className="rounded-full bg-neutral-100 px-3 py-1 text-sm font-medium text-neutral-900">
-            {order.status}
-          </span>
+          <OrderStatusBadge status={order.status} />
         </div>
         <ul className="divide-y divide-neutral-200 border-y border-neutral-200">
           {order.items.map((item) => (

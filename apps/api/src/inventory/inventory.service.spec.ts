@@ -205,6 +205,55 @@ describe('InventoryService.deduct', () => {
   });
 });
 
+describe('InventoryService.restock', () => {
+  it('returns goods to available and appends an ADDITION movement (reason refund)', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 7 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 9 }));
+
+    await svc.restock('p1', 2, 'order1');
+
+    expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
+      where: { id: 'inv1' },
+      data: { available: { increment: 2 } },
+    });
+    expect(prisma.inventoryMovement.create).toHaveBeenCalledWith({
+      data: {
+        inventoryItemId: 'inv1',
+        type: MovementType.ADDITION,
+        quantity: 2,
+        orderId: 'order1',
+        reason: 'refund',
+      },
+    });
+  });
+
+  it('uses the passed tx and opens no nested transaction', async () => {
+    const { svc, prisma } = build();
+    const tx: any = {
+      inventoryItem: { findUnique: jest.fn(), update: jest.fn() },
+      inventoryMovement: { create: jest.fn() },
+    };
+    tx.inventoryItem.findUnique.mockResolvedValue(item({ available: 7 }));
+
+    await svc.restock('p1', 2, 'order1', tx);
+
+    expect(tx.inventoryItem.update).toHaveBeenCalled();
+    expect(tx.inventoryMovement.create).toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('throws 404 when the product has no inventory item', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(null);
+
+    await expect(svc.restock('ghost', 1)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+  });
+});
+
 describe('InventoryService.adjust', () => {
   it('ADDITION increases available and appends an ADDITION movement', async () => {
     const { svc, prisma } = build();

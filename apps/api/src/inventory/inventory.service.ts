@@ -148,6 +148,32 @@ export class InventoryService {
   }
 
   /**
+   * Return goods to available stock on a refund (`DELIVERED → REFUNDED`):
+   * `available += quantity`, recorded as an ADDITION movement (reason
+   * "refund"). Pass `tx` to join the caller's transaction so the restock
+   * commits/rolls back atomically with the status change.
+   */
+  async restock(
+    productId: string,
+    quantity: number,
+    orderId?: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const item = await this.requireItem(productId, tx);
+    await this.apply(
+      item.id,
+      {
+        counters: { available: { increment: quantity } },
+        type: MovementType.ADDITION,
+        delta: quantity,
+        orderId,
+        reason: 'refund',
+      },
+      tx,
+    );
+  }
+
+  /**
    * Manual stock adjustment by an admin / inventory manager. Operates on
    * `available` (never `reserved` — order holds are system-driven) and records
    * the change as a movement with a required `reason`:

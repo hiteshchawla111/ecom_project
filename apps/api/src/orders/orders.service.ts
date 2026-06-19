@@ -10,6 +10,7 @@ import { OrderStatus, Prisma, ProductStatus, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
 import { InventoryService } from '../inventory/inventory.service';
+import type { LowStockEvent } from '../inventory/inventory.events';
 import { resolveTotalsConfig } from '../cart/cart.config';
 import { priceItems, PricingItem } from '../cart/cart-pricing';
 import { TotalsConfig } from '../cart/totals';
@@ -133,48 +134,59 @@ export class OrdersService {
 
     const { lines, totals } = priceItems(pricingItems, this.totalsConfig);
 
-    const order = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.order.create({
-        data: {
-          userId,
-          status: OrderStatus.PENDING,
-          subtotal: totals.subtotal,
-          discountTotal: totals.discountTotal,
-          taxTotal: totals.taxTotal,
-          shippingTotal: totals.shippingTotal,
-          grandTotal: totals.grandTotal,
-          shipFullName: dto.shipFullName,
-          shipLine1: dto.shipLine1,
-          shipLine2: dto.shipLine2 ?? null,
-          shipCity: dto.shipCity,
-          shipState: dto.shipState,
-          shipCountry: dto.shipCountry,
-          shipPostalCode: dto.shipPostalCode,
-          items: {
-            create: lines.map((line) => ({
-              productId: line.productId,
-              productName: line.name,
-              unitPrice: line.unitPrice,
-              quantity: line.quantity,
-              lineTotal: line.lineTotal,
-            })),
+    const { order, lowStockCrossings } = await this.prisma.$transaction(
+      async (tx) => {
+        const created = await tx.order.create({
+          data: {
+            userId,
+            status: OrderStatus.PENDING,
+            subtotal: totals.subtotal,
+            discountTotal: totals.discountTotal,
+            taxTotal: totals.taxTotal,
+            shippingTotal: totals.shippingTotal,
+            grandTotal: totals.grandTotal,
+            shipFullName: dto.shipFullName,
+            shipLine1: dto.shipLine1,
+            shipLine2: dto.shipLine2 ?? null,
+            shipCity: dto.shipCity,
+            shipState: dto.shipState,
+            shipCountry: dto.shipCountry,
+            shipPostalCode: dto.shipPostalCode,
+            items: {
+              create: lines.map((line) => ({
+                productId: line.productId,
+                productName: line.name,
+                unitPrice: line.unitPrice,
+                quantity: line.quantity,
+                lineTotal: line.lineTotal,
+              })),
+            },
           },
-        },
-        include: ORDER_INCLUDE,
-      });
-      // Reserve stock for each line within the same transaction: any failure
-      // (insufficient stock or no inventory item) rolls back the whole order.
-      for (const line of lines) {
-        await this.inventory.reserve(
-          line.productId,
-          line.quantity,
-          created.id,
-          tx,
-        );
-      }
-      await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
-      return created;
-    });
+          include: ORDER_INCLUDE,
+        });
+        // Reserve stock for each line within the same transaction: any failure
+        // (insufficient stock or no inventory item) rolls back the whole order.
+        // `reserve` returns any low-stock crossing to emit *after* commit.
+        const crossings: LowStockEvent[] = [];
+        for (const line of lines) {
+          const crossing = await this.inventory.reserve(
+            line.productId,
+            line.quantity,
+            created.id,
+            tx,
+          );
+          if (crossing) crossings.push(crossing);
+        }
+        await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
+        return { order: created, lowStockCrossings: crossings };
+      },
+    );
+
+    // Emit only after the placement transaction has committed, so a rolled-back
+    // order never produces a spurious low-stock alert.
+    for (const crossing of lowStockCrossings) {
+      this.inventory.emitLowStock(crossing);
+    }
 
     return this.toOrderView(order);
   }

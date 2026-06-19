@@ -6,6 +6,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { MovementType } from '@prisma/client';
 import { InventoryService } from './inventory.service';
+import { LOW_STOCK_EVENT } from './inventory.events';
 
 // $transaction(cb) runs the callback with a tx client proxying to the same
 // mocks, so assertions can target prisma.inventoryItem.update etc.
@@ -23,10 +24,13 @@ const makePrisma = () => {
   return prisma;
 };
 
+const makeEvents = () => ({ emit: jest.fn() });
+
 const build = () => {
   const prisma = makePrisma();
-  const svc = new InventoryService(prisma as never);
-  return { svc, prisma };
+  const events = makeEvents();
+  const svc = new InventoryService(prisma as never, events as never);
+  return { svc, prisma, events };
 };
 
 /** A stored inventory row for `productId` (default p1). */
@@ -362,5 +366,101 @@ describe('InventoryService.adjust', () => {
         reason: 'x',
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('InventoryService low-stock alerts', () => {
+  // threshold 5 throughout (default item()).
+  it('emits low-stock when a reservation takes available across the threshold', async () => {
+    const { svc, prisma, events } = build();
+    // 6 available (above 5) -> reserve 2 -> 4 available (at/below 5): crossing
+    prisma.inventoryItem.findUnique.mockResolvedValue(
+      item({ available: 6, reserved: 0 }),
+    );
+    prisma.inventoryItem.update.mockResolvedValue(
+      item({ available: 4, reserved: 2 }),
+    );
+
+    await svc.reserve('p1', 2, 'order1');
+
+    expect(events.emit).toHaveBeenCalledWith(LOW_STOCK_EVENT, {
+      productId: 'p1',
+      available: 4,
+      threshold: 5,
+    });
+  });
+
+  it('does not emit when available stays above the threshold', async () => {
+    const { svc, prisma, events } = build();
+    // 10 -> reserve 2 -> 8, still above 5
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 8 }));
+
+    await svc.reserve('p1', 2, 'order1');
+
+    expect(events.emit).not.toHaveBeenCalled();
+  });
+
+  it('does not emit again when already at/below the threshold (no re-cross)', async () => {
+    const { svc, prisma, events } = build();
+    // already 4 (<=5) -> reserve 1 -> 3: no downward CROSSING (was already low)
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 4 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 3 }));
+
+    await svc.reserve('p1', 1, 'order1');
+
+    expect(events.emit).not.toHaveBeenCalled();
+  });
+
+  it('emits when a manual DEDUCTION crosses the threshold', async () => {
+    const { svc, prisma, events } = build();
+    // 6 -> deduct 3 -> 3 (crosses 5)
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 6 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 3 }));
+
+    await svc.adjust('p1', {
+      type: MovementType.DEDUCTION,
+      quantity: 3,
+      reason: 'damaged',
+    });
+
+    expect(events.emit).toHaveBeenCalledWith(LOW_STOCK_EVENT, {
+      productId: 'p1',
+      available: 3,
+      threshold: 5,
+    });
+  });
+
+  it('emits when an ADJUSTMENT recount sets available below the threshold', async () => {
+    const { svc, prisma, events } = build();
+    // 10 -> adjust set 2 (below 5)
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 2 }));
+
+    await svc.adjust('p1', {
+      type: MovementType.ADJUSTMENT,
+      quantity: 2,
+      reason: 'cycle count',
+    });
+
+    expect(events.emit).toHaveBeenCalledWith(LOW_STOCK_EVENT, {
+      productId: 'p1',
+      available: 2,
+      threshold: 5,
+    });
+  });
+
+  it('never emits on an ADDITION (available only rises)', async () => {
+    const { svc, prisma, events } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 2 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 7 }));
+
+    await svc.adjust('p1', {
+      type: MovementType.ADDITION,
+      quantity: 5,
+      reason: 'restock',
+    });
+
+    expect(events.emit).not.toHaveBeenCalled();
   });
 });

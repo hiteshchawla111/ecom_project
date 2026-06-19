@@ -44,9 +44,10 @@ const makePrisma = () => {
 };
 
 const makeInventory = () => ({
-  reserve: jest.fn().mockResolvedValue(undefined),
+  reserve: jest.fn().mockResolvedValue(null),
   release: jest.fn().mockResolvedValue(undefined),
   deduct: jest.fn().mockResolvedValue(undefined),
+  emitLowStock: jest.fn(),
 });
 
 const build = () => {
@@ -172,6 +173,19 @@ describe('OrdersService.placeOrder', () => {
       BadRequestException,
     );
     expect(prisma.order.create).not.toHaveBeenCalled();
+  });
+
+  it('emits a deferred low-stock alert after placement commits', async () => {
+    const { svc, prisma, inventory } = build();
+    prisma.cart.findFirst.mockResolvedValue(cartWith([activeLine()]));
+    prisma.order.create.mockResolvedValue(createdOrder);
+    const crossing = { productId: 'p1', available: 2, threshold: 5 };
+    inventory.reserve.mockResolvedValue(crossing);
+
+    await svc.placeOrder('u1', shipping);
+
+    // emitted post-commit (the reserve ran inside the placement tx)
+    expect(inventory.emitLowStock).toHaveBeenCalledWith(crossing);
   });
 
   it('does not complete placement if reserving stock fails (rolls back)', async () => {

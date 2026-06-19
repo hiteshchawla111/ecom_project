@@ -323,29 +323,19 @@ export class OrdersService {
     // status change so the two can never drift:
     //   - CANCELLED releases the reserve back to available
     //   - SHIPPED deducts the reserve (goods have left the warehouse)
-    // The state machine guarantees a shipped/delivered order can't be
-    // cancelled, so these two paths never both run for one order.
-    if (
-      nextStatus === OrderStatus.CANCELLED ||
-      nextStatus === OrderStatus.SHIPPED
-    ) {
+    //   - REFUNDED restocks the goods back to available
+    // These statuses are mutually exclusive per the state machine, so at most
+    // one stock op runs for a given transition.
+    if (this.movesStock(nextStatus)) {
       const updated = await this.prisma.$transaction(async (tx) => {
         for (const item of order.items) {
-          if (nextStatus === OrderStatus.CANCELLED) {
-            await this.inventory.release(
-              item.productId,
-              item.quantity,
-              order.id,
-              tx,
-            );
-          } else {
-            await this.inventory.deduct(
-              item.productId,
-              item.quantity,
-              order.id,
-              tx,
-            );
-          }
+          await this.applyStockForStatus(
+            nextStatus,
+            item.productId,
+            item.quantity,
+            order.id,
+            tx,
+          );
         }
         return tx.order.update({
           where: { id: orderId },
@@ -362,5 +352,37 @@ export class OrdersService {
       include: ORDER_INCLUDE,
     });
     return this.toOrderView(updated);
+  }
+
+  /** Whether a transition into `status` moves stock through the ledger. */
+  private movesStock(status: OrderStatus): boolean {
+    return (
+      status === OrderStatus.CANCELLED ||
+      status === OrderStatus.SHIPPED ||
+      status === OrderStatus.REFUNDED
+    );
+  }
+
+  /** Apply the per-line inventory effect of a stock-moving status transition. */
+  private async applyStockForStatus(
+    status: OrderStatus,
+    productId: string,
+    quantity: number,
+    orderId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    switch (status) {
+      case OrderStatus.CANCELLED:
+        await this.inventory.release(productId, quantity, orderId, tx);
+        return;
+      case OrderStatus.SHIPPED:
+        await this.inventory.deduct(productId, quantity, orderId, tx);
+        return;
+      case OrderStatus.REFUNDED:
+        await this.inventory.restock(productId, quantity, orderId, tx);
+        return;
+      default:
+        return;
+    }
   }
 }

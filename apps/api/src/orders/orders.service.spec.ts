@@ -47,6 +47,7 @@ const makeInventory = () => ({
   reserve: jest.fn().mockResolvedValue(null),
   release: jest.fn().mockResolvedValue(undefined),
   deduct: jest.fn().mockResolvedValue(undefined),
+  restock: jest.fn().mockResolvedValue(undefined),
   emitLowStock: jest.fn(),
 });
 
@@ -349,6 +350,19 @@ describe('OrdersService.updateStatus', () => {
     await svc.updateStatus(admin, 'order1', OrderStatus.DELIVERED);
 
     expect(inventory.deduct).not.toHaveBeenCalled();
+    expect(inventory.restock).not.toHaveBeenCalled();
+  });
+
+  it('restocks each line’s goods when an order is REFUNDED', async () => {
+    const { svc, prisma, inventory } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.DELIVERED));
+    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.REFUNDED));
+
+    const view = await svc.updateStatus(admin, 'order1', OrderStatus.REFUNDED);
+
+    expect(inventory.restock).toHaveBeenCalledWith('p1', 2, 'order1', prisma);
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(view.status).toBe(OrderStatus.REFUNDED);
   });
 
   it('releases each line’s reserved stock when an order is CANCELLED', async () => {

@@ -21,6 +21,37 @@ export interface AdminOrderSummary {
   createdAt: string;
 }
 
+/** A line item on an order (mirrors API OrderItemView). */
+export interface OrderItem {
+  productId: string;
+  productName: string;
+  unitPrice: string;
+  quantity: number;
+  lineTotal: string;
+}
+
+/** Full order detail (mirrors API AdminOrderView). */
+export interface AdminOrderDetail {
+  id: string;
+  status: OrderStatus;
+  subtotal: string;
+  discountTotal: string;
+  taxTotal: string;
+  shippingTotal: string;
+  grandTotal: string;
+  shipFullName: string;
+  shipLine1: string;
+  shipLine2: string | null;
+  shipCity: string;
+  shipState: string;
+  shipCountry: string;
+  shipPostalCode: string;
+  customerEmail: string;
+  customerName: string;
+  items: OrderItem[];
+  createdAt: string;
+}
+
 /** Paginated envelope mirroring the API list response. */
 export interface Paginated<T> {
   data: T[];
@@ -56,4 +87,27 @@ export function listOrders(
     status: query.status,
   })}`;
   return apiClient.request<Paginated<AdminOrderSummary>>(path);
+}
+
+/** Fetch a single order's full detail (ADMIN). */
+export function getOrder(id: string): Promise<AdminOrderDetail> {
+  return apiClient.request<AdminOrderDetail>(`/admin/orders/${id}`);
+}
+
+/**
+ * Drive an order to a new status (ADMIN). Returns the updated order.
+ *
+ * Note: reads use `/admin/orders`, but the status transition deliberately uses
+ * the shared `PATCH /orders/:id/status` route (`@Roles(ADMIN, CUSTOMER)` on the
+ * API — admins drive any valid transition, customers may only self-cancel).
+ * There is no separate `/admin/orders/:id/status`; this is intentional.
+ */
+export function updateOrderStatus(
+  id: string,
+  status: OrderStatus,
+): Promise<AdminOrderDetail> {
+  return apiClient.request<AdminOrderDetail>(`/orders/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
 }

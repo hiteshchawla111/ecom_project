@@ -5,7 +5,7 @@ vi.mock('./apiClient', () => ({
   apiClient: { request: (...a: unknown[]) => request(...a) },
 }));
 
-import { listOrders } from './orders';
+import { listOrders, getOrder, updateOrderStatus } from './orders';
 
 beforeEach(() => {
   request.mockReset();
@@ -34,5 +34,24 @@ describe('listOrders', () => {
   it('omits status when not provided', async () => {
     await listOrders({ page: 3 });
     expect(request).toHaveBeenCalledWith('/admin/orders?page=3');
+  });
+});
+
+describe('getOrder', () => {
+  it('GETs /admin/orders/:id', async () => {
+    request.mockResolvedValue({ id: 'o1' });
+    await getOrder('o1');
+    expect(request).toHaveBeenCalledWith('/admin/orders/o1');
+  });
+});
+
+describe('updateOrderStatus', () => {
+  it('PATCHes /orders/:id/status with the target status', async () => {
+    request.mockResolvedValue({ id: 'o1', status: 'CONFIRMED' });
+    await updateOrderStatus('o1', 'CONFIRMED');
+    expect(request).toHaveBeenCalledWith('/orders/o1/status', {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'CONFIRMED' }),
+    });
   });
 });

@@ -5,6 +5,12 @@ import {
 } from '@nestjs/common';
 import { MovementType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ManualMovementType } from './dto/create-movement.dto';
+
+/** Compile-time exhaustiveness guard for switch statements. */
+function assertNever(value: never): never {
+  throw new BadRequestException(`Unsupported movement type: ${String(value)}`);
+}
 
 /**
  * Inventory ledger. The single authority over available vs. reserved stock.
@@ -119,6 +125,78 @@ export class InventoryService {
       },
       tx,
     );
+  }
+
+  /**
+   * Manual stock adjustment by an admin / inventory manager. Operates on
+   * `available` (never `reserved` — order holds are system-driven) and records
+   * the change as a movement with a required `reason`:
+   *
+   *   ADDITION   — receive `quantity` new units (available += quantity)
+   *   DEDUCTION  — remove `quantity` units, e.g. damaged/lost (available -= quantity)
+   *   ADJUSTMENT — set available to the absolute `quantity` (a recount); the
+   *                movement records the signed difference from the old count
+   *
+   * Order-driven types (RESERVATION/RELEASE) are not permitted here.
+   */
+  async adjust(
+    productId: string,
+    input: { type: ManualMovementType; quantity: number; reason: string },
+  ): Promise<void> {
+    const { type, quantity, reason } = input;
+    const item = await this.requireItem(productId);
+
+    switch (type) {
+      case MovementType.ADDITION:
+        // A zero-unit addition is a no-op that would only pollute the ledger.
+        if (quantity < 1) {
+          throw new BadRequestException('Addition quantity must be at least 1');
+        }
+        await this.apply(item.id, {
+          counters: { available: { increment: quantity } },
+          type,
+          delta: quantity,
+          reason,
+        });
+        return;
+
+      case MovementType.DEDUCTION:
+        if (quantity < 1) {
+          throw new BadRequestException(
+            'Deduction quantity must be at least 1',
+          );
+        }
+        if (item.available < quantity) {
+          throw new BadRequestException(
+            'Cannot deduct more than the available stock',
+          );
+        }
+        await this.apply(item.id, {
+          counters: { available: { decrement: quantity } },
+          type,
+          delta: -quantity,
+          reason,
+        });
+        return;
+
+      case MovementType.ADJUSTMENT:
+        // A recount may legitimately set available to 0; record the signed
+        // difference from the old count (no-op recounts write a 0-delta row,
+        // which is acceptable as an audit trail of the count itself).
+        await this.apply(item.id, {
+          counters: { available: { set: quantity } },
+          type,
+          delta: quantity - item.available,
+          reason,
+        });
+        return;
+
+      default:
+        // Exhaustive: `type` is narrowed to ManualMovementType, so this is
+        // unreachable. The `never` assertion makes a future enum addition a
+        // compile error rather than a silent runtime fall-through.
+        return assertNever(type);
+    }
   }
 
   private async requireItem(productId: string, tx?: Prisma.TransactionClient) {

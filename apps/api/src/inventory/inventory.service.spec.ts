@@ -200,3 +200,167 @@ describe('InventoryService.deduct', () => {
     expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
   });
 });
+
+describe('InventoryService.adjust', () => {
+  it('ADDITION increases available and appends an ADDITION movement', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 13 }));
+
+    await svc.adjust('p1', {
+      type: MovementType.ADDITION,
+      quantity: 3,
+      reason: 'restock',
+    });
+
+    expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
+      where: { id: 'inv1' },
+      data: { available: { increment: 3 } },
+    });
+    expect(prisma.inventoryMovement.create).toHaveBeenCalledWith({
+      data: {
+        inventoryItemId: 'inv1',
+        type: MovementType.ADDITION,
+        quantity: 3,
+        orderId: null,
+        reason: 'restock',
+      },
+    });
+  });
+
+  it('DEDUCTION decreases available and appends a DEDUCTION movement', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 8 }));
+
+    await svc.adjust('p1', {
+      type: MovementType.DEDUCTION,
+      quantity: 2,
+      reason: 'damaged',
+    });
+
+    expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
+      where: { id: 'inv1' },
+      data: { available: { decrement: 2 } },
+    });
+    expect(prisma.inventoryMovement.create).toHaveBeenCalledWith({
+      data: {
+        inventoryItemId: 'inv1',
+        type: MovementType.DEDUCTION,
+        quantity: -2,
+        orderId: null,
+        reason: 'damaged',
+      },
+    });
+  });
+
+  it('rejects a DEDUCTION that exceeds available with 400', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 1 }));
+
+    await expect(
+      svc.adjust('p1', {
+        type: MovementType.DEDUCTION,
+        quantity: 2,
+        reason: 'damaged',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+  });
+
+  it('ADJUSTMENT sets available to the absolute count with a signed-diff movement', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 7 }));
+
+    // recount: actual on-hand is 7 (down from 10) -> delta -3
+    await svc.adjust('p1', {
+      type: MovementType.ADJUSTMENT,
+      quantity: 7,
+      reason: 'cycle count',
+    });
+
+    expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
+      where: { id: 'inv1' },
+      data: { available: { set: 7 } },
+    });
+    expect(prisma.inventoryMovement.create).toHaveBeenCalledWith({
+      data: {
+        inventoryItemId: 'inv1',
+        type: MovementType.ADJUSTMENT,
+        quantity: -3,
+        orderId: null,
+        reason: 'cycle count',
+      },
+    });
+  });
+
+  it('allows an ADJUSTMENT recount to zero', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 4 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 0 }));
+
+    await svc.adjust('p1', {
+      type: MovementType.ADJUSTMENT,
+      quantity: 0,
+      reason: 'none on hand',
+    });
+
+    expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
+      where: { id: 'inv1' },
+      data: { available: { set: 0 } },
+    });
+    expect(prisma.inventoryMovement.create).toHaveBeenCalledWith({
+      data: {
+        inventoryItemId: 'inv1',
+        type: MovementType.ADJUSTMENT,
+        quantity: -4,
+        orderId: null,
+        reason: 'none on hand',
+      },
+    });
+  });
+
+  it('rejects a zero-quantity ADDITION as a no-op', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item());
+
+    await expect(
+      svc.adjust('p1', {
+        type: MovementType.ADDITION,
+        quantity: 0,
+        reason: 'noop',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects an order-driven movement type (RESERVATION/RELEASE) via adjust', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item());
+
+    await expect(
+      // Cast: the type system already forbids this (adjust takes
+      // ManualMovementType); this guards the runtime path defensively.
+      svc.adjust('p1', {
+        type: MovementType.RESERVATION as never,
+        quantity: 1,
+        reason: 'nope',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+  });
+
+  it('throws 404 when the product has no inventory item', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(null);
+
+    await expect(
+      svc.adjust('ghost', {
+        type: MovementType.ADDITION,
+        quantity: 1,
+        reason: 'x',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});

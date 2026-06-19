@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { OrdersController } from './orders.controller';
+import { AdminOrdersController } from './admin-orders.controller';
 import { OrdersService } from './orders.service';
 
 /**
@@ -11,7 +12,7 @@ import { OrdersService } from './orders.service';
  */
 @Module({
   imports: [PrismaModule, InventoryModule],
-  controllers: [OrdersController],
+  controllers: [OrdersController, AdminOrdersController],
   providers: [OrdersService],
   exports: [OrdersService],
 })

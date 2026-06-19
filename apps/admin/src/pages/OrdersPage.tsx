@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   listOrders,
   type AdminOrderSummary,
@@ -149,6 +150,9 @@ export function OrdersPage() {
                 <th scope="col" className="px-4 py-2.5 font-medium">
                   Placed
                 </th>
+                <th scope="col" className="px-4 py-2.5 text-right font-medium">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -172,6 +176,16 @@ export function OrdersPage() {
                   <td className="px-4 py-2 text-right">{order.itemCount}</td>
                   <td className="px-4 py-2 text-neutral-600">
                     {dateFmt.format(new Date(order.createdAt))}
+                  </td>
+                  <td className="px-4 py-2">
+                    <div className="flex justify-end">
+                      <Link
+                        to={`/orders/${order.id}`}
+                        className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                      >
+                        View
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

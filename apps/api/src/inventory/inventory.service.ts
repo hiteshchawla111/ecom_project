@@ -7,12 +7,49 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MovementType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ManualMovementType } from './dto/create-movement.dto';
+import { ListStockDto } from './dto/list-stock.dto';
 import { LOW_STOCK_EVENT, LowStockEvent } from './inventory.events';
 
 /** Compile-time exhaustiveness guard for switch statements. */
 function assertNever(value: never): never {
   throw new BadRequestException(`Unsupported movement type: ${String(value)}`);
 }
+
+/** A row in the admin stock list: counters + product identity + low flag. */
+export interface StockRow {
+  productId: string;
+  name: string;
+  sku: string;
+  available: number;
+  reserved: number;
+  lowStockThreshold: number;
+  isLowStock: boolean;
+}
+
+/** A single ledger movement as exposed to admins. */
+export interface MovementView {
+  type: MovementType;
+  quantity: number;
+  reason: string | null;
+  orderId: string | null;
+  createdAt: Date;
+}
+
+/** A stock item's full view: counters + product identity + recent movements. */
+export interface StockItemView extends StockRow {
+  movements: MovementView[];
+}
+
+export interface Paginated<T> {
+  data: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+/** How many recent movements `getStockItem` returns. */
+const MOVEMENT_HISTORY_LIMIT = 50;
 
 /**
  * Inventory ledger. The single authority over available vs. reserved stock.
@@ -245,6 +282,112 @@ export class InventoryService {
         // compile error rather than a silent runtime fall-through.
         return assertNever(type);
     }
+  }
+
+  /**
+   * Admin/inventory-manager stock list: per-product available vs. reserved with
+   * a computed `isLowStock` flag. `lowStock=true` filters to rows where
+   * `available <= lowStockThreshold` — a column-to-column comparison Prisma's
+   * `where` can't express, so those productIds are resolved with a raw query
+   * first, then loaded normally (keeps the typed select + pagination).
+   */
+  async listStock(query: ListStockDto): Promise<Paginated<StockRow>> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const skip = (page - 1) * pageSize;
+
+    const select = {
+      productId: true,
+      available: true,
+      reserved: true,
+      lowStockThreshold: true,
+      product: { select: { name: true, sku: true } },
+    } satisfies Prisma.InventoryItemSelect;
+
+    // The low-stock filter is a column-to-column comparison Prisma's `where`
+    // can't express, so resolve the matching productIds with a raw query first.
+    // All three reads run in one transaction so the resolved id set, the page,
+    // and the count come from a single consistent snapshot.
+    const { items, total } = await this.prisma.$transaction(async (tx) => {
+      let where: Prisma.InventoryItemWhereInput = {};
+      if (query.lowStock) {
+        const rows = await tx.$queryRaw<{ productId: string }[]>`
+          SELECT "productId" FROM "InventoryItem"
+          WHERE "available" <= "lowStockThreshold"
+        `;
+        where = { productId: { in: rows.map((r) => r.productId) } };
+      }
+      const [pageItems, count] = await Promise.all([
+        tx.inventoryItem.findMany({
+          where,
+          orderBy: { product: { name: 'asc' } },
+          skip,
+          take: pageSize,
+          select,
+        }),
+        tx.inventoryItem.count({ where }),
+      ]);
+      return { items: pageItems, total: count };
+    });
+
+    return {
+      data: items.map((it) => this.toStockRow(it)),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
+  }
+
+  /**
+   * Admin/inventory-manager stock detail: counters + product identity + the
+   * most recent movements (newest-first). 404 if the product has no item.
+   */
+  async getStockItem(productId: string): Promise<StockItemView> {
+    const item = await this.prisma.inventoryItem.findUnique({
+      where: { productId },
+      select: {
+        productId: true,
+        available: true,
+        reserved: true,
+        lowStockThreshold: true,
+        product: { select: { name: true, sku: true } },
+        movements: {
+          orderBy: { createdAt: 'desc' },
+          take: MOVEMENT_HISTORY_LIMIT,
+          select: {
+            type: true,
+            quantity: true,
+            reason: true,
+            orderId: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+    if (!item) {
+      throw new NotFoundException('No inventory item for this product');
+    }
+    return { ...this.toStockRow(item), movements: item.movements };
+  }
+
+  /** Map an inventory row (+product) to the admin StockRow shape. */
+  private toStockRow(it: {
+    productId: string;
+    available: number;
+    reserved: number;
+    lowStockThreshold: number;
+    product: { name: string; sku: string };
+  }): StockRow {
+    return {
+      productId: it.productId,
+      name: it.product.name,
+      sku: it.product.sku,
+      available: it.available,
+      reserved: it.reserved,
+      lowStockThreshold: it.lowStockThreshold,
+      isLowStock: it.available <= it.lowStockThreshold,
+    };
   }
 
   private async requireItem(productId: string, tx?: Prisma.TransactionClient) {

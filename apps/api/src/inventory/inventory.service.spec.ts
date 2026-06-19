@@ -14,9 +14,12 @@ const makePrisma = () => {
   const prisma: any = {
     inventoryItem: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
     },
-    inventoryMovement: { create: jest.fn() },
+    inventoryMovement: { create: jest.fn(), findMany: jest.fn() },
+    $queryRaw: jest.fn(),
   };
   prisma.$transaction = jest.fn(async (cb: (tx: any) => Promise<unknown>) =>
     cb(prisma),
@@ -511,5 +514,131 @@ describe('InventoryService low-stock alerts', () => {
     });
 
     expect(events.emit).not.toHaveBeenCalled();
+  });
+});
+
+describe('InventoryService.listStock', () => {
+  /** An inventory row joined with its product, as findMany returns it. */
+  const stockRow = (over: Record<string, unknown> = {}) => ({
+    productId: 'p1',
+    available: 8,
+    reserved: 2,
+    lowStockThreshold: 5,
+    product: { name: 'Mouse', sku: 'MSE-1' },
+    ...over,
+  });
+
+  it('returns a paginated stock list with product info and a computed isLowStock flag', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findMany.mockResolvedValue([
+      stockRow(),
+      stockRow({
+        productId: 'p2',
+        available: 3,
+        lowStockThreshold: 5,
+        product: { name: 'Keyboard', sku: 'KBD-1' },
+      }),
+    ]);
+    prisma.inventoryItem.count.mockResolvedValue(2);
+
+    const res = await svc.listStock({});
+
+    expect(res.data).toEqual([
+      {
+        productId: 'p1',
+        name: 'Mouse',
+        sku: 'MSE-1',
+        available: 8,
+        reserved: 2,
+        lowStockThreshold: 5,
+        isLowStock: false, // 8 > 5
+      },
+      {
+        productId: 'p2',
+        name: 'Keyboard',
+        sku: 'KBD-1',
+        available: 3,
+        reserved: 2,
+        lowStockThreshold: 5,
+        isLowStock: true, // 3 <= 5
+      },
+    ]);
+    expect(res.total).toBe(2);
+    // unfiltered: no raw column-compare query
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it('filters to low-stock rows when lowStock=true (column compare via raw)', async () => {
+    const { svc, prisma } = build();
+    // raw query resolves the productIds whose available <= lowStockThreshold
+    prisma.$queryRaw.mockResolvedValue([{ productId: 'p2' }]);
+    prisma.inventoryItem.findMany.mockResolvedValue([
+      stockRow({
+        productId: 'p2',
+        available: 3,
+        lowStockThreshold: 5,
+        product: { name: 'Keyboard', sku: 'KBD-1' },
+      }),
+    ]);
+    prisma.inventoryItem.count.mockResolvedValue(1);
+
+    const res = await svc.listStock({ lowStock: true });
+
+    expect(prisma.$queryRaw).toHaveBeenCalled();
+    // the findMany is constrained to the low-stock productIds
+    expect(prisma.inventoryItem.findMany.mock.calls[0][0].where).toEqual({
+      productId: { in: ['p2'] },
+    });
+    expect(res.data).toHaveLength(1);
+    expect(res.data[0].isLowStock).toBe(true);
+    expect(res.total).toBe(1);
+  });
+});
+
+describe('InventoryService.getStockItem', () => {
+  it('returns the item state plus recent movements (newest-first)', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue({
+      id: 'inv1',
+      productId: 'p1',
+      available: 8,
+      reserved: 2,
+      lowStockThreshold: 5,
+      product: { name: 'Mouse', sku: 'MSE-1' },
+      movements: [
+        {
+          type: MovementType.RESERVATION,
+          quantity: -2,
+          reason: null,
+          orderId: 'o1',
+          createdAt: new Date('2026-06-18T10:00:00Z'),
+        },
+      ],
+    });
+
+    const res = await svc.getStockItem('p1');
+
+    expect(res.productId).toBe('p1');
+    expect(res.name).toBe('Mouse');
+    expect(res.available).toBe(8);
+    expect(res.reserved).toBe(2);
+    expect(res.isLowStock).toBe(false);
+    expect(res.movements).toEqual([
+      {
+        type: MovementType.RESERVATION,
+        quantity: -2,
+        reason: null,
+        orderId: 'o1',
+        createdAt: new Date('2026-06-18T10:00:00Z'),
+      },
+    ]);
+  });
+
+  it('throws 404 when the product has no inventory item', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(null);
+    await expect(svc.getStockItem('ghost')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });

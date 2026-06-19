@@ -3,9 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MovementType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ManualMovementType } from './dto/create-movement.dto';
+import { LOW_STOCK_EVENT, LowStockEvent } from './inventory.events';
 
 /** Compile-time exhaustiveness guard for switch statements. */
 function assertNever(value: never): never {
@@ -34,7 +36,10 @@ type PrismaLike = PrismaService | Prisma.TransactionClient;
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventEmitter2,
+  ) {}
 
   /**
    * Reserve `quantity` units for a (possibly order-linked) hold: moves stock
@@ -49,7 +54,7 @@ export class InventoryService {
     quantity: number,
     orderId?: string,
     tx?: Prisma.TransactionClient,
-  ): Promise<void> {
+  ): Promise<LowStockEvent | null> {
     const item = await this.requireItem(productId, tx);
     if (item.available < quantity) {
       throw new BadRequestException('Insufficient stock available to reserve');
@@ -67,6 +72,21 @@ export class InventoryService {
       },
       tx,
     );
+    const crossing = this.lowStockCrossing(item, item.available - quantity);
+    // Standalone call (immediate commit): emit now. When joined to a caller's
+    // tx, the write isn't committed until that tx returns — so we return the
+    // crossing for the caller to emit *after* commit (no false alert on a
+    // rolled-back placement, and no shared mutable state on this singleton).
+    if (crossing && !tx) {
+      this.events.emit(LOW_STOCK_EVENT, crossing);
+      return null;
+    }
+    return crossing;
+  }
+
+  /** Emit a low-stock event that a caller deferred until after its commit. */
+  emitLowStock(event: LowStockEvent): void {
+    this.events.emit(LOW_STOCK_EVENT, event);
   }
 
   /**
@@ -177,6 +197,7 @@ export class InventoryService {
           delta: -quantity,
           reason,
         });
+        this.emitIfCrossedLow(item, item.available - quantity);
         return;
 
       case MovementType.ADJUSTMENT:
@@ -189,6 +210,7 @@ export class InventoryService {
           delta: quantity - item.available,
           reason,
         });
+        this.emitIfCrossedLow(item, quantity);
         return;
 
       default:
@@ -206,6 +228,34 @@ export class InventoryService {
       throw new NotFoundException('No inventory item for this product');
     }
     return item;
+  }
+
+  /**
+   * Build a low-stock event when `available` crosses *down* through the item's
+   * threshold (was strictly above, now at or below), else null. Only the
+   * downward crossing qualifies, so a product that stays low doesn't re-alert
+   * on every subsequent change. A threshold of 0 only fires at depletion.
+   */
+  private lowStockCrossing(
+    item: { productId: string; available: number; lowStockThreshold: number },
+    newAvailable: number,
+  ): LowStockEvent | null {
+    const { productId, available: before, lowStockThreshold: threshold } = item;
+    if (before > threshold && newAvailable <= threshold) {
+      return { productId, available: newAvailable, threshold };
+    }
+    return null;
+  }
+
+  /** Emit the crossing event for an immediate-commit op, if any. */
+  private emitIfCrossedLow(
+    item: { productId: string; available: number; lowStockThreshold: number },
+    newAvailable: number,
+  ): void {
+    const crossing = this.lowStockCrossing(item, newAvailable);
+    if (crossing) {
+      this.events.emit(LOW_STOCK_EVENT, crossing);
+    }
   }
 
   /**

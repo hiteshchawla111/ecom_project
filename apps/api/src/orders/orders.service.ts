@@ -307,17 +307,33 @@ export class OrdersService {
       throw err;
     }
 
-    // Cancelling frees the stock reserved at placement. Release each line and
-    // update the status atomically so the ledger can't drift from the order.
-    if (nextStatus === OrderStatus.CANCELLED) {
+    // Some transitions move stock through the ledger, atomically with the
+    // status change so the two can never drift:
+    //   - CANCELLED releases the reserve back to available
+    //   - SHIPPED deducts the reserve (goods have left the warehouse)
+    // The state machine guarantees a shipped/delivered order can't be
+    // cancelled, so these two paths never both run for one order.
+    if (
+      nextStatus === OrderStatus.CANCELLED ||
+      nextStatus === OrderStatus.SHIPPED
+    ) {
       const updated = await this.prisma.$transaction(async (tx) => {
         for (const item of order.items) {
-          await this.inventory.release(
-            item.productId,
-            item.quantity,
-            order.id,
-            tx,
-          );
+          if (nextStatus === OrderStatus.CANCELLED) {
+            await this.inventory.release(
+              item.productId,
+              item.quantity,
+              order.id,
+              tx,
+            );
+          } else {
+            await this.inventory.deduct(
+              item.productId,
+              item.quantity,
+              order.id,
+              tx,
+            );
+          }
         }
         return tx.order.update({
           where: { id: orderId },

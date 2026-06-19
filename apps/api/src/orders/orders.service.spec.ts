@@ -309,8 +309,32 @@ describe('OrdersService.updateStatus', () => {
     expect(updateArg.where).toEqual({ id: 'order1' });
     expect(updateArg.data).toEqual({ status: OrderStatus.CONFIRMED });
     expect(view.status).toBe(OrderStatus.CONFIRMED);
-    // a non-cancel transition releases no stock
+    // a non-cancel/non-ship transition moves no stock
     expect(inventory.release).not.toHaveBeenCalled();
+    expect(inventory.deduct).not.toHaveBeenCalled();
+  });
+
+  it('deducts each line’s reserved stock when an order is SHIPPED', async () => {
+    const { svc, prisma, inventory } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PROCESSING));
+    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.SHIPPED));
+
+    const view = await svc.updateStatus(admin, 'order1', OrderStatus.SHIPPED);
+
+    expect(inventory.deduct).toHaveBeenCalledWith('p1', 2, 'order1', prisma);
+    expect(inventory.release).not.toHaveBeenCalled();
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(view.status).toBe(OrderStatus.SHIPPED);
+  });
+
+  it('does not deduct on SHIPPED→DELIVERED', async () => {
+    const { svc, prisma, inventory } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.SHIPPED));
+    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.DELIVERED));
+
+    await svc.updateStatus(admin, 'order1', OrderStatus.DELIVERED);
+
+    expect(inventory.deduct).not.toHaveBeenCalled();
   });
 
   it('releases each line’s reserved stock when an order is CANCELLED', async () => {

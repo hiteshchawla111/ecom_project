@@ -1,20 +1,10 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { listStock, type StockRow } from '../lib/inventory';
+import { LowStockBadge } from '../components/inventory/LowStockBadge';
 import { Pagination } from '../components/ui/Pagination';
 
 const PAGE_SIZE = 20;
-
-/** Low-stock pill — semantic tint + text (never color-only). */
-function LowStockBadge({ low }: { low: boolean }) {
-  if (!low) {
-    return <span className="text-xs text-neutral-400">OK</span>;
-  }
-  return (
-    <span className="inline-flex items-center rounded-full bg-warning-500/10 px-2.5 py-0.5 text-xs font-medium text-warning-500">
-      Low
-    </span>
-  );
-}
 
 export function InventoryPage() {
   const [rows, setRows] = useState<StockRow[]>([]);
@@ -112,6 +102,9 @@ export function InventoryPage() {
                 <th scope="col" className="px-4 py-2.5 font-medium">
                   Stock
                 </th>
+                <th scope="col" className="px-4 py-2.5 text-right font-medium">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -131,6 +124,16 @@ export function InventoryPage() {
                   </td>
                   <td className="px-4 py-2">
                     <LowStockBadge low={r.isLowStock} />
+                  </td>
+                  <td className="px-4 py-2">
+                    <div className="flex justify-end">
+                      <Link
+                        to={`/inventory/${r.productId}`}
+                        className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                      >
+                        Manage
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

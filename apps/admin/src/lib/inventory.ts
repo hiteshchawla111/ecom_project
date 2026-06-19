@@ -11,6 +11,38 @@ export interface StockRow {
   isLowStock: boolean;
 }
 
+/** All ledger movement types (mirrors the API MovementType enum). */
+export type MovementType =
+  | 'ADDITION'
+  | 'DEDUCTION'
+  | 'ADJUSTMENT'
+  | 'RESERVATION'
+  | 'RELEASE';
+
+/** The subset an admin / inventory manager may post manually. */
+export type ManualMovementType = 'ADDITION' | 'DEDUCTION' | 'ADJUSTMENT';
+
+/** A ledger movement as exposed to admins (mirrors API MovementView). */
+export interface MovementView {
+  type: MovementType;
+  quantity: number;
+  reason: string | null;
+  orderId: string | null;
+  createdAt: string;
+}
+
+/** A stock item's full detail: counters + product + recent movements. */
+export interface StockItemView extends StockRow {
+  movements: MovementView[];
+}
+
+/** Body for a manual stock movement (mirrors API CreateMovementDto). */
+export interface CreateMovementInput {
+  type: ManualMovementType;
+  quantity: number;
+  reason: string;
+}
+
 /** Paginated envelope mirroring the API list response. */
 export interface Paginated<T> {
   data: T[];
@@ -48,4 +80,20 @@ export function listStock(
       lowStock: query.lowStock ? 'true' : undefined,
     })}`,
   );
+}
+
+/** Fetch a product's stock detail + recent movements (ADMIN / INVENTORY_MANAGER). */
+export function getStockItem(productId: string): Promise<StockItemView> {
+  return apiClient.request<StockItemView>(`/inventory/${productId}`);
+}
+
+/** Post a manual stock movement (ADMIN / INVENTORY_MANAGER). Returns nothing (204). */
+export function createMovement(
+  productId: string,
+  input: CreateMovementInput,
+): Promise<void> {
+  return apiClient.request<void>(`/inventory/${productId}/movements`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }

@@ -5,7 +5,7 @@ vi.mock('./apiClient', () => ({
   apiClient: { request: (...a: unknown[]) => request(...a) },
 }));
 
-import { listStock } from './inventory';
+import { listStock, getStockItem, createMovement } from './inventory';
 
 beforeEach(() => {
   request.mockReset();
@@ -37,5 +37,28 @@ describe('listStock', () => {
   it('omits lowStock when false', async () => {
     await listStock({ lowStock: false, page: 1 });
     expect(request).toHaveBeenCalledWith('/inventory?page=1');
+  });
+});
+
+describe('getStockItem', () => {
+  it('GETs /inventory/:id', async () => {
+    request.mockResolvedValue({ productId: 'p1', movements: [] });
+    await getStockItem('p1');
+    expect(request).toHaveBeenCalledWith('/inventory/p1');
+  });
+});
+
+describe('createMovement', () => {
+  it('POSTs a movement to /inventory/:id/movements', async () => {
+    request.mockResolvedValue(undefined);
+    await createMovement('p1', {
+      type: 'ADDITION',
+      quantity: 5,
+      reason: 'restock',
+    });
+    expect(request).toHaveBeenCalledWith('/inventory/p1/movements', {
+      method: 'POST',
+      body: JSON.stringify({ type: 'ADDITION', quantity: 5, reason: 'restock' }),
+    });
   });
 });

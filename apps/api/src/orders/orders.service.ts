@@ -21,6 +21,7 @@ import {
 } from './order-status';
 import { CheckoutDto } from './dto/checkout.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
+import { ListAdminOrdersDto } from './dto/list-admin-orders.dto';
 
 /** Format a money value (Prisma Decimal, string, or number) as a 2-dp string. */
 function money(value: Prisma.Decimal | string | number): string {
@@ -68,6 +69,18 @@ export interface Paginated<T> {
   pageSize: number;
   total: number;
   totalPages: number;
+}
+
+/** Admin order-list row: an order summary plus its customer. */
+export interface AdminOrderSummary extends OrderSummary {
+  customerEmail: string;
+  customerName: string;
+}
+
+/** Admin order detail: the full order view plus its customer. */
+export interface AdminOrderView extends OrderView {
+  customerEmail: string;
+  customerName: string;
 }
 
 /** Cart load for placement: items + the product fields the pricer + validation need. */
@@ -266,6 +279,74 @@ export class OrdersService {
       pageSize,
       total,
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
+  }
+
+  /**
+   * Admin: list every customer's orders (newest-first, paginated), each with
+   * its customer's email/name. Optional status filter. Not user-scoped.
+   */
+  async listAllOrders(
+    query: ListAdminOrdersDto,
+  ): Promise<Paginated<AdminOrderSummary>> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const skip = (page - 1) * pageSize;
+    const where: Prisma.OrderWhereInput =
+      query.status !== undefined ? { status: query.status } : {};
+
+    const [rows, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: pageSize,
+        select: {
+          id: true,
+          status: true,
+          grandTotal: true,
+          createdAt: true,
+          user: { select: { email: true, name: true } },
+          _count: { select: { items: true } },
+        },
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      data: rows.map((row) => ({
+        id: row.id,
+        status: row.status,
+        grandTotal: money(row.grandTotal),
+        itemCount: row._count.items,
+        customerEmail: row.user.email,
+        customerName: row.user.name,
+        createdAt: row.createdAt,
+      })),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
+  }
+
+  /**
+   * Admin: fetch any order by id (not ownership-scoped), with its items and
+   * customer. 404 if it doesn't exist.
+   */
+  async getAnyOrder(orderId: string): Promise<AdminOrderView> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        ...ORDER_INCLUDE,
+        user: { select: { email: true, name: true } },
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    return {
+      ...this.toOrderView(order),
+      customerEmail: order.user.email,
+      customerName: order.user.name,
     };
   }
 

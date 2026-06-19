@@ -448,3 +448,82 @@ describe('OrdersService.updateStatus', () => {
     expect(prisma.order.update).not.toHaveBeenCalled();
   });
 });
+
+describe('OrdersService.listAllOrders (admin)', () => {
+  it('returns all orders newest-first with customer info, paginated', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findMany.mockResolvedValue([
+      {
+        id: 'o9',
+        status: OrderStatus.PENDING,
+        grandTotal: '16',
+        createdAt: new Date('2026-06-18T12:00:00Z'),
+        user: { email: 'ada@shop.test', name: 'Ada Lovelace' },
+        _count: { items: 3 },
+      },
+    ]);
+    prisma.order.count.mockResolvedValue(1);
+
+    const res = await svc.listAllOrders({});
+
+    const findArg = prisma.order.findMany.mock.calls[0][0];
+    // NOT scoped to any user — all orders
+    expect(findArg.where).toEqual({});
+    expect(findArg.orderBy).toEqual({ createdAt: 'desc' });
+    expect(res.data).toEqual([
+      {
+        id: 'o9',
+        status: OrderStatus.PENDING,
+        grandTotal: '16.00',
+        itemCount: 3,
+        customerEmail: 'ada@shop.test',
+        customerName: 'Ada Lovelace',
+        createdAt: new Date('2026-06-18T12:00:00Z'),
+      },
+    ]);
+    expect(res.total).toBe(1);
+  });
+
+  it('filters by status when provided', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findMany.mockResolvedValue([]);
+    prisma.order.count.mockResolvedValue(0);
+
+    await svc.listAllOrders({ status: OrderStatus.SHIPPED });
+
+    expect(prisma.order.findMany.mock.calls[0][0].where).toEqual({
+      status: OrderStatus.SHIPPED,
+    });
+    expect(prisma.order.count).toHaveBeenCalledWith({
+      where: { status: OrderStatus.SHIPPED },
+    });
+  });
+});
+
+describe('OrdersService.getAnyOrder (admin)', () => {
+  it('returns any order (not ownership-scoped) with items + customer', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findUnique.mockResolvedValue({
+      ...createdOrder,
+      user: { email: 'ada@shop.test', name: 'Ada Lovelace' },
+    });
+
+    const view = await svc.getAnyOrder('order1');
+
+    const arg = prisma.order.findUnique.mock.calls[0][0];
+    expect(arg.where).toEqual({ id: 'order1' });
+    expect(view.id).toBe('order1');
+    expect(view.customerEmail).toBe('ada@shop.test');
+    expect(view.customerName).toBe('Ada Lovelace');
+    expect(view.grandTotal).toBe('16.00');
+    expect(view.items[0].unitPrice).toBe('5.00');
+  });
+
+  it('throws 404 for an unknown order', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findUnique.mockResolvedValue(null);
+    await expect(svc.getAnyOrder('nope')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+});

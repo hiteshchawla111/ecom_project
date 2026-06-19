@@ -46,6 +46,10 @@ export function AppShell() {
               <NavLink to="/categories" className={navLinkClass}>
                 Categories
               </NavLink>
+              <p className={groupLabelClass}>Operations</p>
+              <NavLink to="/orders" className={navLinkClass}>
+                Orders
+              </NavLink>
             </>
           )}
         </nav>

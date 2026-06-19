@@ -8,6 +8,7 @@ import { ProductsPage } from './pages/ProductsPage';
 import { ProductNewPage } from './pages/ProductNewPage';
 import { ProductEditPage } from './pages/ProductEditPage';
 import { CategoriesPage } from './pages/CategoriesPage';
+import { OrdersPage } from './pages/OrdersPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
               { path: 'products/new', element: <ProductNewPage /> },
               { path: 'products/:id/edit', element: <ProductEditPage /> },
               { path: 'categories', element: <CategoriesPage /> },
+              { path: 'orders', element: <OrdersPage /> },
             ],
           },
         ],

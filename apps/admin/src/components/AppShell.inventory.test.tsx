@@ -41,4 +41,14 @@ describe('AppShell (INVENTORY_MANAGER)', () => {
       screen.queryByRole('link', { name: /categories/i }),
     ).not.toBeInTheDocument();
   });
+
+  it('shows Inventory (open to inventory managers) but hides ADMIN-only Orders', () => {
+    renderShell();
+    expect(
+      screen.getByRole('link', { name: /inventory/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /orders/i }),
+    ).not.toBeInTheDocument();
+  });
 });

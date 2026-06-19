@@ -10,6 +10,7 @@ import { ProductEditPage } from './pages/ProductEditPage';
 import { CategoriesPage } from './pages/CategoriesPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
+import { InventoryPage } from './pages/InventoryPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -20,6 +21,9 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { index: true, element: <DashboardPage /> },
+          // Inventory is open to both internal roles (ADMIN + INVENTORY_MANAGER),
+          // so it sits directly under the shell, not the ADMIN-only group.
+          { path: 'inventory', element: <InventoryPage /> },
           {
             element: <AdminOnlyRoute />,
             children: [

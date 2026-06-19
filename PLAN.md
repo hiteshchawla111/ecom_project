@@ -8,6 +8,51 @@ Phases are ordered by dependency: the API and data model come first because both
 
 ---
 
+## ⭐ Execution Context (read first)
+
+> **This section is the orientation layer added on 2026-06-19. Everything below it is preserved verbatim as the historical single-vendor record. Read this section first; it tells you which roadmap is live and how to pick the next task.**
+
+### What changed
+
+The product scope expanded from a **single-vendor e-commerce portal** (what this `PLAN.md` tracks, Phases 0–5 ✅) to a **Flipkart-style multi-vendor marketplace** (the `docs/new_REQ/` PRD). A full architecture re-plan was produced. The single-vendor work is **complete and is the baseline** the marketplace evolves from (evolve-in-place, not a rewrite).
+
+### Active roadmap
+
+- **`docs/IMPLEMENTATION_PLAN.md` is now the ACTIVE roadmap** (phases **M0–M7**). M0 = this `PLAN.md`'s Phases 0–5 (the done baseline).
+- This `PLAN.md` is **frozen as the historical record** of the single-vendor build (Phases 0–5). Do **not** start new work from the legacy phases below.
+
+### Legacy phase status (this file)
+
+- **Legacy Phase 6 — Customers, analytics, notifications → 🟦 DEFERRED.** Superseded by marketplace phases **M4b (Notifications)**, **M7a (Analytics)**, **M7b (Customers)**. Do not implement it as scoped here; its goals are re-planned (and expanded for multi-vendor) in `IMPLEMENTATION_PLAN.md`.
+- **Legacy Phase 7 — Non-functional hardening → 🟦 DEFERRED.** Superseded by marketplace phase **M7d (NFR Hardening)**, which folds in the carried-forward follow-ups noted below (zod-at-`apiClient`, accessible-modal/`window.confirm`, admin httpOnly-cookie migration, `jsx-a11y`, reset-confirm TOCTOU, refresh-family invalidation). Implement those under M7d, not here.
+
+### Read-first pointers (for any marketplace slice)
+
+1. `docs/IMPLEMENTATION_PLAN.md` — phases, scope, acceptance, branch names (active roadmap).
+2. `docs/WORKTREE_EXECUTION_PLAN.md` — per-branch merge contract + merge order + conflict risk.
+3. `docs/PARALLEL_EXECUTION_PLAN.md` — which phases run in parallel + dependency graph.
+4. `docs/GAP_ANALYSIS.md`, `docs/DOMAIN_MODEL.md`, `docs/ARCHITECTURE_DECISIONS.md`, `docs/MIGRATION_PLAN.md` — the why, the target model, the decisions, the schema-migration ordering.
+5. Root `CLAUDE.md` + `RULE.md` — conventions and working rules (still authoritative).
+
+### How to resolve the next task
+
+1. **Find the active phase.** In `IMPLEMENTATION_PLAN.md`, the next phase is the lowest-numbered M-phase not yet ✅, respecting the **serial spine M1 → M2 → M5a** (`PARALLEL_EXECUTION_PLAN.md`). If M1 hasn't started, the next task is the **first slice of M1 — Marketplace Foundation** (`feat/marketplace-foundation`).
+2. **Confirm dependencies are merged.** Never branch a phase off a base that lacks its `Depends On` (per `WORKTREE_EXECUTION_PLAN.md`). E.g. nothing in M5b/M5c/M6 branches before M5a is merged; no catalog/inventory phase branches before M2.
+3. **Pick the smallest independently-verifiable slice** of that phase (RULE.md §1) — not the whole phase.
+4. **Branch/worktree** = the name given for that phase in `IMPLEMENTATION_PLAN.md` / `WORKTREE_EXECUTION_PLAN.md`.
+
+### Rules for continuing implementation
+
+- **One slice at a time; stop and verify** before the next (RULE.md §1). A phase contains many slices; each is a stopping point.
+- **TDD** the domain-critical logic (order split, totals, payments, ownership scoping, state machines) — red → green → refactor (RULE.md §4).
+- **Smoke-run the real thing** (API vs `ecom_dev`; apps in the browser) before claiming a slice done (RULE.md §5).
+- **Migrations follow `MIGRATION_PLAN.md` ordering**: additive/expand → backfill → contract; enum/`CONCURRENTLY` changes in their own non-transactional migration. The one intentional breaking change (SKU composite-unique, M2) ships with its call-site fixes.
+- **No `git push` without explicit permission** (RULE.md §3); the user lands PRs in the merge order from `WORKTREE_EXECUTION_PLAN.md`. Keep branches rebased on `main` after each schema change.
+- **Progress tracking moves to `IMPLEMENTATION_PLAN.md`** for marketplace work (flip M-phase status there). Leave the legacy tables below unchanged except the two Deferred markers already applied.
+- On **phase completion**, produce the RULE.md §6 copy-pasteable resume prompt.
+
+---
+
 ## Progress Tracker
 
 This is the live source of truth for task status. **Keep it updated** as work happens: flip a checkbox to `[x]` when a task is done, and update the status table below. Status legend: ⬜ Not Started · 🟡 In Progress · ✅ Done.
@@ -32,8 +77,8 @@ This is the live source of truth for task status. **Keep it updated** as work ha
 | 3 | Product catalog | ✅ Done (API ✅; storefront catalog ✅; admin product + category management ✅) |
 | 4 | Cart & checkout | ✅ Done (API cart + totals ✅; API order placement ✅; storefront cart UI ✅; storefront checkout flow ✅) |
 | 5 | Orders & inventory | ✅ Done (API: state machine + reserve/release/deduct + adjustments + low-stock alerts + refunds; admin: order + inventory management; storefront: order history + tracking — all TDD'd + smoke-verified) |
-| 6 | Customers, analytics, notifications | ⬜ Not Started |
-| 7 | Non-functional hardening | ⬜ Not Started |
+| 6 | Customers, analytics, notifications | 🟦 Deferred — superseded by M4b/M7a/M7b (see Execution Context) |
+| 7 | Non-functional hardening | 🟦 Deferred — superseded by M7d (see Execution Context) |
 
 **Current focus:** **Phase 5 — Orders & inventory ✅ COMPLETE.** API (order state machine + inventory ledger reserve/release/deduct + manual adjustments + low-stock domain-event alerts + refunds-with-restock), admin (order management: list/detail/transitions/refund; inventory management: stock list/low-stock/adjustments/movement history), and storefront (order history + status tracking) — all TDD'd, HTTP/browser-smoked, reviewed, and merged to `main` **except** the final storefront slice on branch `feat/storefront-order-tracking` (merge it to close the phase). **Next: Phase 6 — Customers, analytics, notifications** (customer management + order history/spending; analytics aggregations; consume the domain-event notifications — the `notifications` module + `@nestjs/event-emitter` bus + `LOW_STOCK` persistence already exist from Phase 5, so Phase 6 extends that pattern and builds the consume/display UX). — *(Historical below.)* **Phase 4 — Cart & checkout ✅ COMPLETE.** First API slice **done & smoke-verified: order state-machine transitions** — `PATCH /orders/:id/status` driving the existing pure transition guard; ADMIN applies any valid transition, CUSTOMER may only self-cancel their own PENDING order; invalid moves → 409. Full API suite 132 green; HTTP-smoked vs `ecom_dev` (see the Phase 5 task note). Slices 1+2 (order state-machine, ledger primitives) **merged + pushed to `main`** (`525159f`). Slice 3 (reserve-on-placement + release-on-cancel) **merged + pushed to `main`** (`77b4c60`). Slice 4 (deduct-on-fulfillment) **merged + pushed to `main`** (`44fce24`). Slices 5+6 (adjustments `4c6132b`, low-stock alerts `9023623`) **merged + pushed to `main`**. Seventh slice **done & smoke-verified: refunds with restock** (`DELIVERED→REFUNDED`, admin-only, restocks available) — **this completes the Phase 5 API line.** Suite **167 green** (see the Phase 5 task note). Branch `feat/api-order-refunds` (not yet merged). **Now on the admin-management track** (chosen next). It's **API-first** because the admin UI needs endpoints the customer-scoped API lacked. **Admin orders read API ✅** (`74a1ff8`) and **inventory read API ✅** (branch `feat/api-inventory-read`, not yet merged) — **all admin-needed read endpoints now exist** (`GET /admin/orders` + `/:id`; `GET /inventory` + `/:productId`). **Admin order management ✅ COMPLETE** — Orders list (`feat/admin-orders-ui`, merged `00f6b92`) + Order detail/status-transitions/refund (branch `feat/admin-order-detail`, not yet merged; both browser-smoked — see the Phase 5 task notes). **Admin management ✅ FULLY COMPLETE** — orders (list `00f6b92` + detail/transitions/refund `a94df70`, merged) and inventory (stock list `2b92f99` merged + adjustments/movement-history on branch `feat/admin-inventory-adjust`, not yet merged). All browser-smoked (see the Phase 5 task notes). **Only one Phase 5 slice remains: (d) storefront order history / order details / status tracking** — consumes the existing customer-scoped `GET /orders` + `GET /orders/:id`; mirror the storefront's server-component + `api-authed` patterns (see the Phase 4 checkout/cart notes + the storefront memories). **Phase 7 follow-ups noted:** (1) zod validation at the admin `apiClient` boundary (`grandTotal`/`createdAt` strings); (2) replace `window.confirm` with an accessible modal (WCAG). **Phase 7 follow-ups noted:** (1) validate API responses at the admin `apiClient` boundary (zod) — `grandTotal`/`createdAt` are typed strings with no runtime guard (app-wide); (2) replace `window.confirm` with an accessible modal for destructive actions (app-wide — WCAG audit). After the API line: storefront order history/tracking + admin order & inventory management. — *(Historical below.)* **Phase 4 — Cart & checkout ✅ COMPLETE.** All four slices done & smoke-verified: (1) API cart + totals pipeline, (2) API order placement, (3) storefront cart UI (all merged to `main`), and (4) **storefront checkout flow** (`apps/storefront/src/{lib/api-authed,lib/api-orders,app/api/orders,app/checkout,components/checkout,app/orders,components/orders}/*` + `/checkout`/`/orders` gating) — see the Phase 4 task notes below. Storefront suite **177 green**; manual + Playwright E2E smoked vs live API+storefront on `ecom_dev` (end-to-end place-order, totals parity, ownership 404). Checkout slice on branch `feat/storefront-checkout` (not yet merged). **Next: Phase 5 — Orders & inventory** (order lifecycle/state-machine transitions, stock reserve/deduct/release via the inventory movement ledger, low-stock alerts, refunds; storefront order history/tracking; admin order + inventory management). Start from `main` once the checkout branch is merged. — *(Historical: Phase 3 below.)* **Phase 3 — Product catalog, in progress.** First slice **done & smoke-verified**: API product CRUD (`apps/api/src/products/*`) — create / update / archive / activate-deactivate + paginated list + get-by-id, reads public, writes `@Roles(ADMIN)`. 13 unit tests; full suite 59 green; lint + build clean; HTTP-smoked vs `ecom_dev` (role boundary 401/403, dup-SKU 409, bad-FK 400, validation 400, 404, lifecycle transitions). **Phase 3 API line ✅** and **storefront catalog ✅** (both merged to `main`): SSR list + detail, category browse (`/categories` + `/categories/[slug]`), URL-driven search/filter/sort on `/products`, and related products on the detail page — all TDD'd + smoke-verified vs `ecom_dev`. Server Components fetch the public API directly. See the Phase 3 task note below. **Admin product/category UIs in progress** (`apps/admin`): **products list + status actions ✅** and **product create/edit form ✅** (`/products/new`, `/products/:id/edit`, ADMIN-only; see the Phase 3 task note). **Phase 3 — Product catalog ✅ COMPLETE** (API product+category CRUD/search/filter/sort; storefront catalog list/detail/category-browse/search-filter-sort/related; admin product management + hierarchical category management). All slices TDD'd + smoke-verified vs `ecom_dev`. Category edit/reparent (the final slice) is on branch `feat/admin-category-edit`. **Next: Phase 4 — Cart & checkout** (see that section). Once `feat/admin-category-edit` is merged, start Phase 4 from `main`. (Phase 2 ✅ complete — API/storefront/admin auth, smoke-verified; details in the Phase 2 task list. Admin auth merged to `main`.)
 

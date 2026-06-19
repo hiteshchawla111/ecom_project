@@ -21,6 +21,7 @@ Rules that govern how work is carried out in this repository. These apply to all
 
 - Do not scaffold apps or run installs without explicit user confirmation.
 - Do not run `git init` or create commits unless the user asks.
+- **Do not `git push` (or push branches/tags to any remote) without explicit user permission.** Committing locally is fine when asked; publishing to a remote always requires the user's go-ahead.
 
 ## 4. Test-Driven Development (TDD)
 

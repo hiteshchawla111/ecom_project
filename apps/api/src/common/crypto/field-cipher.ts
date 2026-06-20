@@ -22,7 +22,9 @@ export class FieldCipherService {
   }
 
   decryptField(stored: string): string {
-    const [version, ivB64, tagB64, ctB64] = stored.split(':');
+    const parts = stored.split(':');
+    if (parts.length !== 4) throw new Error('malformed stored cipher field');
+    const [version, ivB64, tagB64, ctB64] = parts;
     if (version !== VERSION) throw new Error(`Unsupported cipher version: ${version}`);
     const decipher = createDecipheriv(ALGO, this.key, Buffer.from(ivB64, 'base64'));
     decipher.setAuthTag(Buffer.from(tagB64, 'base64'));

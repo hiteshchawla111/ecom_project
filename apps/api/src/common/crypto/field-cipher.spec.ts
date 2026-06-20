@@ -33,4 +33,12 @@ describe('FieldCipherService', () => {
       createFieldCipherFromEnv({ KYC_ENC_KEY: Buffer.from('short').toString('base64') }),
     ).toThrow(/32 bytes/);
   });
+
+  it('throws a clear error on a malformed stored value with too few segments', () => {
+    expect(() => cipher.decryptField('v1:onlytwo')).toThrow(/malformed/);
+  });
+
+  it('throws a clear error on an empty stored value', () => {
+    expect(() => cipher.decryptField('')).toThrow(/malformed/);
+  });
 });

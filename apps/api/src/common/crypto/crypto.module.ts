@@ -9,7 +9,9 @@ import { FieldCipherService, createFieldCipherFromEnv } from './field-cipher';
     {
       provide: FieldCipherService,
       useFactory: (config: ConfigService) =>
-        createFieldCipherFromEnv({ KYC_ENC_KEY: config.get<string>('KYC_ENC_KEY') }),
+        createFieldCipherFromEnv({
+          KYC_ENC_KEY: config.get<string>('KYC_ENC_KEY'),
+        }),
       inject: [ConfigService],
     },
   ],

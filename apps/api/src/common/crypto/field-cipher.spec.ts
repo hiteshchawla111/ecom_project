@@ -30,7 +30,9 @@ describe('FieldCipherService', () => {
 
   it('fails fast when the env key is the wrong length', () => {
     expect(() =>
-      createFieldCipherFromEnv({ KYC_ENC_KEY: Buffer.from('short').toString('base64') }),
+      createFieldCipherFromEnv({
+        KYC_ENC_KEY: Buffer.from('short').toString('base64'),
+      }),
     ).toThrow(/32 bytes/);
   });
 

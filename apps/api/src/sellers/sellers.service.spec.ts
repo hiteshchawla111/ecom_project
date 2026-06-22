@@ -18,6 +18,7 @@ import {
 import {
   SELLER_REGISTERED_AUDIT,
   SELLER_STATUS_CHANGED_AUDIT,
+  SELLER_PROFILE_UPDATED_AUDIT,
 } from '../audit/audit-actions';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
 
@@ -629,6 +630,86 @@ describe('SellersService.updateMe', () => {
       [{ data: Record<string, unknown> }]
     >;
     expect(Object.keys(updateCall[0].data)).not.toContain('status');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Audit logging
+  // ---------------------------------------------------------------------------
+
+  it('records a SELLER_PROFILE_UPDATED_AUDIT entry with correct actorId, action, entityType, entityId', async () => {
+    const { svc, prisma, audit } = build();
+    const updatedSeller = makeSeller({ displayName: 'X' });
+    prisma.seller.findUnique.mockResolvedValue(makeSeller());
+    prisma.seller.update.mockResolvedValue(updatedSeller);
+
+    const input: UpdateSellerInput = {
+      displayName: 'X',
+      bankAccountNo: '123456789012',
+    };
+    await svc.updateMe(actor, input);
+
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: actor.sub,
+        action: SELLER_PROFILE_UPDATED_AUDIT,
+        entityType: 'Seller',
+        entityId: 'seller-001',
+      }),
+      expect.anything(), // tx client
+    );
+  });
+
+  it('audit metadata.fields contains the changed field NAMES (not values)', async () => {
+    const { svc, prisma, audit } = build();
+    const updatedSeller = makeSeller({
+      displayName: 'X',
+      bankAccountNo: 'enc(123456789012)',
+    });
+    prisma.seller.findUnique.mockResolvedValue(makeSeller());
+    prisma.seller.update.mockResolvedValue(updatedSeller);
+
+    const input: UpdateSellerInput = {
+      displayName: 'X',
+      bankAccountNo: '123456789012',
+    };
+    await svc.updateMe(actor, input);
+
+    const [entry] = audit.record.mock.calls as Array<
+      [{ metadata: Record<string, unknown> }]
+    >;
+    const metadata = entry[0].metadata;
+    const fields = metadata['fields'] as string[];
+
+    // Must contain the field NAMES
+    expect(fields).toContain('displayName');
+    expect(fields).toContain('bankAccountNo');
+
+    // Must NOT contain the raw KYC value
+    expect(JSON.stringify(metadata)).not.toContain('123456789012');
+  });
+
+  it('audit is called INSIDE the transaction (same tx client)', async () => {
+    const { svc, prisma, audit } = build();
+    prisma.seller.findUnique.mockResolvedValue(makeSeller());
+    prisma.seller.update.mockResolvedValue(makeSeller({ displayName: 'Y' }));
+
+    const capturedTxArgs: unknown[] = [];
+    prisma.$transaction.mockImplementation(
+      async (cb: (tx: unknown) => Promise<unknown>) => {
+        const result = await cb(prisma);
+        return result;
+      },
+    );
+    audit.record.mockImplementation((_entry: unknown, tx: unknown) => {
+      capturedTxArgs.push(tx);
+      return Promise.resolve(undefined);
+    });
+
+    await svc.updateMe(actor, { displayName: 'Y' });
+
+    // audit.record must have been called with a non-undefined tx argument
+    expect(capturedTxArgs).toHaveLength(1);
+    expect(capturedTxArgs[0]).toBeDefined();
   });
 });
 

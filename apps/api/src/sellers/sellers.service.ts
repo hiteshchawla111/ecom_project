@@ -11,6 +11,7 @@ import { FieldCipherService } from '../common/crypto/field-cipher';
 import {
   SELLER_REGISTERED_AUDIT,
   SELLER_STATUS_CHANGED_AUDIT,
+  SELLER_PROFILE_UPDATED_AUDIT,
 } from '../audit/audit-actions';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
 import { toSellerView, SellerView } from './seller-mask';
@@ -323,9 +324,25 @@ export class SellersService {
       data.bankIfsc = encBankIfsc;
     }
 
-    const updated = await this.prisma.seller.update({
-      where: { userId: actor.sub },
-      data,
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.seller.update({
+        where: { userId: actor.sub },
+        data,
+      });
+
+      await this.audit.record(
+        {
+          actorId: actor.sub,
+          action: SELLER_PROFILE_UPDATED_AUDIT,
+          entityType: 'Seller',
+          entityId: u.id,
+          // FIELD NAMES ONLY — never log KYC values
+          metadata: { fields: Object.keys(data) },
+        },
+        tx,
+      );
+
+      return u;
     });
 
     // Decrypt updated KYC for the masked view.

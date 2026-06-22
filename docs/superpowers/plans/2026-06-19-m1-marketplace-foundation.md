@@ -873,9 +873,12 @@ providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 
 ---
 
-## SLICE 5 — Admin Seller Management API (task outline; expand before executing)
+## SLICE 5 — Admin Seller Management API (tasks 5.1–5.5; each dispatched with a concrete brief)
 
-**Deliverable:** `GET /admin/sellers` (paginated, status filter), `GET /admin/sellers/:id` (masked KYC), `PATCH /admin/sellers/:id/status` (validated transition, sets `kycVerifiedAt` on ACTIVE, emits events, audited); notifications listener persists `Notification` rows on `seller.*`.
+> Verified patterns: admin controllers use class-level `@Roles(Role.ADMIN)` + thin delegation + `@Query` list DTO + `@Param('id')` (see `admin-orders.controller.ts`). State machine mirrors `order-status.ts` (enum + `ALLOWED_TRANSITIONS` map + `canTransition`/`assertTransition` + an `InvalidXTransitionError`). List DTO uses `@Type(()=>Number) @IsInt @Min/@Max` + `@IsEnum` filter. Notification consumer mirrors `low-stock.listener` (`@OnEvent` + try/catch-log; `NotificationsService` does the `prisma.notification.create`). `SellersService` constructor is `(prisma, events, audit, cipher)`; reuse `toSellerView` + `decryptIfPresent` for masked admin reads; reuse `AuditService.record(entry, tx)` for in-tx audit.
+> **DECISION (notification type):** `NotificationType` enum has NO seller values and MIGRATION_PLAN defers `NotificationType` additions to M4b (K1). So M1 persists seller notifications under an EXISTING generic `NotificationType` with the real event kind in the JSON `payload` (discriminator). No enum migration in M1. M4b/K1 adds proper `SELLER_*` types + clean payloads later — the listener is written so that swap is localized.
+
+**Deliverable:** `GET /admin/sellers` (paginated, status filter), `GET /admin/sellers/:id` (masked KYC), `PATCH /admin/sellers/:id/status` (validated transition, sets `kycVerifiedAt` on ACTIVE, emits events, audited); notifications listener persists `Notification` rows on `seller.*` (generic type + payload discriminator).
 
 **Tasks:**
 - 5.1 `seller-status.ts` pure state machine + spec (truth table: PENDING→ACTIVE; PENDING→SUSPENDED; ACTIVE↔SUSPENDED; ACTIVE/SUSPENDED→DEACTIVATED; everything else invalid).

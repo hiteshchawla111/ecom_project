@@ -21,7 +21,7 @@
 |---|---|---|---|
 | M0 | Single-vendor baseline | — | ✅ Done (was `PLAN.md` Phases 0–5) |
 | M1 | Marketplace Foundation | M | ✅ Done (all 6 slices: seller domain/KYC-cipher · AuditService · security hardening · seller auth+ApprovedGuard · admin seller-mgmt API+notifications · admin UI; 327 API + 5 e2e + 160 admin tests; per-slice + whole-branch reviewed + live-smoke-verified; acceptance criteria §M1 met) |
-| M2 | Seller System | L | 🟡 (slices 1–2 done & smoke-verified vs `ecom_dev`: 1 ownership migration B1–B5 + call-site fixes; 2 service-layer ownership scoping — `buildSellerScope` + products/inventory scoped, cross-tenant 404, admin unchanged, unit-tested. Next: slice 3 seller product CRUD API + wire `SellerApprovedGuard` to attach `sellerId`) |
+| M2 | Seller System | L | 🟡 (slices 1–3 done & smoke-verified vs `ecom_dev`: 1 ownership migration B1–B5 + call-site fixes; 2 service-layer ownership scoping — `buildSellerScope` + products/inventory scoped, cross-tenant 404, admin unchanged; 3 seller product CRUD API at `/seller/products` + `SellerApprovedGuard` attaches `sellerId` + `@CurrentSeller`, seller isolation proven over HTTP (e2e: own CRUD, cross-tenant 404, non-seller 403). Next: slice 4 CSV bulk import) |
 | M3 | Catalog V2 + Inventory V2 + Search (parallel group) | L | ⬜ |
 | M4 | Reviews + Notifications (parallel group) | M | ⬜ |
 | M5 | Order Split + Payments + Logistics (parallel group) | XL | ⬜ |

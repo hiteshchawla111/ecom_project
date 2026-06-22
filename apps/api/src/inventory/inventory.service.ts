@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { MovementType, Prisma } from '@prisma/client';
+import { MovementType, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { INVENTORY_ADJUSTED } from '../audit/audit-actions';
@@ -12,6 +12,11 @@ import type { AccessTokenPayload } from '../auth/auth-tokens';
 import { ManualMovementType } from './dto/create-movement.dto';
 import { ListStockDto } from './dto/list-stock.dto';
 import { LOW_STOCK_EVENT, LowStockEvent } from './inventory.events';
+import { buildSellerScope, ScopeActor } from '../products/seller-scope';
+
+/** A system-level actor used for order-driven operations (reserve/release/deduct/restock)
+ *  that are not scoped to a specific seller. */
+const SYSTEM_ACTOR: ScopeActor = { role: Role.ADMIN };
 
 /** Compile-time exhaustiveness guard for switch statements. */
 function assertNever(value: never): never {
@@ -96,7 +101,7 @@ export class InventoryService {
     orderId?: string,
     tx?: Prisma.TransactionClient,
   ): Promise<LowStockEvent | null> {
-    const item = await this.requireItem(productId, tx);
+    const item = await this.requireItem(productId, SYSTEM_ACTOR, tx);
     if (item.available < quantity) {
       throw new BadRequestException('Insufficient stock available to reserve');
     }
@@ -141,7 +146,7 @@ export class InventoryService {
     orderId?: string,
     tx?: Prisma.TransactionClient,
   ): Promise<void> {
-    const item = await this.requireItem(productId, tx);
+    const item = await this.requireItem(productId, SYSTEM_ACTOR, tx);
     if (item.reserved < quantity) {
       throw new BadRequestException('Cannot release more than is reserved');
     }
@@ -172,7 +177,7 @@ export class InventoryService {
     orderId?: string,
     tx?: Prisma.TransactionClient,
   ): Promise<void> {
-    const item = await this.requireItem(productId, tx);
+    const item = await this.requireItem(productId, SYSTEM_ACTOR, tx);
     if (item.reserved < quantity) {
       throw new BadRequestException('Cannot deduct more than is reserved');
     }
@@ -200,7 +205,7 @@ export class InventoryService {
     orderId?: string,
     tx?: Prisma.TransactionClient,
   ): Promise<void> {
-    const item = await this.requireItem(productId, tx);
+    const item = await this.requireItem(productId, SYSTEM_ACTOR, tx);
     await this.apply(
       item.id,
       {
@@ -232,7 +237,7 @@ export class InventoryService {
     input: { type: ManualMovementType; quantity: number; reason: string },
   ): Promise<void> {
     const { type, quantity, reason } = input;
-    const item = await this.requireItem(productId);
+    const item = await this.requireItem(productId, actor);
 
     switch (type) {
       case MovementType.ADDITION: {
@@ -337,7 +342,10 @@ export class InventoryService {
    * `where` can't express, so those productIds are resolved with a raw query
    * first, then loaded normally (keeps the typed select + pagination).
    */
-  async listStock(query: ListStockDto): Promise<Paginated<StockRow>> {
+  async listStock(
+    query: ListStockDto,
+    actor: ScopeActor,
+  ): Promise<Paginated<StockRow>> {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const skip = (page - 1) * pageSize;
@@ -355,13 +363,18 @@ export class InventoryService {
     // All three reads run in one transaction so the resolved id set, the page,
     // and the count come from a single consistent snapshot.
     const { items, total } = await this.prisma.$transaction(async (tx) => {
-      let where: Prisma.InventoryItemWhereInput = {};
+      let where: Prisma.InventoryItemWhereInput = {
+        ...buildSellerScope(actor),
+      };
       if (query.lowStock) {
         const rows = await tx.$queryRaw<{ productId: string }[]>`
           SELECT "productId" FROM "InventoryItem"
           WHERE "available" <= "lowStockThreshold"
         `;
-        where = { productId: { in: rows.map((r) => r.productId) } };
+        where = {
+          ...buildSellerScope(actor),
+          productId: { in: rows.map((r) => r.productId) },
+        };
       }
       const [pageItems, count] = await Promise.all([
         tx.inventoryItem.findMany({
@@ -389,9 +402,12 @@ export class InventoryService {
    * Admin/inventory-manager stock detail: counters + product identity + the
    * most recent movements (newest-first). 404 if the product has no item.
    */
-  async getStockItem(productId: string): Promise<StockItemView> {
-    const item = await this.prisma.inventoryItem.findUnique({
-      where: { productId },
+  async getStockItem(
+    productId: string,
+    actor: ScopeActor,
+  ): Promise<StockItemView> {
+    const item = await this.prisma.inventoryItem.findFirst({
+      where: { productId, ...buildSellerScope(actor) },
       select: {
         productId: true,
         available: true,
@@ -436,9 +452,15 @@ export class InventoryService {
     };
   }
 
-  private async requireItem(productId: string, tx?: Prisma.TransactionClient) {
+  private async requireItem(
+    productId: string,
+    actor: ScopeActor,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db: PrismaLike = tx ?? this.prisma;
-    const item = await db.inventoryItem.findUnique({ where: { productId } });
+    const item = await db.inventoryItem.findFirst({
+      where: { productId, ...buildSellerScope(actor) },
+    });
     if (!item) {
       throw new NotFoundException('No inventory item for this product');
     }

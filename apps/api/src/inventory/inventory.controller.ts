@@ -28,14 +28,20 @@ export class InventoryController {
 
   /** Paginated stock list (available vs reserved + low-stock flag/filter). */
   @Get()
-  listStock(@Query() query: ListStockDto) {
-    return this.inventory.listStock(query);
+  listStock(
+    @CurrentUser() user: AccessTokenPayload,
+    @Query() query: ListStockDto,
+  ) {
+    return this.inventory.listStock(query, user);
   }
 
   /** A product's stock detail plus its recent movement history. */
   @Get(':productId')
-  getStockItem(@Param('productId') productId: string) {
-    return this.inventory.getStockItem(productId);
+  getStockItem(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('productId') productId: string,
+  ) {
+    return this.inventory.getStockItem(productId, user);
   }
 
   /** Post a manual stock movement against a product's inventory item. */

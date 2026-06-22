@@ -9,6 +9,7 @@ import { InventoryService } from './inventory.service';
 import { LOW_STOCK_EVENT } from './inventory.events';
 import { INVENTORY_ADJUSTED } from '../audit/audit-actions';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
+import type { ScopeActor } from '../products/seller-scope';
 
 // $transaction(cb) runs the callback with a tx client proxying to the same
 // mocks, so assertions can target prisma.inventoryItem.update etc.
@@ -16,6 +17,7 @@ const makePrisma = () => {
   const prisma: any = {
     inventoryItem: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
       count: jest.fn(),
@@ -39,6 +41,10 @@ const actor: AccessTokenPayload = {
   email: 'a@b.c',
   role: Role.ADMIN,
 };
+
+/** Scope actors for scoping tests. */
+const INV_ADMIN: ScopeActor = { role: Role.ADMIN };
+const INV_SELLER_A: ScopeActor = { role: Role.SELLER, sellerId: 'seller-a' };
 
 const build = () => {
   const prisma = makePrisma();
@@ -65,7 +71,7 @@ const item = (over: Record<string, unknown> = {}) => ({
 describe('InventoryService.reserve', () => {
   it('moves stock available→reserved and appends a RESERVATION movement atomically', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item());
+    prisma.inventoryItem.findFirst.mockResolvedValue(item());
     prisma.inventoryItem.update.mockResolvedValue(
       item({ available: 7, reserved: 3 }),
     );
@@ -90,7 +96,7 @@ describe('InventoryService.reserve', () => {
 
   it('rejects reserving more than available with 400 and writes nothing', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 2 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 2 }));
 
     await expect(svc.reserve('p1', 3, 'order1')).rejects.toBeInstanceOf(
       BadRequestException,
@@ -101,7 +107,7 @@ describe('InventoryService.reserve', () => {
 
   it('throws 404 when the product has no inventory item', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(null);
+    prisma.inventoryItem.findFirst.mockResolvedValue(null);
 
     await expect(svc.reserve('ghost', 1)).rejects.toBeInstanceOf(
       NotFoundException,
@@ -113,7 +119,7 @@ describe('InventoryService.reserve', () => {
 describe('InventoryService.release', () => {
   it('moves stock reserved→available and appends a RELEASE movement', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(
+    prisma.inventoryItem.findFirst.mockResolvedValue(
       item({ available: 7, reserved: 3 }),
     );
     prisma.inventoryItem.update.mockResolvedValue(
@@ -139,7 +145,7 @@ describe('InventoryService.release', () => {
 
   it('rejects releasing more than reserved with 400', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ reserved: 1 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ reserved: 1 }));
 
     await expect(svc.release('p1', 2)).rejects.toBeInstanceOf(
       BadRequestException,
@@ -152,18 +158,22 @@ describe('transaction passthrough', () => {
   // A caller-supplied tx client: the op must use THIS for reads/writes and must
   // NOT open its own nested $transaction (it joins the caller's transaction).
   const makeTx = () => ({
-    inventoryItem: { findUnique: jest.fn(), update: jest.fn() },
+    inventoryItem: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
     inventoryMovement: { create: jest.fn() },
   });
 
   it('reserve uses the passed tx and opens no nested transaction', async () => {
     const { svc, prisma } = build();
     const tx: any = makeTx();
-    tx.inventoryItem.findUnique.mockResolvedValue(item());
+    tx.inventoryItem.findFirst.mockResolvedValue(item());
 
     await svc.reserve('p1', 2, 'order1', tx);
 
-    expect(tx.inventoryItem.findUnique).toHaveBeenCalledWith({
+    expect(tx.inventoryItem.findFirst).toHaveBeenCalledWith({
       where: { productId: 'p1' },
     });
     expect(tx.inventoryItem.update).toHaveBeenCalled();
@@ -176,7 +186,7 @@ describe('transaction passthrough', () => {
   it('release uses the passed tx and opens no nested transaction', async () => {
     const { svc, prisma } = build();
     const tx: any = makeTx();
-    tx.inventoryItem.findUnique.mockResolvedValue(item({ reserved: 3 }));
+    tx.inventoryItem.findFirst.mockResolvedValue(item({ reserved: 3 }));
 
     await svc.release('p1', 1, 'order1', tx);
 
@@ -189,7 +199,7 @@ describe('transaction passthrough', () => {
 describe('InventoryService.deduct', () => {
   it('reduces reserved on fulfillment and appends a DEDUCTION movement', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(
+    prisma.inventoryItem.findFirst.mockResolvedValue(
       item({ available: 7, reserved: 3 }),
     );
     prisma.inventoryItem.update.mockResolvedValue(
@@ -215,7 +225,7 @@ describe('InventoryService.deduct', () => {
 
   it('rejects deducting more than reserved with 400', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ reserved: 1 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ reserved: 1 }));
 
     await expect(svc.deduct('p1', 2)).rejects.toBeInstanceOf(
       BadRequestException,
@@ -227,7 +237,7 @@ describe('InventoryService.deduct', () => {
 describe('InventoryService.restock', () => {
   it('returns goods to available and appends an ADDITION movement (reason refund)', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 7 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 7 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 9 }));
 
     await svc.restock('p1', 2, 'order1');
@@ -250,10 +260,14 @@ describe('InventoryService.restock', () => {
   it('uses the passed tx and opens no nested transaction', async () => {
     const { svc, prisma } = build();
     const tx: any = {
-      inventoryItem: { findUnique: jest.fn(), update: jest.fn() },
+      inventoryItem: {
+        findUnique: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
+      },
       inventoryMovement: { create: jest.fn() },
     };
-    tx.inventoryItem.findUnique.mockResolvedValue(item({ available: 7 }));
+    tx.inventoryItem.findFirst.mockResolvedValue(item({ available: 7 }));
 
     await svc.restock('p1', 2, 'order1', tx);
 
@@ -264,7 +278,7 @@ describe('InventoryService.restock', () => {
 
   it('throws 404 when the product has no inventory item', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(null);
+    prisma.inventoryItem.findFirst.mockResolvedValue(null);
 
     await expect(svc.restock('ghost', 1)).rejects.toBeInstanceOf(
       NotFoundException,
@@ -276,7 +290,7 @@ describe('InventoryService.restock', () => {
 describe('InventoryService.adjust', () => {
   it('ADDITION increases available and appends an ADDITION movement', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 10 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 13 }));
 
     await svc.adjust(actor, 'p1', {
@@ -302,7 +316,7 @@ describe('InventoryService.adjust', () => {
 
   it('DEDUCTION decreases available and appends a DEDUCTION movement', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 10 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 8 }));
 
     await svc.adjust(actor, 'p1', {
@@ -328,7 +342,7 @@ describe('InventoryService.adjust', () => {
 
   it('rejects a DEDUCTION that exceeds available with 400', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 1 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 1 }));
 
     await expect(
       svc.adjust(actor, 'p1', {
@@ -342,7 +356,7 @@ describe('InventoryService.adjust', () => {
 
   it('ADJUSTMENT sets available to the absolute count with a signed-diff movement', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 10 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 7 }));
 
     // recount: actual on-hand is 7 (down from 10) -> delta -3
@@ -369,7 +383,7 @@ describe('InventoryService.adjust', () => {
 
   it('allows an ADJUSTMENT recount to zero', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 4 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 4 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 0 }));
 
     await svc.adjust(actor, 'p1', {
@@ -395,7 +409,7 @@ describe('InventoryService.adjust', () => {
 
   it('rejects a zero-quantity ADDITION as a no-op', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item());
+    prisma.inventoryItem.findFirst.mockResolvedValue(item());
 
     await expect(
       svc.adjust(actor, 'p1', {
@@ -409,7 +423,7 @@ describe('InventoryService.adjust', () => {
 
   it('rejects an order-driven movement type (RESERVATION/RELEASE) via adjust', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item());
+    prisma.inventoryItem.findFirst.mockResolvedValue(item());
 
     await expect(
       // Cast: the type system already forbids this (adjust takes
@@ -425,7 +439,7 @@ describe('InventoryService.adjust', () => {
 
   it('throws 404 when the product has no inventory item', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(null);
+    prisma.inventoryItem.findFirst.mockResolvedValue(null);
 
     await expect(
       svc.adjust(actor, 'ghost', {
@@ -438,7 +452,7 @@ describe('InventoryService.adjust', () => {
 
   it('rejects and propagates when audit.record throws, proving apply+audit share the transaction', async () => {
     const { svc, prisma, audit } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 10 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 15 }));
     // Simulate audit failure — the error must propagate out of $transaction
     audit.record.mockRejectedValueOnce(new Error('audit fail'));
@@ -454,7 +468,7 @@ describe('InventoryService.adjust', () => {
 
   it('ADDITION records an INVENTORY_ADJUSTED audit row atomically with the movement', async () => {
     const { svc, prisma, audit } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 10 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 15 }));
 
     await svc.adjust(actor, 'p1', {
@@ -483,7 +497,7 @@ describe('InventoryService.adjust', () => {
 
   it('ADJUSTMENT records an INVENTORY_ADJUSTED audit row with signed delta', async () => {
     const { svc, prisma, audit } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 10 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 4 }));
 
     await svc.adjust(actor, 'p1', {
@@ -514,7 +528,7 @@ describe('InventoryService low-stock alerts', () => {
   it('emits low-stock when a reservation takes available across the threshold', async () => {
     const { svc, prisma, events } = build();
     // 6 available (above 5) -> reserve 2 -> 4 available (at/below 5): crossing
-    prisma.inventoryItem.findUnique.mockResolvedValue(
+    prisma.inventoryItem.findFirst.mockResolvedValue(
       item({ available: 6, reserved: 0 }),
     );
     prisma.inventoryItem.update.mockResolvedValue(
@@ -533,7 +547,7 @@ describe('InventoryService low-stock alerts', () => {
   it('does not emit when available stays above the threshold', async () => {
     const { svc, prisma, events } = build();
     // 10 -> reserve 2 -> 8, still above 5
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 10 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 8 }));
 
     await svc.reserve('p1', 2, 'order1');
@@ -544,7 +558,7 @@ describe('InventoryService low-stock alerts', () => {
   it('does not emit again when already at/below the threshold (no re-cross)', async () => {
     const { svc, prisma, events } = build();
     // already 4 (<=5) -> reserve 1 -> 3: no downward CROSSING (was already low)
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 4 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 4 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 3 }));
 
     await svc.reserve('p1', 1, 'order1');
@@ -555,7 +569,7 @@ describe('InventoryService low-stock alerts', () => {
   it('emits when a manual DEDUCTION crosses the threshold', async () => {
     const { svc, prisma, events } = build();
     // 6 -> deduct 3 -> 3 (crosses 5)
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 6 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 6 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 3 }));
 
     await svc.adjust(actor, 'p1', {
@@ -574,7 +588,7 @@ describe('InventoryService low-stock alerts', () => {
   it('emits when an ADJUSTMENT recount sets available below the threshold', async () => {
     const { svc, prisma, events } = build();
     // 10 -> adjust set 2 (below 5)
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 10 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 2 }));
 
     await svc.adjust(actor, 'p1', {
@@ -592,7 +606,7 @@ describe('InventoryService low-stock alerts', () => {
 
   it('never emits on an ADDITION (available only rises)', async () => {
     const { svc, prisma, events } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 2 }));
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ available: 2 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 7 }));
 
     await svc.adjust(actor, 'p1', {
@@ -629,7 +643,7 @@ describe('InventoryService.listStock', () => {
     ]);
     prisma.inventoryItem.count.mockResolvedValue(2);
 
-    const res = await svc.listStock({});
+    const res = await svc.listStock({}, INV_ADMIN);
 
     expect(res.data).toEqual([
       {
@@ -670,7 +684,7 @@ describe('InventoryService.listStock', () => {
     ]);
     prisma.inventoryItem.count.mockResolvedValue(1);
 
-    const res = await svc.listStock({ lowStock: true });
+    const res = await svc.listStock({ lowStock: true }, INV_ADMIN);
 
     expect(prisma.$queryRaw).toHaveBeenCalled();
     // the findMany is constrained to the low-stock productIds
@@ -686,7 +700,7 @@ describe('InventoryService.listStock', () => {
 describe('InventoryService.getStockItem', () => {
   it('returns the item state plus recent movements (newest-first)', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue({
+    prisma.inventoryItem.findFirst.mockResolvedValue({
       id: 'inv1',
       productId: 'p1',
       available: 8,
@@ -704,7 +718,7 @@ describe('InventoryService.getStockItem', () => {
       ],
     });
 
-    const res = await svc.getStockItem('p1');
+    const res = await svc.getStockItem('p1', INV_ADMIN);
 
     expect(res.productId).toBe('p1');
     expect(res.name).toBe('Mouse');
@@ -724,9 +738,59 @@ describe('InventoryService.getStockItem', () => {
 
   it('throws 404 when the product has no inventory item', async () => {
     const { svc, prisma } = build();
-    prisma.inventoryItem.findUnique.mockResolvedValue(null);
-    await expect(svc.getStockItem('ghost')).rejects.toBeInstanceOf(
+    prisma.inventoryItem.findFirst.mockResolvedValue(null);
+    await expect(svc.getStockItem('ghost', INV_ADMIN)).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+});
+
+describe('inventory ownership scoping', () => {
+  it('listStock scopes a SELLER to their own stock', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findMany.mockResolvedValue([]);
+    prisma.inventoryItem.count.mockResolvedValue(0);
+
+    await svc.listStock({}, INV_SELLER_A);
+
+    const [args] = prisma.inventoryItem.findMany.mock.calls as Array<
+      [{ where: { sellerId?: string } }]
+    >;
+    expect(args[0].where.sellerId).toBe('seller-a');
+  });
+
+  it("getStockItem 404s for another seller's product (cross-tenant)", async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findFirst.mockResolvedValue(null);
+
+    await expect(
+      svc.getStockItem('p-of-seller-b', INV_SELLER_A),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    const [args] = prisma.inventoryItem.findFirst.mock.calls as Array<
+      [{ where: { productId: string; sellerId?: string } }]
+    >;
+    expect(args[0].where.productId).toBe('p-of-seller-b');
+    expect(args[0].where.sellerId).toBe('seller-a');
+  });
+
+  it('getStockItem does not scope an ADMIN', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findFirst.mockResolvedValue({
+      id: 'inv1',
+      productId: 'p1',
+      available: 8,
+      reserved: 2,
+      lowStockThreshold: 5,
+      product: { name: 'Mouse', sku: 'MSE-1' },
+      movements: [],
+    });
+
+    await svc.getStockItem('p1', INV_ADMIN);
+
+    const [args] = prisma.inventoryItem.findFirst.mock.calls as Array<
+      [{ where: { sellerId?: string } }]
+    >;
+    expect(args[0].where.sellerId).toBeUndefined();
   });
 });

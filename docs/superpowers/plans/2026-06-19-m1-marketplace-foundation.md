@@ -690,18 +690,166 @@ export class AuditModule {}
 
 ---
 
-## SLICE 3 — Security Hardening (task outline; expand before executing)
+## SLICE 3 — Security Hardening (EXPANDED 2026-06-22)
 
-**Deliverable:** throttler on `/auth/*`; helmet headers; env-driven CORS; J3 MFA columns (schema + migration, no flow).
+**Deliverable:** rate limiting on `/auth/*` (and seller-register later); helmet headers; env-driven CORS; J3 MFA columns (schema + migration, no flow). All additive; existing valid traffic unchanged.
 
-**Tasks:**
-- 3.1 `parseOrigins` pure fn + `cors.spec.ts` (unset→default `:5001,:5002`; comma-split; trims; drops empties; no wildcard). Use in `main.ts`.
-- 3.2 `helmet`: `npm i helmet` (apps/api); `app.use(helmet())` in `main.ts`. Integration test asserts `x-content-type-options: nosniff`.
-- 3.3 `@nestjs/throttler`: `npm i @nestjs/throttler`; `ThrottlerModule.forRoot` (env TTL/limit) in `app.module.ts`; `ThrottlerGuard` as `APP_GUARD` (after Jwt/Roles). `@Throttle` tight on `auth.controller` login/register/reset routes. e2e: N+1 rapid login → 429.
-- 3.4 J3 migration: add `User.mfaEnabled Boolean @default(false)` + `mfaSecret String?` to schema; `prisma migrate dev --create-only --name user_mfa_columns`; inspect (additive ALTER TABLE); apply; regen.
-- 3.5 `.env.example`: `THROTTLE_TTL`, `THROTTLE_LIMIT`, `CORS_ORIGINS`. Smoke: 429 on rapid login, helmet header via `curl -I`, existing apps still reach API. STOP.
+**Verified facts (shape the tasks):**
+- NestJS **11** → `@nestjs/throttler` v6 (`ThrottlerModule.forRoot({ throttlers: [{ ttl, limit }] })`, `@Throttle({ default: { ttl, limit } })`).
+- **`helmet` and `@nestjs/throttler` are NOT installed** — install both (user approved).
+- Global guards are registered in `auth.module.ts` as `{ provide: APP_GUARD, useClass: JwtAuthGuard }` then `RolesGuard`. NestJS runs `APP_GUARD`s in registration order → **register `ThrottlerGuard` BEFORE `JwtAuthGuard`** so rate-limiting runs first/cheapest. Put the throttler `APP_GUARD` in `app.module.ts` (its imports are processed before `AuthModule`'s, so its `APP_GUARD` is registered first).
+- `main.ts` currently hardcodes `app.enableCors({ origin: ['http://localhost:5001','http://localhost:5002'] })`.
+- `ValidationPipe` (whitelist/forbidNonWhitelisted/transform) already global in `main.ts`.
+- ⚠️ **Per-task verification MUST run `npm --prefix apps/api run lint` in addition to `npm test`** (lint slipped to the gate in Slices 1 & 2). Spec files using `as any` need the `/* eslint-disable @typescript-eslint/no-unsafe-* */` header block (project convention — see `orders.service.spec.ts`).
 
-**Test focus:** `parseOrigins` edge cases; 429 trigger; header presence.
+### Task 3.1: Env-driven CORS (`parseOrigins`) — TDD
+
+**Files:**
+- Create: `apps/api/src/common/config/cors.ts`, `apps/api/src/common/config/cors.spec.ts`
+- Modify: `apps/api/src/main.ts`
+- Modify: `apps/api/.env.example`
+
+**Interfaces produced:** `parseOrigins(raw: string | undefined): string[]` — comma-separated allowlist; `undefined`/empty → default `['http://localhost:5001','http://localhost:5002']`; trims entries; drops empties; never returns `'*'` (a literal `*` entry is dropped).
+
+- [ ] **Step 1: Write the failing test** (`cors.spec.ts`):
+
+```ts
+import { parseOrigins } from './cors';
+
+describe('parseOrigins', () => {
+  const DEFAULTS = ['http://localhost:5001', 'http://localhost:5002'];
+  it('returns dev defaults when unset', () => {
+    expect(parseOrigins(undefined)).toEqual(DEFAULTS);
+    expect(parseOrigins('')).toEqual(DEFAULTS);
+    expect(parseOrigins('   ')).toEqual(DEFAULTS);
+  });
+  it('splits a comma-separated list and trims', () => {
+    expect(parseOrigins('https://a.com, https://b.com')).toEqual(['https://a.com', 'https://b.com']);
+  });
+  it('drops empty entries', () => {
+    expect(parseOrigins('https://a.com,,https://b.com,')).toEqual(['https://a.com', 'https://b.com']);
+  });
+  it('drops a wildcard entry (no blanket CORS)', () => {
+    expect(parseOrigins('*,https://a.com')).toEqual(['https://a.com']);
+  });
+});
+```
+
+- [ ] **Step 2: Run, verify fail** — `npm --prefix apps/api test -- cors` → FAIL (module not found).
+
+- [ ] **Step 3: Implement** `cors.ts`:
+
+```ts
+const DEV_DEFAULTS = ['http://localhost:5001', 'http://localhost:5002'];
+
+/** Parse a comma-separated CORS allowlist from env; dev defaults when unset; never wildcard. */
+export function parseOrigins(raw: string | undefined): string[] {
+  if (!raw || !raw.trim()) return [...DEV_DEFAULTS];
+  const origins = raw
+    .split(',')
+    .map((o) => o.trim())
+    .filter((o) => o.length > 0 && o !== '*');
+  return origins.length > 0 ? origins : [...DEV_DEFAULTS];
+}
+```
+
+- [ ] **Step 4: Wire into `main.ts`** — replace the hardcoded array:
+
+```ts
+import { parseOrigins } from './common/config/cors';
+// ...
+app.enableCors({ origin: parseOrigins(process.env.CORS_ORIGINS) });
+```
+
+- [ ] **Step 5: `.env.example`** — append:
+
+```
+# CORS allowlist (comma-separated; no wildcards). Unset → dev defaults :5001,:5002
+CORS_ORIGINS=http://localhost:5001,http://localhost:5002
+```
+
+- [ ] **Step 6: Verify** — `npm --prefix apps/api test -- cors` → pass. `npm --prefix apps/api run lint` → clean. `npm --prefix apps/api run build` → clean.
+
+- [ ] **Step 7: Commit** — `git add apps/api/src/common/config apps/api/src/main.ts apps/api/.env.example && git commit -m "feat(api): env-driven CORS allowlist (no wildcards)"`
+
+### Task 3.2: helmet security headers
+
+**Files:**
+- Modify: `apps/api/package.json` (+ `package-lock.json`) — `npm i helmet`
+- Modify: `apps/api/src/main.ts`
+- Create: `apps/api/test/security-headers.e2e-spec.ts` (or co-located integration test using `supertest` + a Nest test app)
+
+- [ ] **Step 1: Install** — `npm --prefix apps/api i helmet` (user-approved).
+
+- [ ] **Step 2: Write a failing integration test** that boots a minimal Nest app with `helmet()` applied and asserts a representative header. Use the existing e2e setup style (check `apps/api/test/` for the `app.e2e-spec.ts` pattern — reuse `Test.createTestingModule({ imports: [AppModule] })` + `app.use(helmet())` mirrored from `main.ts`, then `supertest(app.getHttpServer()).get('/').expect('x-content-type-options', 'nosniff')`). If a pre-existing e2e harness exists, extend it; else create `security-headers.e2e-spec.ts`. Run → FAIL (header absent).
+
+- [ ] **Step 3: Apply helmet in `main.ts`** — `import helmet from 'helmet';` and `app.use(helmet());` BEFORE route handling (right after `NestFactory.create`). Note in a comment: API serves JSON, helmet defaults are sufficient; no custom CSP.
+
+- [ ] **Step 4: Verify** — the e2e test passes; `npm --prefix apps/api run lint` clean; `npm --prefix apps/api run build` clean. (If the e2e runner isn't trivially available, fall back to documenting a `curl -I` check in the commit and assert via a unit test that `main.ts`'s bootstrap registers helmet — but prefer the real header assertion.)
+
+- [ ] **Step 5: Commit** — `git add apps/api/package.json apps/api/package-lock.json apps/api/src/main.ts apps/api/test && git commit -m "feat(api): helmet security headers"`
+
+### Task 3.3: Rate limiting (`@nestjs/throttler`)
+
+**Files:**
+- Modify: `apps/api/package.json` (+ lock) — `npm i @nestjs/throttler`
+- Modify: `apps/api/src/app.module.ts` (import `ThrottlerModule`, register `ThrottlerGuard` as the FIRST `APP_GUARD`)
+- Modify: `apps/api/src/auth/auth.controller.ts` (`@Throttle` tight on login/register/reset routes)
+- Modify/create: an e2e test asserting the 429 trigger
+
+- [ ] **Step 1: Install** — `npm --prefix apps/api i @nestjs/throttler` (user-approved).
+
+- [ ] **Step 2: Configure `ThrottlerModule` in `app.module.ts`** — add to imports (env-tunable defaults):
+
+```ts
+ThrottlerModule.forRoot({
+  throttlers: [{
+    ttl: Number(process.env.THROTTLE_TTL ?? 60) * 1000, // v6 ttl is ms
+    limit: Number(process.env.THROTTLE_LIMIT ?? 120),
+  }],
+}),
+```
+And register the guard FIRST among `APP_GUARD`s:
+```ts
+providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
+```
+(import `APP_GUARD` from `@nestjs/core`, `ThrottlerGuard`/`ThrottlerModule` from `@nestjs/throttler`.) Because `app.module` imports resolve before `AuthModule`, this `APP_GUARD` runs before `JwtAuthGuard`/`RolesGuard`.
+
+- [ ] **Step 3: Tight `@Throttle` on auth routes** — in `auth.controller.ts`, decorate `login`, `register`, `requestReset`, `confirmReset` with `@Throttle({ default: { ttl: 60_000, limit: 10 } })` (10/min/IP — brute-force/enumeration surfaces). Import `Throttle` from `@nestjs/throttler`.
+
+- [ ] **Step 4: e2e test** — boot the app, POST `/auth/login` with bad creds 11× rapidly; assert the 11th returns **429**. (Use the e2e harness from Task 3.2. The first 10 return 401; the throttler counts all.) Run → should pass once wired.
+
+- [ ] **Step 5: `.env.example`** — append `THROTTLE_TTL=60` and `THROTTLE_LIMIT=120` with a note.
+
+- [ ] **Step 6: Verify** — full `npm --prefix apps/api test` green (existing + e2e); `npm --prefix apps/api run lint` clean; `build` clean. Confirm existing `@Public()` routes still work (throttler is orthogonal to auth).
+
+- [ ] **Step 7: Commit** — `git add apps/api/package.json apps/api/package-lock.json apps/api/src/app.module.ts apps/api/src/auth/auth.controller.ts apps/api/.env.example apps/api/test && git commit -m "feat(api): rate-limit auth routes (@nestjs/throttler)"`
+
+### Task 3.4: J3 — User MFA columns (schema only)
+
+**Files:**
+- Modify: `apps/api/prisma/schema.prisma` (add to `User`)
+- Create: `apps/api/prisma/migrations/<ts>_user_mfa_columns/migration.sql`
+
+- [ ] **Step 1: Add columns to `User` model** — `mfaEnabled Boolean @default(false)` and `mfaSecret String?`. Run `cd apps/api && npx prisma validate` → valid.
+
+- [ ] **Step 2: Generate create-only** — `cd apps/api && npx prisma migrate dev --name user_mfa_columns --create-only`. (cwd MUST be `apps/api`.) Inspect: expect a purely additive `ALTER TABLE "User" ADD COLUMN "mfaEnabled" BOOLEAN NOT NULL DEFAULT false, ADD COLUMN "mfaSecret" TEXT;` — no enum, no data change, so a normal transactional migration is fine.
+
+- [ ] **Step 3: Apply + regen** — `cd apps/api && npx prisma migrate dev` (should NOT reset — additive; if a reset is threatened, STOP). Then `cd apps/api && npx prisma generate`.
+
+- [ ] **Step 4: Verify** — `psql ecom_dev -c '\d "User"'` shows `mfaEnabled` (bool, default false) + `mfaSecret` (text, nullable). `npm --prefix apps/api run build` clean.
+
+- [ ] **Step 5: Commit** — `git add apps/api/prisma && git commit -m "feat(api): User MFA columns (J3, schema only)"`
+
+### Task 3.5: Slice 3 gate + smoke
+
+- [ ] **Step 1: Full suite + lint + build** — `npm --prefix apps/api test` (all green), `npm --prefix apps/api run lint` (clean — verify no `git status` churn after), `npm --prefix apps/api run build` (clean).
+
+- [ ] **Step 2: Live smoke vs `ecom_dev`** — start `npm --prefix apps/api run start:dev`. (a) `curl -I http://localhost:5000/products` → helmet headers present (e.g. `x-content-type-options: nosniff`). (b) Rapid 11× `POST /auth/login` with bad creds → the 11th returns `429`. (c) An existing app flow still works (login real admin → 200; `GET /products` → 200). Stop the API.
+
+- [ ] **Step 3: STOP** — ask the user to verify Slice 3 before Slice 4.
+
+**Test focus:** `parseOrigins` edge cases; helmet header present; 429 after limit; no regression to existing routes.
 
 ---
 

@@ -853,7 +853,9 @@ providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 
 ---
 
-## SLICE 4 — Seller Auth + SellerApprovedGuard (task outline; expand before executing)
+## SLICE 4 — Seller Auth + SellerApprovedGuard (tasks 4.1–4.8; each dispatched with a concrete brief built from verified code patterns)
+
+> Verified patterns this slice builds on (read during expansion): DTOs use `class-validator` (`@IsString/@IsEmail/@MinLength`, `!`-asserted fields); `request.user` is `AccessTokenPayload {sub,email,role}` (set by `JwtStrategy.validate`); service specs use `makePrisma()`+`build()` with `Prisma.PrismaClientKnownRequestError` for P2002; `@Global` `CryptoModule`(FieldCipherService), `AuditModule`(AuditService) and the throttler are available; categories take slug as input but sellers must AUTO-slugify from `displayName` with a uniqueness retry. `auth.service.register` is a plain create; seller-register acts on the ALREADY-AUTHENTICATED user (`actor.sub`), creating the Seller + flipping `user.role=SELLER` in one tx.
 
 **Deliverable:** `POST /seller/register` (→PENDING, role→SELLER in-tx, KYC encrypted, slug unique, emits `seller.registered`, audited), `GET/PATCH /seller/me` (masked KYC, ownership-scoped), `SellerApprovedGuard` (DB-authoritative, unit-tested, attached to no live route).
 

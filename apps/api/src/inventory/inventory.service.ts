@@ -6,6 +6,9 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MovementType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { INVENTORY_ADJUSTED } from '../audit/audit-actions';
+import type { AccessTokenPayload } from '../auth/auth-tokens';
 import { ManualMovementType } from './dto/create-movement.dto';
 import { ListStockDto } from './dto/list-stock.dto';
 import { LOW_STOCK_EVENT, LowStockEvent } from './inventory.events';
@@ -76,6 +79,7 @@ export class InventoryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventEmitter2,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -223,6 +227,7 @@ export class InventoryService {
    * Order-driven types (RESERVATION/RELEASE) are not permitted here.
    */
   async adjust(
+    actor: AccessTokenPayload,
     productId: string,
     input: { type: ManualMovementType; quantity: number; reason: string },
   ): Promise<void> {
@@ -230,20 +235,28 @@ export class InventoryService {
     const item = await this.requireItem(productId);
 
     switch (type) {
-      case MovementType.ADDITION:
+      case MovementType.ADDITION: {
         // A zero-unit addition is a no-op that would only pollute the ledger.
         if (quantity < 1) {
           throw new BadRequestException('Addition quantity must be at least 1');
         }
-        await this.apply(item.id, {
-          counters: { available: { increment: quantity } },
-          type,
-          delta: quantity,
-          reason,
+        const delta = quantity;
+        await this.prisma.$transaction(async (tx) => {
+          await this.apply(item.id, {
+            counters: { available: { increment: quantity } },
+            type,
+            delta,
+            reason,
+          }, tx);
+          await this.audit.record(
+            { actorId: actor.sub, action: INVENTORY_ADJUSTED, entityType: 'InventoryItem', entityId: productId, metadata: { type, delta, reason } },
+            tx,
+          );
         });
         return;
+      }
 
-      case MovementType.DEDUCTION:
+      case MovementType.DEDUCTION: {
         if (quantity < 1) {
           throw new BadRequestException(
             'Deduction quantity must be at least 1',
@@ -254,27 +267,43 @@ export class InventoryService {
             'Cannot deduct more than the available stock',
           );
         }
-        await this.apply(item.id, {
-          counters: { available: { decrement: quantity } },
-          type,
-          delta: -quantity,
-          reason,
+        const delta = -quantity;
+        await this.prisma.$transaction(async (tx) => {
+          await this.apply(item.id, {
+            counters: { available: { decrement: quantity } },
+            type,
+            delta,
+            reason,
+          }, tx);
+          await this.audit.record(
+            { actorId: actor.sub, action: INVENTORY_ADJUSTED, entityType: 'InventoryItem', entityId: productId, metadata: { type, delta, reason } },
+            tx,
+          );
         });
         this.emitIfCrossedLow(item, item.available - quantity);
         return;
+      }
 
-      case MovementType.ADJUSTMENT:
+      case MovementType.ADJUSTMENT: {
         // A recount may legitimately set available to 0; record the signed
         // difference from the old count (no-op recounts write a 0-delta row,
         // which is acceptable as an audit trail of the count itself).
-        await this.apply(item.id, {
-          counters: { available: { set: quantity } },
-          type,
-          delta: quantity - item.available,
-          reason,
+        const delta = quantity - item.available;
+        await this.prisma.$transaction(async (tx) => {
+          await this.apply(item.id, {
+            counters: { available: { set: quantity } },
+            type,
+            delta,
+            reason,
+          }, tx);
+          await this.audit.record(
+            { actorId: actor.sub, action: INVENTORY_ADJUSTED, entityType: 'InventoryItem', entityId: productId, metadata: { type, delta, reason } },
+            tx,
+          );
         });
         this.emitIfCrossedLow(item, quantity);
         return;
+      }
 
       default:
         // Exhaustive: `type` is narrowed to ManualMovementType, so this is

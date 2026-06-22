@@ -4,9 +4,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { MovementType } from '@prisma/client';
+import { MovementType, Role } from '@prisma/client';
 import { InventoryService } from './inventory.service';
 import { LOW_STOCK_EVENT } from './inventory.events';
+import { INVENTORY_ADJUSTED } from '../audit/audit-actions';
+import type { AccessTokenPayload } from '../auth/auth-tokens';
 
 // $transaction(cb) runs the callback with a tx client proxying to the same
 // mocks, so assertions can target prisma.inventoryItem.update etc.
@@ -19,6 +21,7 @@ const makePrisma = () => {
       count: jest.fn(),
     },
     inventoryMovement: { create: jest.fn(), findMany: jest.fn() },
+    auditLog: { create: jest.fn() },
     $queryRaw: jest.fn(),
   };
   prisma.$transaction = jest.fn(async (cb: (tx: any) => Promise<unknown>) =>
@@ -28,12 +31,17 @@ const makePrisma = () => {
 };
 
 const makeEvents = () => ({ emit: jest.fn() });
+const makeAudit = () => ({ record: jest.fn().mockResolvedValue(undefined) });
+
+/** A canonical actor for adjust tests. */
+const actor: AccessTokenPayload = { sub: 'admin1', email: 'a@b.c', role: Role.ADMIN };
 
 const build = () => {
   const prisma = makePrisma();
   const events = makeEvents();
-  const svc = new InventoryService(prisma as never, events as never);
-  return { svc, prisma, events };
+  const audit = makeAudit();
+  const svc = new InventoryService(prisma as never, events as never, audit as never);
+  return { svc, prisma, events, audit };
 };
 
 /** A stored inventory row for `productId` (default p1). */
@@ -263,7 +271,7 @@ describe('InventoryService.adjust', () => {
     prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 13 }));
 
-    await svc.adjust('p1', {
+    await svc.adjust(actor, 'p1', {
       type: MovementType.ADDITION,
       quantity: 3,
       reason: 'restock',
@@ -289,7 +297,7 @@ describe('InventoryService.adjust', () => {
     prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 8 }));
 
-    await svc.adjust('p1', {
+    await svc.adjust(actor, 'p1', {
       type: MovementType.DEDUCTION,
       quantity: 2,
       reason: 'damaged',
@@ -315,7 +323,7 @@ describe('InventoryService.adjust', () => {
     prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 1 }));
 
     await expect(
-      svc.adjust('p1', {
+      svc.adjust(actor, 'p1', {
         type: MovementType.DEDUCTION,
         quantity: 2,
         reason: 'damaged',
@@ -330,7 +338,7 @@ describe('InventoryService.adjust', () => {
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 7 }));
 
     // recount: actual on-hand is 7 (down from 10) -> delta -3
-    await svc.adjust('p1', {
+    await svc.adjust(actor, 'p1', {
       type: MovementType.ADJUSTMENT,
       quantity: 7,
       reason: 'cycle count',
@@ -356,7 +364,7 @@ describe('InventoryService.adjust', () => {
     prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 4 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 0 }));
 
-    await svc.adjust('p1', {
+    await svc.adjust(actor, 'p1', {
       type: MovementType.ADJUSTMENT,
       quantity: 0,
       reason: 'none on hand',
@@ -382,7 +390,7 @@ describe('InventoryService.adjust', () => {
     prisma.inventoryItem.findUnique.mockResolvedValue(item());
 
     await expect(
-      svc.adjust('p1', {
+      svc.adjust(actor, 'p1', {
         type: MovementType.ADDITION,
         quantity: 0,
         reason: 'noop',
@@ -398,7 +406,7 @@ describe('InventoryService.adjust', () => {
     await expect(
       // Cast: the type system already forbids this (adjust takes
       // ManualMovementType); this guards the runtime path defensively.
-      svc.adjust('p1', {
+      svc.adjust(actor, 'p1', {
         type: MovementType.RESERVATION as never,
         quantity: 1,
         reason: 'nope',
@@ -412,12 +420,60 @@ describe('InventoryService.adjust', () => {
     prisma.inventoryItem.findUnique.mockResolvedValue(null);
 
     await expect(
-      svc.adjust('ghost', {
+      svc.adjust(actor, 'ghost', {
         type: MovementType.ADDITION,
         quantity: 1,
         reason: 'x',
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('ADDITION records an INVENTORY_ADJUSTED audit row atomically with the movement', async () => {
+    const { svc, prisma, audit } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 15 }));
+
+    await svc.adjust(actor, 'p1', {
+      type: MovementType.ADDITION,
+      quantity: 5,
+      reason: 'new shipment',
+    });
+
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: 'admin1',
+        action: INVENTORY_ADJUSTED,
+        entityType: 'InventoryItem',
+        entityId: 'p1',
+        metadata: { type: MovementType.ADDITION, delta: 5, reason: 'new shipment' },
+      }),
+      expect.anything(), // tx client
+    );
+    // Movement and audit share the same transaction
+    expect(prisma.$transaction).toHaveBeenCalled();
+  });
+
+  it('ADJUSTMENT records an INVENTORY_ADJUSTED audit row with signed delta', async () => {
+    const { svc, prisma, audit } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 4 }));
+
+    await svc.adjust(actor, 'p1', {
+      type: MovementType.ADJUSTMENT,
+      quantity: 4,
+      reason: 'cycle count',
+    });
+
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: 'admin1',
+        action: INVENTORY_ADJUSTED,
+        entityType: 'InventoryItem',
+        entityId: 'p1',
+        metadata: { type: MovementType.ADJUSTMENT, delta: -6, reason: 'cycle count' },
+      }),
+      expect.anything(),
+    );
   });
 });
 
@@ -470,7 +526,7 @@ describe('InventoryService low-stock alerts', () => {
     prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 6 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 3 }));
 
-    await svc.adjust('p1', {
+    await svc.adjust(actor, 'p1', {
       type: MovementType.DEDUCTION,
       quantity: 3,
       reason: 'damaged',
@@ -489,7 +545,7 @@ describe('InventoryService low-stock alerts', () => {
     prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 2 }));
 
-    await svc.adjust('p1', {
+    await svc.adjust(actor, 'p1', {
       type: MovementType.ADJUSTMENT,
       quantity: 2,
       reason: 'cycle count',
@@ -507,7 +563,7 @@ describe('InventoryService low-stock alerts', () => {
     prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 2 }));
     prisma.inventoryItem.update.mockResolvedValue(item({ available: 7 }));
 
-    await svc.adjust('p1', {
+    await svc.adjust(actor, 'p1', {
       type: MovementType.ADDITION,
       quantity: 5,
       reason: 'restock',

@@ -501,18 +501,192 @@ Run: `npm --prefix apps/api run start:dev` → confirm it starts and an existing
 
 ---
 
-## SLICE 2 — AuditService (task outline; expand before executing)
+## SLICE 2 — AuditService (EXPANDED 2026-06-22)
 
-**Deliverable:** `AuditService.record(entry, tx)` + `recordAsync(entry)` write `AuditLog` rows; wired in-tx into `orders.service.updateStatus` (status change + refund path) and `inventory.service.adjust`. Atomicity proven by a rollback test.
+**Deliverable:** `AuditService.record(entry, tx)` + `recordAsync(entry)` write `AuditLog` rows; wired into `orders.service.updateStatus` (status change + refund) and `inventory.service.adjust`, in-transaction where the mutation already runs in one. Atomicity proven by a rollback test.
 
-**Tasks (to expand into red-green-refactor steps):**
-- 2.1 `audit-actions.ts` constants + `AuditService` + spec (record writes a row with actorId/action/entityType/entityId/metadata; recordAsync swallows+logs on failure). TDD with a mocked Prisma/tx client.
-- 2.2 `AuditModule` (`@Global`, exports `AuditService`); import in `app.module.ts`.
-- 2.3 Wire `ORDER_STATUS_CHANGED` + `REFUND_ISSUED` into `orders.service.updateStatus` inside its existing `$transaction`; extend `orders.service.spec.ts`: asserts audit row created with correct fields, AND rolls back when the surrounding tx throws.
-- 2.4 Wire `INVENTORY_ADJUSTED` into `inventory.service.adjust` inside its movement tx; extend `inventory.service.spec.ts` similarly.
-- 2.5 Smoke vs `ecom_dev`: drive `PATCH /orders/:id/status`, a refund transition, a stock adjust; confirm `AuditLog` rows via `psql`. Suite green. STOP for verification.
+**Findings from reading the real code (these shape the tasks):**
+1. `orders.service.updateStatus(actor, orderId, nextStatus)` already receives `actor: AccessTokenPayload` — `actor.sub` is the audit `actorId`. It has **two paths**: a `this.prisma.$transaction(async (tx) => …)` path when the status moves stock (CANCELLED/SHIPPED/REFUNDED, via `movesStock`), and a bare `this.prisma.order.update(...)` path for non-stock transitions. **Both must audit.** REFUNDED additionally emits `REFUND_ISSUED`.
+2. `inventory.service.adjust(productId, input)` does **not** currently take an actor, and `inventory.controller` calls `this.inventory.adjust(productId, dto)` without one. To record a real `actorId`, thread the actor through: controller passes `@CurrentUser()`, `adjust` gains an `actor: AccessTokenPayload` first param. `adjust`'s writes go through a private `apply(...)` helper; audit is written alongside in the same DB operation context.
 
-**Test focus:** atomicity (audit row rolls back with the mutation); no PII in metadata.
+**Interfaces produced:**
+- `class AuditService { record(entry: AuditEntry, tx: Prisma.TransactionClient): Promise<void>; recordAsync(entry: AuditEntry): Promise<void> }`
+- `interface AuditEntry { actorId: string | null; action: string; entityType: string; entityId?: string; metadata?: Prisma.InputJsonValue }`
+- `audit-actions.ts`: `ORDER_STATUS_CHANGED='order.status.changed'`, `REFUND_ISSUED='refund.issued'`, `INVENTORY_ADJUSTED='inventory.adjusted'` (string consts).
+
+### Task 2.1: AuditService + actions + module — TDD
+
+**Files:**
+- Create: `apps/api/src/audit/audit-actions.ts`, `audit/audit.service.ts`, `audit/audit.service.spec.ts`, `audit/audit.module.ts`
+- Modify: `apps/api/src/app.module.ts` (import `AuditModule`)
+
+**Interfaces produced:** as above.
+
+- [ ] **Step 1: Write the failing test** (`audit.service.spec.ts`) — mock both a tx client and PrismaService. Assert: (a) `record` calls `tx.auditLog.create` with the entry fields; (b) `recordAsync` calls `prisma.auditLog.create`; (c) `recordAsync` swallows a create rejection (does not throw) and logs it.
+
+```ts
+import { AuditService } from './audit.service';
+import { Logger } from '@nestjs/common';
+
+describe('AuditService', () => {
+  const create = jest.fn();
+  const tx = { auditLog: { create } } as any;
+  const prisma = { auditLog: { create } } as any;
+  let service: AuditService;
+
+  beforeEach(() => {
+    create.mockReset().mockResolvedValue(undefined);
+    service = new AuditService(prisma);
+  });
+
+  it('record writes an audit row on the provided tx client', async () => {
+    await service.record(
+      { actorId: 'u1', action: 'order.status.changed', entityType: 'Order', entityId: 'o1', metadata: { from: 'PENDING', to: 'CONFIRMED' } },
+      tx,
+    );
+    expect(create).toHaveBeenCalledWith({
+      data: { actorId: 'u1', action: 'order.status.changed', entityType: 'Order', entityId: 'o1', metadata: { from: 'PENDING', to: 'CONFIRMED' } },
+    });
+  });
+
+  it('recordAsync writes via the base prisma client', async () => {
+    await service.recordAsync({ actorId: null, action: 'inventory.adjusted', entityType: 'InventoryItem', entityId: 'p1' });
+    expect(create).toHaveBeenCalledWith({
+      data: { actorId: null, action: 'inventory.adjusted', entityType: 'InventoryItem', entityId: 'p1', metadata: undefined },
+    });
+  });
+
+  it('recordAsync swallows and logs a write failure (never throws)', async () => {
+    create.mockRejectedValueOnce(new Error('db down'));
+    const logSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    await expect(service.recordAsync({ actorId: 'u1', action: 'x', entityType: 'Y' })).resolves.toBeUndefined();
+    expect(logSpy).toHaveBeenCalled();
+    logSpy.mockRestore();
+  });
+});
+```
+
+- [ ] **Step 2: Run, verify it fails** — `npm --prefix apps/api test -- audit.service` → FAIL (module not found).
+
+- [ ] **Step 3: Implement.** `audit-actions.ts`:
+
+```ts
+export const ORDER_STATUS_CHANGED = 'order.status.changed';
+export const REFUND_ISSUED = 'refund.issued';
+export const INVENTORY_ADJUSTED = 'inventory.adjusted';
+```
+
+`audit.service.ts`:
+
+```ts
+import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+
+export interface AuditEntry {
+  actorId: string | null;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  metadata?: Prisma.InputJsonValue;
+}
+
+@Injectable()
+export class AuditService {
+  private readonly logger = new Logger(AuditService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  /** Write an audit row on the caller's transaction client (atomic with the mutation). */
+  async record(entry: AuditEntry, tx: Prisma.TransactionClient): Promise<void> {
+    await tx.auditLog.create({ data: this.toData(entry) });
+  }
+
+  /** Fire-and-forget audit write; failures are logged, never thrown. */
+  async recordAsync(entry: AuditEntry): Promise<void> {
+    try {
+      await this.prisma.auditLog.create({ data: this.toData(entry) });
+    } catch (err) {
+      this.logger.error(`Audit write failed for ${entry.action}`, err as Error);
+    }
+  }
+
+  private toData(entry: AuditEntry): Prisma.AuditLogUncheckedCreateInput {
+    return {
+      actorId: entry.actorId,
+      action: entry.action,
+      entityType: entry.entityType,
+      entityId: entry.entityId,
+      metadata: entry.metadata,
+    };
+  }
+}
+```
+
+`audit.module.ts`:
+
+```ts
+import { Global, Module } from '@nestjs/common';
+import { AuditService } from './audit.service';
+
+@Global()
+@Module({ providers: [AuditService], exports: [AuditService] })
+export class AuditModule {}
+```
+
+- [ ] **Step 4: Run, verify pass** — `npm --prefix apps/api test -- audit.service` → 3 pass.
+
+- [ ] **Step 5: Wire `AuditModule` into `app.module.ts` imports.** Build: `npm --prefix apps/api run build` → clean.
+
+- [ ] **Step 6: Commit** — `git add apps/api/src/audit apps/api/src/app.module.ts && git commit -m "feat(api): AuditService + AuditModule (activate AuditLog)"`
+
+### Task 2.2: Audit order status changes + refunds
+
+**Files:**
+- Modify: `apps/api/src/orders/orders.service.ts` (inject `AuditService`; audit in BOTH paths of `updateStatus`)
+- Modify: `apps/api/src/orders/orders.service.spec.ts`
+
+**Interfaces consumed:** `AuditService.record(entry, tx)`, `ORDER_STATUS_CHANGED`, `REFUND_ISSUED`.
+
+**Design:** In `updateStatus`, after the transition is validated:
+- **Stock-moving path** (inside the existing `$transaction(async (tx) => …)`): after `tx.order.update(...)`, call `await this.audit.record({ actorId: actor.sub, action: ORDER_STATUS_CHANGED, entityType: 'Order', entityId: orderId, metadata: { from: order.status, to: nextStatus } }, tx)`. If `nextStatus === OrderStatus.REFUNDED`, ALSO `await this.audit.record({ actorId: actor.sub, action: REFUND_ISSUED, entityType: 'Order', entityId: orderId, metadata: { grandTotal: order.grandTotal } }, tx)`. Both rows are inside the tx, so they roll back if the stock op or update throws.
+- **Non-stock path** (currently a bare `this.prisma.order.update(...)`): wrap it in a small `this.prisma.$transaction(async (tx) => { const u = await tx.order.update(...); await this.audit.record({ …ORDER_STATUS_CHANGED… }, tx); return u; })` so the status change + audit are atomic. (`metadata.from/to` as above.)
+
+- [ ] **Step 1: Write the failing tests** in `orders.service.spec.ts` — using the existing mock style there. Add: (a) a non-stock transition (e.g. PENDING→CONFIRMED by ADMIN) records `ORDER_STATUS_CHANGED` with `{from:'PENDING',to:'CONFIRMED'}`; (b) a REFUNDED transition records BOTH `ORDER_STATUS_CHANGED` and `REFUND_ISSUED`; (c) when the `tx.order.update` (or a stock op) throws, the audit `record` result is rolled back — assert the surrounding call rejects and the order update did not commit (mock the tx to throw and assert the thrown error propagates). Match the existing spec's mocking of `prisma.$transaction` (it passes a `tx` mock to the callback). Run → FAIL.
+
+- [ ] **Step 2: Implement** the two-path audit wiring described above. Inject `AuditService` via the constructor (add `private readonly audit: AuditService`). Run the new tests → PASS. Run the full `orders.service` spec → all green (no regression).
+
+- [ ] **Step 3: Commit** — `git add apps/api/src/orders/orders.service.ts apps/api/src/orders/orders.service.spec.ts && git commit -m "feat(api): audit order status changes + refunds (in-tx)"`
+
+### Task 2.3: Audit stock adjustments (thread actor through)
+
+**Files:**
+- Modify: `apps/api/src/inventory/inventory.service.ts` (`adjust` gains `actor` param; audit each movement)
+- Modify: `apps/api/src/inventory/inventory.controller.ts` (pass `@CurrentUser()` to `adjust`)
+- Modify: `apps/api/src/inventory/inventory.service.spec.ts`
+- (check) `apps/api/src/inventory/inventory.controller.spec.ts` if it exists — update the `adjust` call signature
+
+**Interfaces consumed:** `AuditService`, `INVENTORY_ADJUSTED`.
+
+**Design:** Change `adjust(productId, input)` → `adjust(actor: AccessTokenPayload, productId, input)`. The `apply(...)` private helper already performs the movement write; audit the adjustment after a successful `apply` for the ADDITION/DEDUCTION/ADJUSTMENT branches. Since `apply` is not shown to run in a caller-provided tx here, use `await this.audit.record(...)` if `apply` exposes its tx, otherwise `await this.audit.recordAsync({ actorId: actor.sub, action: INVENTORY_ADJUSTED, entityType: 'InventoryItem', entityId: productId, metadata: { type, delta, reason } })` after the movement commits. **Read `apply`'s implementation first** to decide in-tx vs async; prefer in-tx (`record`) if `apply` runs inside a `$transaction` you can pass through, else `recordAsync`. Controller: `inventory.controller.ts` `@Post(':productId/movements')` handler adds `@CurrentUser() user: AccessTokenPayload` and calls `this.inventory.adjust(user, productId, dto)`.
+
+- [ ] **Step 1: Read `inventory.service.ts` `apply(...)`** to determine whether audit can be in-tx. Note the decision in the commit.
+
+- [ ] **Step 2: Write the failing test** in `inventory.service.spec.ts` — an ADJUSTMENT (or ADDITION) records `INVENTORY_ADJUSTED` with `{type, delta, reason}` and `actorId: actor.sub`, `entityId: productId`. Update existing `adjust(...)` test calls to pass an `actor` first arg (e.g. `{ sub: 'admin1', role: Role.ADMIN, email: 'a@b.c' }`). Run → FAIL.
+
+- [ ] **Step 3: Implement** the actor param + audit call + controller change. Run the inventory specs → green. If `inventory.controller.spec.ts` exists, update its `adjust` expectation to the new signature.
+
+- [ ] **Step 4: Commit** — `git add apps/api/src/inventory && git commit -m "feat(api): audit stock adjustments with actor"`
+
+### Task 2.4: Slice 2 smoke + gate
+
+- [ ] **Step 1: Full API suite** — `npm --prefix apps/api test` → all green (M0 + audit tests). Lint + build clean.
+
+- [ ] **Step 2: Smoke vs `ecom_dev`** — start `npm --prefix apps/api run start:dev`. As ADMIN (login `admin@example.com` / `Password123!` to get a token), drive: a non-stock order status change (`PATCH /orders/:id/status`), a stock adjustment (`POST /inventory/:productId/movements`). Then `psql ecom_dev -c 'SELECT action, "entityType", "actorId" FROM "AuditLog" ORDER BY "createdAt" DESC LIMIT 5;'` → rows for `order.status.changed` and `inventory.adjusted` with the admin's actorId. Stop the API.
+
+- [ ] **Step 3: STOP** — ask the user to verify Slice 2 before Slice 3.
+
+**Test focus:** atomicity (audit row rolls back with the mutation in the tx paths); no PII in metadata; actor correctly threaded into stock adjustments.
 
 ---
 

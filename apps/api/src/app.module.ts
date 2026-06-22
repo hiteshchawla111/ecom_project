@@ -18,6 +18,19 @@ import { CustomersModule } from './customers/customers.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
 
+/**
+ * Parse an env var as a positive integer, falling back to `fallback` when the
+ * value is absent, blank/whitespace-only, or not a finite number.
+ * `??` alone does not guard against empty-string (`THROTTLE_TTL=`), which
+ * coerces to 0 and would silently disable rate-limiting.
+ */
+const num = (v: string | undefined, fallback: number): number => {
+  const n = Number(v);
+  return v !== undefined && v.trim() !== '' && Number.isFinite(n)
+    ? n
+    : fallback;
+};
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -25,8 +38,8 @@ import { NotificationsModule } from './notifications/notifications.module';
     ThrottlerModule.forRoot({
       throttlers: [
         {
-          ttl: Number(process.env.THROTTLE_TTL ?? 60) * 1000,
-          limit: Number(process.env.THROTTLE_LIMIT ?? 120),
+          ttl: num(process.env.THROTTLE_TTL, 60) * 1000,
+          limit: num(process.env.THROTTLE_LIMIT, 120),
         },
       ],
     }),
@@ -46,10 +59,10 @@ import { NotificationsModule } from './notifications/notifications.module';
   controllers: [AppController],
   providers: [
     AppService,
-    // ThrottlerGuard must be registered BEFORE JwtAuthGuard/RolesGuard
-    // (those are registered in auth.module). APP_GUARD providers run in
-    // registration order: app.module providers resolve first because
-    // AppModule declares ThrottlerModule before AuthModule in imports.
+    // ThrottlerGuard runs before JwtAuthGuard/RolesGuard: those are APP_GUARDs in
+    // AuthModule.providers, and NestJS resolves a module's own providers before the
+    // providers contributed by its imported child modules. (Import-list order is NOT
+    // the mechanism.) Rate-limiting therefore runs first/cheapest.
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })

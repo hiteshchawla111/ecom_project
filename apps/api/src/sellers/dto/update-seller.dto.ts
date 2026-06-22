@@ -1,5 +1,6 @@
 import {
   IsOptional,
+  IsUrl,
   IsString,
   Matches,
   MaxLength,
@@ -48,7 +49,10 @@ export class UpdateSellerDto {
 
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
-  @IsString()
+  @IsUrl(
+    { protocols: ['http', 'https'], require_protocol: true },
+    { message: 'logoUrl must be an http(s) URL' },
+  )
   @MaxLength(500)
   logoUrl?: string | null;
 

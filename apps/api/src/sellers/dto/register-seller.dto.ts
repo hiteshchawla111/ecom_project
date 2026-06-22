@@ -1,6 +1,7 @@
 import {
   IsOptional,
   IsString,
+  IsUrl,
   Matches,
   MaxLength,
   MinLength,
@@ -46,7 +47,10 @@ export class RegisterSellerDto {
   description?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUrl(
+    { protocols: ['http', 'https'], require_protocol: true },
+    { message: 'logoUrl must be an http(s) URL' },
+  )
   @MaxLength(500)
   logoUrl?: string;
 

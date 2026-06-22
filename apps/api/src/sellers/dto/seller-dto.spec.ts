@@ -107,6 +107,42 @@ describe('RegisterSellerDto', () => {
       false,
     );
   });
+
+  it('fails when logoUrl is a javascript: scheme URL', async () => {
+    const dto = plainToInstance(RegisterSellerDto, {
+      displayName: 'My Shop',
+      logoUrl: 'javascript:alert(1)',
+    });
+    const errors = await getErrors(dto);
+    expect(errors).toContain('logoUrl');
+  });
+
+  it('fails when logoUrl is a plain string (no scheme)', async () => {
+    const dto = plainToInstance(RegisterSellerDto, {
+      displayName: 'My Shop',
+      logoUrl: 'not-a-url',
+    });
+    const errors = await getErrors(dto);
+    expect(errors).toContain('logoUrl');
+  });
+
+  it('passes when logoUrl is a valid https URL', async () => {
+    const dto = plainToInstance(RegisterSellerDto, {
+      displayName: 'My Shop',
+      logoUrl: 'https://cdn.example.com/logo.png',
+    });
+    const errors = await getErrors(dto);
+    expect(errors).not.toContain('logoUrl');
+  });
+
+  it('passes when logoUrl is a valid http URL', async () => {
+    const dto = plainToInstance(RegisterSellerDto, {
+      displayName: 'My Shop',
+      logoUrl: 'http://cdn.example.com/logo.png',
+    });
+    const errors = await getErrors(dto);
+    expect(errors).not.toContain('logoUrl');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -179,5 +215,29 @@ describe('UpdateSellerDto', () => {
     expect(Object.prototype.hasOwnProperty.call(instance, 'userId')).toBe(
       false,
     );
+  });
+
+  it('allows logoUrl: null (explicit clear)', async () => {
+    const dto = plainToInstance(UpdateSellerDto, {
+      logoUrl: null,
+    });
+    const errors = await getErrors(dto);
+    expect(errors).not.toContain('logoUrl');
+  });
+
+  it('fails when logoUrl is a javascript: scheme URL', async () => {
+    const dto = plainToInstance(UpdateSellerDto, {
+      logoUrl: 'javascript:alert(1)',
+    });
+    const errors = await getErrors(dto);
+    expect(errors).toContain('logoUrl');
+  });
+
+  it('passes when logoUrl is a valid https URL', async () => {
+    const dto = plainToInstance(UpdateSellerDto, {
+      logoUrl: 'https://cdn.example.com/logo.png',
+    });
+    const errors = await getErrors(dto);
+    expect(errors).not.toContain('logoUrl');
   });
 });

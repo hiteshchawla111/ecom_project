@@ -49,13 +49,18 @@ export function AppShell() {
             </>
           )}
 
-          {/* Operations — Orders is ADMIN-only; Inventory is open to both
-              internal roles (ADMIN + INVENTORY_MANAGER). */}
+          {/* Operations — Orders and Sellers are ADMIN-only; Inventory is open
+              to both internal roles (ADMIN + INVENTORY_MANAGER). */}
           <p className={groupLabelClass}>Operations</p>
           {isAdmin && (
-            <NavLink to="/orders" className={navLinkClass}>
-              Orders
-            </NavLink>
+            <>
+              <NavLink to="/orders" className={navLinkClass}>
+                Orders
+              </NavLink>
+              <NavLink to="/sellers" className={navLinkClass}>
+                Sellers
+              </NavLink>
+            </>
           )}
           <NavLink to="/inventory" className={navLinkClass}>
             Inventory

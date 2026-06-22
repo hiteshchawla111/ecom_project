@@ -51,4 +51,11 @@ describe('AppShell (INVENTORY_MANAGER)', () => {
       screen.queryByRole('link', { name: /orders/i }),
     ).not.toBeInTheDocument();
   });
+
+  it('hides the ADMIN-only Sellers link from an INVENTORY_MANAGER', () => {
+    renderShell();
+    expect(
+      screen.queryByRole('link', { name: /sellers/i }),
+    ).not.toBeInTheDocument();
+  });
 });

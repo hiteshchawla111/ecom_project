@@ -584,6 +584,27 @@ describe('SellersService.updateMe', () => {
     });
   });
 
+  it('empty-string KYC field is a no-op — encryptField NOT called and key absent from update data', async () => {
+    const { svc, prisma, cipher } = build();
+    prisma.seller.findUnique.mockResolvedValue(makeSeller());
+    prisma.seller.update.mockResolvedValue(
+      makeSeller({ gstin: 'enc(22AAAAA0000A1Z5)' }),
+    );
+
+    // gstin present but empty string — should be skipped entirely, not cleared
+    const input: UpdateSellerInput = { gstin: '' };
+    await svc.updateMe(actor, input);
+
+    // encryptField must NOT have been called for the empty string
+    expect(cipher.encryptField).not.toHaveBeenCalled();
+
+    const [updateCall] = prisma.seller.update.mock.calls as Array<
+      [{ data: Record<string, unknown> }]
+    >;
+    // gstin key must be absent from the data object (undefined/omitted → Prisma skips it)
+    expect(Object.keys(updateCall[0].data)).not.toContain('gstin');
+  });
+
   it('UpdateSellerInput has no status field — data passed to update never includes status', async () => {
     const { svc, prisma } = build();
     prisma.seller.findUnique.mockResolvedValue(makeSeller());

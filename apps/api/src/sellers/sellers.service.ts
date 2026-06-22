@@ -250,33 +250,38 @@ export class SellersService {
 
     // Build a partial data object — only include fields that were explicitly
     // provided so we don't silently overwrite unrelated fields.
-    const data: Record<string, unknown> = {};
+    const data: Prisma.SellerUpdateInput = {};
 
     if ('displayName' in input && input.displayName !== undefined) {
-      data['displayName'] = input.displayName;
+      data.displayName = input.displayName;
     }
     if ('description' in input) {
-      data['description'] = input.description ?? null;
+      data.description = input.description ?? null;
     }
     if ('logoUrl' in input) {
-      data['logoUrl'] = input.logoUrl ?? null;
+      data.logoUrl = input.logoUrl ?? null;
     }
 
-    // KYC: encrypt non-empty strings; treat an empty/absent value as "no-op"
-    // (the encryptIfPresent helper returns undefined for empty/undefined values,
-    // which keeps the field unchanged via Prisma's undefined-means-skip behaviour).
-    if ('gstin' in input) {
-      data['gstin'] = encryptIfPresent(input.gstin, this.cipher) ?? null;
+    // KYC: only set the field when encryptIfPresent returns a ciphertext string.
+    // If the input value is absent or an empty string, encryptIfPresent returns
+    // undefined — in that case we do NOT add the key to `data` at all, so Prisma
+    // leaves the stored value unchanged (true no-op / skip, not a clear).
+    // This prevents an empty-string submission from accidentally wiping stored KYC.
+    const encGstin = encryptIfPresent(input.gstin, this.cipher);
+    if (encGstin !== undefined) {
+      data.gstin = encGstin;
     }
-    if ('pan' in input) {
-      data['pan'] = encryptIfPresent(input.pan, this.cipher) ?? null;
+    const encPan = encryptIfPresent(input.pan, this.cipher);
+    if (encPan !== undefined) {
+      data.pan = encPan;
     }
-    if ('bankAccountNo' in input) {
-      data['bankAccountNo'] =
-        encryptIfPresent(input.bankAccountNo, this.cipher) ?? null;
+    const encBankAccountNo = encryptIfPresent(input.bankAccountNo, this.cipher);
+    if (encBankAccountNo !== undefined) {
+      data.bankAccountNo = encBankAccountNo;
     }
-    if ('bankIfsc' in input) {
-      data['bankIfsc'] = encryptIfPresent(input.bankIfsc, this.cipher) ?? null;
+    const encBankIfsc = encryptIfPresent(input.bankIfsc, this.cipher);
+    if (encBankIfsc !== undefined) {
+      data.bankIfsc = encBankIfsc;
     }
 
     const updated = await this.prisma.seller.update({

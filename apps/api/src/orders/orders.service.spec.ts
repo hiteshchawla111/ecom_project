@@ -58,7 +58,6 @@ const makeInventory = () => ({
 
 const makeAudit = () => ({
   record: jest.fn().mockResolvedValue(undefined),
-  recordAsync: jest.fn().mockResolvedValue(undefined),
 });
 
 const build = () => {
@@ -494,7 +493,11 @@ describe('OrdersService.updateStatus', () => {
       prisma,
     );
     expect(audit.record).toHaveBeenCalledWith(
-      expect.objectContaining({ action: REFUND_ISSUED, entityId: 'order1' }),
+      expect.objectContaining({
+        action: REFUND_ISSUED,
+        entityId: 'order1',
+        metadata: { grandTotal: '16' },
+      }),
       prisma,
     );
   });
@@ -510,6 +513,20 @@ describe('OrdersService.updateStatus', () => {
     await expect(
       svc.updateStatus(admin, 'order1', OrderStatus.SHIPPED),
     ).rejects.toThrow('db error');
+  });
+
+  it('(audit PATH B) propagates tx errors for a non-stock transition (PENDING→CONFIRMED)', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
+    // Simulate the tx.order.update failing inside the non-stock (PATH B) transaction.
+    // If the audit write were outside the tx, the test would still pass — but this
+    // proves the newly-wrapped PATH B path propagates the failure out of $transaction,
+    // so the audit row would roll back with it.
+    prisma.order.update.mockRejectedValueOnce(new Error('db fail'));
+
+    await expect(
+      svc.updateStatus(admin, 'order1', OrderStatus.CONFIRMED),
+    ).rejects.toThrow('db fail');
   });
 });
 

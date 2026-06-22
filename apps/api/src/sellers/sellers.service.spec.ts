@@ -4,7 +4,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 
-import { ConflictException } from '@nestjs/common';
 import { Prisma, Role, SellerStatus } from '@prisma/client';
 import { SellersService, RegisterSellerInput } from './sellers.service';
 import { SELLER_REGISTERED } from './seller-events';
@@ -333,19 +332,41 @@ describe('SellersService.register', () => {
   });
 
   describe('error handling', () => {
-    it('throws ConflictException (409) when the user already has a seller account (P2002)', async () => {
+    it('throws ConflictException (409) with seller-account message when userId P2002 fires', async () => {
       const { svc, prisma } = build();
       prisma.seller.findUnique.mockResolvedValue(null);
       prisma.seller.create.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
           code: 'P2002',
           clientVersion: 'x',
+          meta: { target: ['userId'] },
         }),
       );
 
       await expect(
         svc.register(actor, { displayName: 'Cool Shop' }),
-      ).rejects.toBeInstanceOf(ConflictException);
+      ).rejects.toMatchObject({
+        message: 'You already have a seller account',
+      });
+    });
+
+    it('throws ConflictException (409) with slug-specific message when slug P2002 fires', async () => {
+      const { svc, prisma } = build();
+      prisma.seller.findUnique.mockResolvedValue(null);
+      prisma.seller.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'x',
+          meta: { target: ['slug'] },
+        }),
+      );
+
+      await expect(
+        svc.register(actor, { displayName: 'Cool Shop' }),
+      ).rejects.toMatchObject({
+        message:
+          'A seller with a similar name already exists; please choose a different display name',
+      });
     });
 
     it('re-throws non-P2002 Prisma errors unchanged', async () => {

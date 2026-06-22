@@ -141,7 +141,7 @@ export class SellersService {
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === 'P2002'
       ) {
-        throw new ConflictException('You already have a seller account');
+        throw new ConflictException(this.resolveP2002Message(err));
       }
       throw err;
     }
@@ -176,6 +176,38 @@ export class SellersService {
   // --------------------------------------------------------------------------
   // Private helpers
   // --------------------------------------------------------------------------
+
+  /**
+   * Maps a P2002 PrismaClientKnownRequestError to a user-facing message by
+   * inspecting `err.meta.target`.
+   *
+   * Prisma sets `meta.target` to the field(s) involved in the unique
+   * violation. It may be a `string[]` or a single `string` depending on the
+   * connector version, so both shapes are handled defensively.
+   *
+   * - target includes "userId"  → seller-account conflict message.
+   * - target includes "slug"    → slug/display-name conflict message.
+   * - target absent/unrecognised → safe default (seller-account message).
+   */
+  private resolveP2002Message(
+    err: Prisma.PrismaClientKnownRequestError,
+  ): string {
+    const meta = err.meta;
+    const raw = meta?.['target'];
+
+    // Normalise to a string array regardless of connector shape.
+    const fields: string[] = Array.isArray(raw)
+      ? raw.map(String)
+      : typeof raw === 'string'
+        ? [raw]
+        : [];
+
+    if (fields.includes('slug') && !fields.includes('userId')) {
+      return 'A seller with a similar name already exists; please choose a different display name';
+    }
+
+    return 'You already have a seller account';
+  }
 
   /**
    * Returns a slug derived from `displayName` that is not already taken.

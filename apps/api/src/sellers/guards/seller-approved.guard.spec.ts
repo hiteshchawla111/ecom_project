@@ -4,13 +4,21 @@ import { AccessTokenPayload } from '../../auth/auth-tokens';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SellerApprovedGuard } from './seller-approved.guard';
 
-const ctxWith = (user: AccessTokenPayload | undefined): ExecutionContext =>
-  ({
-    switchToHttp: () => ({ getRequest: () => ({ user }) }),
-  }) as unknown as ExecutionContext;
+const ctxWith = (
+  user: AccessTokenPayload | undefined,
+): {
+  ctx: ExecutionContext;
+  req: { user?: AccessTokenPayload; sellerId?: string };
+} => {
+  const req: { user?: AccessTokenPayload; sellerId?: string } = { user };
+  const ctx = {
+    switchToHttp: () => ({ getRequest: () => req }),
+  } as unknown as ExecutionContext;
+  return { ctx, req };
+};
 
 const makePrisma = (
-  result: { status: SellerStatus } | null,
+  result: { id?: string; status: SellerStatus } | null,
 ): jest.Mocked<Pick<PrismaService, 'seller'>> => ({
   seller: {
     findUnique: jest.fn().mockResolvedValue(result),
@@ -21,7 +29,7 @@ describe('SellerApprovedGuard', () => {
   it('passes for ADMIN without querying the DB', async () => {
     const prisma = makePrisma(null);
     const guard = new SellerApprovedGuard(prisma as unknown as PrismaService);
-    const ctx = ctxWith({
+    const { ctx } = ctxWith({
       sub: 'admin-1',
       email: 'admin@test.com',
       role: Role.ADMIN,
@@ -33,9 +41,9 @@ describe('SellerApprovedGuard', () => {
   });
 
   it('passes for SELLER whose DB status is ACTIVE', async () => {
-    const prisma = makePrisma({ status: SellerStatus.ACTIVE });
+    const prisma = makePrisma({ id: 'seller-1', status: SellerStatus.ACTIVE });
     const guard = new SellerApprovedGuard(prisma as unknown as PrismaService);
-    const ctx = ctxWith({
+    const { ctx } = ctxWith({
       sub: 'seller-1',
       email: 'seller@test.com',
       role: Role.SELLER,
@@ -45,14 +53,14 @@ describe('SellerApprovedGuard', () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(prisma.seller.findUnique).toHaveBeenCalledWith({
       where: { userId: 'seller-1' },
-      select: { status: true },
+      select: { id: true, status: true },
     });
   });
 
   it('throws ForbiddenException for SELLER whose DB status is PENDING_REVIEW', async () => {
     const prisma = makePrisma({ status: SellerStatus.PENDING_REVIEW });
     const guard = new SellerApprovedGuard(prisma as unknown as PrismaService);
-    const ctx = ctxWith({
+    const { ctx } = ctxWith({
       sub: 'seller-2',
       email: 'seller2@test.com',
       role: Role.SELLER,
@@ -64,7 +72,7 @@ describe('SellerApprovedGuard', () => {
   it('throws ForbiddenException for SELLER whose DB status is SUSPENDED', async () => {
     const prisma = makePrisma({ status: SellerStatus.SUSPENDED });
     const guard = new SellerApprovedGuard(prisma as unknown as PrismaService);
-    const ctx = ctxWith({
+    const { ctx } = ctxWith({
       sub: 'seller-3',
       email: 'seller3@test.com',
       role: Role.SELLER,
@@ -76,7 +84,7 @@ describe('SellerApprovedGuard', () => {
   it('throws ForbiddenException for SELLER whose DB status is DEACTIVATED', async () => {
     const prisma = makePrisma({ status: SellerStatus.DEACTIVATED });
     const guard = new SellerApprovedGuard(prisma as unknown as PrismaService);
-    const ctx = ctxWith({
+    const { ctx } = ctxWith({
       sub: 'seller-4',
       email: 'seller4@test.com',
       role: Role.SELLER,
@@ -88,7 +96,7 @@ describe('SellerApprovedGuard', () => {
   it('throws ForbiddenException when no Seller row exists in DB (token role SELLER)', async () => {
     const prisma = makePrisma(null);
     const guard = new SellerApprovedGuard(prisma as unknown as PrismaService);
-    const ctx = ctxWith({
+    const { ctx } = ctxWith({
       sub: 'no-seller-row',
       email: 'ghost@test.com',
       role: Role.SELLER,
@@ -100,7 +108,7 @@ describe('SellerApprovedGuard', () => {
   it('throws ForbiddenException when request has no authenticated user', async () => {
     const prisma = makePrisma(null);
     const guard = new SellerApprovedGuard(prisma as unknown as PrismaService);
-    const ctx = ctxWith(undefined);
+    const { ctx } = ctxWith(undefined);
 
     await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
     // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -111,7 +119,7 @@ describe('SellerApprovedGuard', () => {
     // Token says SELLER, DB says SUSPENDED — DB wins
     const prisma = makePrisma({ status: SellerStatus.SUSPENDED });
     const guard = new SellerApprovedGuard(prisma as unknown as PrismaService);
-    const ctx = ctxWith({
+    const { ctx } = ctxWith({
       sub: 'stale-token-seller',
       email: 'stale@test.com',
       role: Role.SELLER,
@@ -121,7 +129,33 @@ describe('SellerApprovedGuard', () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(prisma.seller.findUnique).toHaveBeenCalledWith({
       where: { userId: 'stale-token-seller' },
-      select: { status: true },
+      select: { id: true, status: true },
     });
+  });
+
+  it('attaches request.sellerId for an ACTIVE seller', async () => {
+    const prisma = makePrisma({ id: 'seller-99', status: SellerStatus.ACTIVE });
+    const guard = new SellerApprovedGuard(prisma as unknown as PrismaService);
+    const { ctx, req } = ctxWith({
+      sub: 'seller-1',
+      email: 'seller@test.com',
+      role: Role.SELLER,
+    });
+
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(req.sellerId).toBe('seller-99');
+  });
+
+  it('does not attach sellerId for an ADMIN (bypass)', async () => {
+    const prisma = makePrisma(null);
+    const guard = new SellerApprovedGuard(prisma as unknown as PrismaService);
+    const { ctx, req } = ctxWith({
+      sub: 'admin-1',
+      email: 'admin@test.com',
+      role: Role.ADMIN,
+    });
+
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(req.sellerId).toBeUndefined();
   });
 });

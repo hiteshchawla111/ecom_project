@@ -133,7 +133,7 @@ async function main(): Promise<void> {
   const adminUser = await prisma.user.findUniqueOrThrow({
     where: { email: 'admin@example.com' },
   });
-  await prisma.seller.upsert({
+  const platformSeller = await prisma.seller.upsert({
     where: { userId: adminUser.id },
     update: {},
     create: {
@@ -143,6 +143,20 @@ async function main(): Promise<void> {
       status: SellerStatus.ACTIVE,
     },
   });
+
+  // B3 backfill (idempotent): existing catalog/inventory predates seller ownership.
+  // Only rows with a null sellerId are touched, so re-running is a no-op.
+  const productBackfill = await prisma.product.updateMany({
+    where: { sellerId: null },
+    data: { sellerId: platformSeller.id },
+  });
+  const inventoryBackfill = await prisma.inventoryItem.updateMany({
+    where: { sellerId: null },
+    data: { sellerId: platformSeller.id },
+  });
+  console.log(
+    `Backfilled sellerId: ${productBackfill.count} products, ${inventoryBackfill.count} inventory items.`,
+  );
 
   console.log('Seed complete.');
 }

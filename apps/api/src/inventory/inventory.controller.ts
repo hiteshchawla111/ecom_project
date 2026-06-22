@@ -13,6 +13,8 @@ import { InventoryService } from './inventory.service';
 import { CreateMovementDto } from './dto/create-movement.dto';
 import { ListStockDto } from './dto/list-stock.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AccessTokenPayload } from '../auth/auth-tokens';
 
 /**
  * Inventory management. Manual stock movements (additions, deductions,
@@ -40,9 +42,10 @@ export class InventoryController {
   @Post(':productId/movements')
   @HttpCode(HttpStatus.NO_CONTENT)
   async createMovement(
+    @CurrentUser() user: AccessTokenPayload,
     @Param('productId') productId: string,
     @Body() dto: CreateMovementDto,
   ): Promise<void> {
-    await this.inventory.adjust(productId, dto);
+    await this.inventory.adjust(user, productId, dto);
   }
 }

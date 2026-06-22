@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -9,17 +10,22 @@ import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AccessTokenPayload } from './auth-tokens';
 
+/** Tight rate limit applied to brute-force/enumeration surfaces: 10 requests per minute. */
+const AUTH_THROTTLE = { default: { ttl: 60_000, limit: 10 } };
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Public()
+  @Throttle(AUTH_THROTTLE)
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.auth.register(dto);
   }
 
   @Public()
+  @Throttle(AUTH_THROTTLE)
   @HttpCode(200)
   @Post('login')
   login(@Body() dto: LoginDto) {
@@ -45,6 +51,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle(AUTH_THROTTLE)
   @HttpCode(200)
   @Post('password-reset/request')
   requestReset(@Body() dto: RequestResetDto) {
@@ -52,6 +59,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle(AUTH_THROTTLE)
   @HttpCode(200)
   @Post('password-reset/confirm')
   confirmReset(@Body() dto: ConfirmResetDto) {

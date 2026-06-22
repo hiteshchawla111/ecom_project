@@ -59,6 +59,12 @@ describe('AppShell', () => {
     );
   });
 
+  it('shows the Sellers nav link for an ADMIN', () => {
+    renderShell();
+    expect(screen.getByRole('link', { name: /sellers/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /sellers/i })).toHaveAttribute('href', '/sellers');
+  });
+
   it('marks the Dashboard link active on the index route', () => {
     renderShell();
     expect(screen.getByRole('link', { name: /dashboard/i })).toHaveAttribute(

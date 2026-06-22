@@ -33,3 +33,6 @@ yarn-error.log*
 
 # Prisma
 apps/api/prisma/*.db
+
+# Claude Code agent worktree scratch (transient subagent worktrees)
+.claude/worktrees/

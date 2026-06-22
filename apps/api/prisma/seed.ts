@@ -30,6 +30,45 @@ async function main(): Promise<void> {
     create: { name: 'Laptops', slug: 'laptops', parentId: electronics.id },
   });
 
+  // Dev users for each internal role (idempotent). Password: "Password123!".
+  const passwordHash = await bcrypt.hash('Password123!', 10);
+  const devUsers = [
+    { email: 'admin@example.com', name: 'Admin User', role: Role.ADMIN },
+    {
+      email: 'inventory@example.com',
+      name: 'Inventory Manager',
+      role: Role.INVENTORY_MANAGER,
+    },
+  ];
+  for (const u of devUsers) {
+    await prisma.user.upsert({
+      where: { email: u.email },
+      update: {},
+      create: {
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        passwordHash,
+      },
+    });
+  }
+
+  // Platform seller — the default owner for seeded + backfilled products/inventory (M2).
+  // Resolved before the product loop so seeded products can be owned at creation.
+  const adminUser = await prisma.user.findUniqueOrThrow({
+    where: { email: 'admin@example.com' },
+  });
+  const platformSeller = await prisma.seller.upsert({
+    where: { userId: adminUser.id },
+    update: {},
+    create: {
+      userId: adminUser.id,
+      displayName: 'Platform',
+      slug: 'platform',
+      status: SellerStatus.ACTIVE,
+    },
+  });
+
   // Sample products with inventory.
   const products = [
     {
@@ -63,20 +102,26 @@ async function main(): Promise<void> {
   ];
 
   for (const p of products) {
-    const product = await prisma.product.upsert({
-      where: { sku: p.sku },
-      update: {},
-      create: {
-        sku: p.sku,
-        name: p.name,
-        description: p.description,
-        price: p.price,
-        salePrice: p.salePrice ?? undefined,
-        brand: p.brand,
-        status: ProductStatus.ACTIVE,
-        categoryId: p.categoryId,
-      },
+    // sku is no longer globally unique (B5: @@unique([sku, sellerId])), so guard
+    // on (sku, sellerId) instead of upserting by sku alone.
+    let product = await prisma.product.findFirst({
+      where: { sku: p.sku, sellerId: platformSeller.id },
     });
+    if (!product) {
+      product = await prisma.product.create({
+        data: {
+          sku: p.sku,
+          name: p.name,
+          description: p.description,
+          price: p.price,
+          salePrice: p.salePrice ?? undefined,
+          brand: p.brand,
+          status: ProductStatus.ACTIVE,
+          categoryId: p.categoryId,
+          sellerId: platformSeller.id,
+        },
+      });
+    }
 
     await prisma.inventoryItem.upsert({
       where: { productId: product.id },
@@ -86,6 +131,7 @@ async function main(): Promise<void> {
         available: p.available,
         reserved: 0,
         lowStockThreshold: p.lowStockThreshold,
+        sellerId: platformSeller.id,
       },
     });
 
@@ -105,44 +151,6 @@ async function main(): Promise<void> {
       });
     }
   }
-
-  // Dev users for each internal role (idempotent). Password: "Password123!".
-  const passwordHash = await bcrypt.hash('Password123!', 10);
-  const devUsers = [
-    { email: 'admin@example.com', name: 'Admin User', role: Role.ADMIN },
-    {
-      email: 'inventory@example.com',
-      name: 'Inventory Manager',
-      role: Role.INVENTORY_MANAGER,
-    },
-  ];
-  for (const u of devUsers) {
-    await prisma.user.upsert({
-      where: { email: u.email },
-      update: {},
-      create: {
-        email: u.email,
-        name: u.name,
-        role: u.role,
-        passwordHash,
-      },
-    });
-  }
-
-  // Platform seller — the default owner that existing products/inventory backfill to (M2).
-  const adminUser = await prisma.user.findUniqueOrThrow({
-    where: { email: 'admin@example.com' },
-  });
-  const platformSeller = await prisma.seller.upsert({
-    where: { userId: adminUser.id },
-    update: {},
-    create: {
-      userId: adminUser.id,
-      displayName: 'Platform',
-      slug: 'platform',
-      status: SellerStatus.ACTIVE,
-    },
-  });
 
   // B3 backfill (idempotent): existing catalog/inventory predates seller ownership.
   // Only rows with a null sellerId are touched, so re-running is a no-op.

@@ -12,6 +12,9 @@ const makePrisma = () => ({
     count: jest.fn(),
     update: jest.fn(),
   },
+  seller: {
+    findFirstOrThrow: jest.fn().mockResolvedValue({ id: 'platform-seller-id' }),
+  },
 });
 
 const build = () => {
@@ -43,6 +46,18 @@ describe('ProductsService', () => {
         expect.objectContaining({ sku: 'WID-001', categoryId: 'cat1' }),
       );
       expect(res).toEqual(expect.objectContaining({ id: 'p1' }));
+    });
+
+    it('sets a sellerId on the created product', async () => {
+      const { svc, prisma } = build();
+      prisma.product.create.mockResolvedValue({ id: 'p1', ...baseCreate });
+
+      await svc.create(baseCreate);
+
+      const [createCall] = prisma.product.create.mock.calls as Array<
+        [{ data: { sellerId?: string } }]
+      >;
+      expect(createCall[0].data.sellerId).toEqual(expect.any(String));
     });
 
     it('rejects a duplicate SKU with 409', async () => {

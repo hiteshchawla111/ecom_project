@@ -13,6 +13,7 @@ import {
   ProductSortBy,
   SortDir,
 } from './dto/list-products.dto';
+import { resolvePlatformSellerId } from './platform-seller';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
@@ -37,6 +38,7 @@ export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateProductDto): Promise<Product> {
+    const sellerId = await resolvePlatformSellerId(this.prisma);
     try {
       return await this.prisma.product.create({
         data: {
@@ -48,6 +50,7 @@ export class ProductsService {
           brand: dto.brand,
           categoryId: dto.categoryId,
           status: dto.status,
+          sellerId,
         },
       });
     } catch (err) {
@@ -176,6 +179,7 @@ export class ProductsService {
   private mapWriteError(err: unknown): Error {
     if (err instanceof Prisma.PrismaClientKnownRequestError) {
       if (err.code === 'P2002') {
+        // Unique violation is now on (sku, sellerId): a seller already has this SKU.
         return new ConflictException('A product with this SKU already exists');
       }
       if (err.code === 'P2003' || err.code === 'P2025') {

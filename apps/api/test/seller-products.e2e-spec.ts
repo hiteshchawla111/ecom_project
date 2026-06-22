@@ -300,6 +300,7 @@ describe('4. GET /seller/products list scoping', () => {
   it("Seller A's list contains A's product and NOT B's", async () => {
     const res = await request(app.getHttpServer())
       .get('/seller/products')
+      .query({ pageSize: 100 })
       .set('Authorization', auth(tokenA))
       .expect(200);
 
@@ -311,6 +312,7 @@ describe('4. GET /seller/products list scoping', () => {
   it("Seller B's list contains B's product and NOT A's", async () => {
     const res = await request(app.getHttpServer())
       .get('/seller/products')
+      .query({ pageSize: 100 })
       .set('Authorization', auth(tokenB))
       .expect(200);
 

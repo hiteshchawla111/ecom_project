@@ -30,8 +30,10 @@ describe('Security Headers (e2e)', () => {
       .expect('x-content-type-options', 'nosniff');
   });
 
-  it('GET / includes x-frame-options header', async () => {
-    const response = await request(app.getHttpServer()).get('/').expect(200);
-    expect(response.headers['x-frame-options']).toBeDefined();
+  it('GET / returns x-frame-options: SAMEORIGIN', async () => {
+    await request(app.getHttpServer())
+      .get('/')
+      .expect(200)
+      .expect('x-frame-options', 'SAMEORIGIN');
   });
 });

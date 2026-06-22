@@ -891,7 +891,10 @@ providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 
 ---
 
-## SLICE 6 — Admin Seller-Management UI (task outline; expand before executing)
+## SLICE 6 — Admin Seller-Management UI (tasks 6.1–6.5; dispatched with concrete briefs)
+
+> Verified admin-app conventions (from an Explore pass): feature libs live in `src/lib/*.ts` (NOT a `features/` dir), pages in `src/pages/*.tsx`, badges in `src/components/<domain>/`. `apiClient.request<T>(path, init?)` (throws `ApiError(status,msg)`/`SessionExpiredError`; callers build query strings via a local `toQuery` helper; PATCH = `{method,body:JSON.stringify}`; 204 → `apiClient.request<void>`). `Paginated<T>` is defined per-feature-lib (e.g. in `orders.ts`), not shared. List-page pattern: `useState` for data/page/filter/total/totalPages/loading/error/refreshTick + a cancellation-guarded `useEffect` keyed on `[page,filter,refreshTick]` + `reload=useCallback(()=>setRefreshTick(t=>t+1))`; filter change resets page to 1. `Pagination` props: `{page,totalPages,total,pageSize,onPageChange,siblingCount?}`. Detail page: `useParams<{id}>`, fetch keyed `[id,refreshTick]`, `ApiError.status===404`→notFound, `busy` state during actions, **`window.confirm(...)` for destructive actions** (existing pattern — DO NOT introduce a modal; the accessible-modal swap is app-wide M7d), action returns updated entity → `setState(updated)`. `StatusBadge`/`OrderStatusBadge` = `Record<Status,string>` Tailwind tint+text classes, color PAIRED with a text label (never color-only). Routes in `src/router.tsx` go inside the existing `<AdminOnlyRoute>` children. `AppShell` nav gated via `{isAdmin && <NavLink.../>}` (`isAdmin = user.role==='ADMIN'`). Tests: Vitest + RTL + `MemoryRouter`, `vi.mock('../lib/sellers', importOriginal)`, fixture-builder factories, `vi.spyOn(window,'confirm')`.
+> **NOTE — client `Role` lacks `SELLER`** (`'CUSTOMER'|'ADMIN'|'INVENTORY_MANAGER'`). Slice 6 needs NO Role change: admin seller-management is ADMIN-only; sellers don't enter the admin shell (their portal is M2). Do not add `SELLER` to the client Role in M1.
 
 **Deliverable:** ADMIN-only seller list + KYC-review/approve/suspend pages in `apps/admin`, against Slice 5 API.
 

@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import * as bcrypt from 'bcrypt';
-import { PrismaClient, ProductStatus, Role } from '@prisma/client';
+import { PrismaClient, ProductStatus, Role, SellerStatus } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 const adapter = new PrismaPg(process.env.DATABASE_URL as string);
@@ -128,6 +128,21 @@ async function main(): Promise<void> {
       },
     });
   }
+
+  // Platform seller — the default owner that existing products/inventory backfill to (M2).
+  const adminUser = await prisma.user.findUniqueOrThrow({
+    where: { email: 'admin@example.com' },
+  });
+  await prisma.seller.upsert({
+    where: { userId: adminUser.id },
+    update: {},
+    create: {
+      userId: adminUser.id,
+      displayName: 'Platform',
+      slug: 'platform',
+      status: SellerStatus.ACTIVE,
+    },
+  });
 
   console.log('Seed complete.');
 }

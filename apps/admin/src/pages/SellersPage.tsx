@@ -9,6 +9,7 @@ import { SellerStatusBadge } from '../components/sellers/SellerStatusBadge';
 import { Pagination } from '../components/ui/Pagination';
 
 const PAGE_SIZE = 20;
+const dateFmt = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
 
 const STATUSES: SellerStatus[] = [
   'PENDING_REVIEW',
@@ -162,7 +163,7 @@ export function SellersPage() {
                     <SellerStatusBadge status={s.status} />
                   </td>
                   <td className="px-4 py-2 text-neutral-600">
-                    {new Date(s.createdAt).toLocaleDateString()}
+                    {dateFmt.format(new Date(s.createdAt))}
                   </td>
                 </tr>
               ))}

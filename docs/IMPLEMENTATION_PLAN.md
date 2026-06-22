@@ -20,7 +20,7 @@
 | Phase | Title | Complexity | Status |
 |---|---|---|---|
 | M0 | Single-vendor baseline | — | ✅ Done (was `PLAN.md` Phases 0–5) |
-| M1 | Marketplace Foundation | M | 🟡 (Slice 1 ✅ seller domain foundation; Slice 2 ✅ AuditService; Slice 3 ✅ security hardening — env CORS + helmet + auth rate-limiting + J3 MFA columns, smoke-verified; slices 4–6 pending) |
+| M1 | Marketplace Foundation | M | 🟡 (Slice 1 ✅ seller domain foundation; Slice 2 ✅ AuditService; Slice 3 ✅ security hardening; Slice 4 ✅ seller auth — register/me + encrypted-KYC + SellerApprovedGuard, e2e-smoke-verified; slices 5–6 pending) |
 | M2 | Seller System | L | ⬜ |
 | M3 | Catalog V2 + Inventory V2 + Search (parallel group) | L | ⬜ |
 | M4 | Reviews + Notifications (parallel group) | M | ⬜ |

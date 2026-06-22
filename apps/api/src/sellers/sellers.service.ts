@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma, Role, SellerStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,6 +17,25 @@ import { SELLER_REGISTERED, SellerRegisteredEvent } from './seller-events';
 // Input type (inline — DTO class + validation decorators live in the
 // controller layer; added in a later task)
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// UpdateSellerInput — all fields optional; status is intentionally absent
+// (sellers cannot change their own status; that is an admin-only action)
+// ---------------------------------------------------------------------------
+
+export interface UpdateSellerInput {
+  displayName?: string;
+  description?: string | null;
+  logoUrl?: string | null;
+  /** Raw (unencrypted) GSTIN. Encrypted before persistence when provided. */
+  gstin?: string;
+  /** Raw (unencrypted) PAN. Encrypted before persistence when provided. */
+  pan?: string;
+  /** Raw (unencrypted) bank account number. Encrypted before persistence when provided. */
+  bankAccountNo?: string;
+  /** Raw (unencrypted) bank IFSC code. Encrypted before persistence when provided. */
+  bankIfsc?: string;
+}
 
 export interface RegisterSellerInput {
   displayName: string;
@@ -173,6 +196,104 @@ export class SellersService {
     });
   }
 
+  /**
+   * Returns the caller's own seller profile as a masked SellerView.
+   *
+   * KYC fields are stored encrypted; they are decrypted before being passed
+   * to toSellerView so that presence flags and the bank-account last-4 are
+   * derived from meaningful plaintext.  Raw values are never exposed.
+   *
+   * @throws NotFoundException when the actor has no seller record.
+   */
+  async getMe(actor: AccessTokenPayload): Promise<SellerView> {
+    const seller = await this.prisma.seller.findUnique({
+      where: { userId: actor.sub },
+    });
+
+    if (!seller) {
+      throw new NotFoundException('Seller profile not found');
+    }
+
+    return toSellerView({
+      ...seller,
+      gstin: decryptIfPresent(seller.gstin, this.cipher),
+      pan: decryptIfPresent(seller.pan, this.cipher),
+      bankAccountNo: decryptIfPresent(seller.bankAccountNo, this.cipher),
+      bankIfsc: decryptIfPresent(seller.bankIfsc, this.cipher),
+    });
+  }
+
+  /**
+   * Updates the caller's own seller profile and returns the updated masked view.
+   *
+   * Rules:
+   * - Only fields explicitly present in `input` are written; absent fields are
+   *   not touched (avoids accidental overwrites).
+   * - KYC fields provided in `input` are encrypted before storage.
+   * - `slug` is left unchanged (set at registration; must remain stable).
+   * - `status` is not in UpdateSellerInput — sellers cannot change their own status.
+   *
+   * @throws NotFoundException when the actor has no seller record.
+   */
+  async updateMe(
+    actor: AccessTokenPayload,
+    input: UpdateSellerInput,
+  ): Promise<SellerView> {
+    // Verify ownership / existence first.
+    const existing = await this.prisma.seller.findUnique({
+      where: { userId: actor.sub },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Seller profile not found');
+    }
+
+    // Build a partial data object — only include fields that were explicitly
+    // provided so we don't silently overwrite unrelated fields.
+    const data: Record<string, unknown> = {};
+
+    if ('displayName' in input && input.displayName !== undefined) {
+      data['displayName'] = input.displayName;
+    }
+    if ('description' in input) {
+      data['description'] = input.description ?? null;
+    }
+    if ('logoUrl' in input) {
+      data['logoUrl'] = input.logoUrl ?? null;
+    }
+
+    // KYC: encrypt non-empty strings; treat an empty/absent value as "no-op"
+    // (the encryptIfPresent helper returns undefined for empty/undefined values,
+    // which keeps the field unchanged via Prisma's undefined-means-skip behaviour).
+    if ('gstin' in input) {
+      data['gstin'] = encryptIfPresent(input.gstin, this.cipher) ?? null;
+    }
+    if ('pan' in input) {
+      data['pan'] = encryptIfPresent(input.pan, this.cipher) ?? null;
+    }
+    if ('bankAccountNo' in input) {
+      data['bankAccountNo'] =
+        encryptIfPresent(input.bankAccountNo, this.cipher) ?? null;
+    }
+    if ('bankIfsc' in input) {
+      data['bankIfsc'] = encryptIfPresent(input.bankIfsc, this.cipher) ?? null;
+    }
+
+    const updated = await this.prisma.seller.update({
+      where: { userId: actor.sub },
+      data,
+    });
+
+    // Decrypt updated KYC for the masked view.
+    return toSellerView({
+      ...updated,
+      gstin: decryptIfPresent(updated.gstin, this.cipher),
+      pan: decryptIfPresent(updated.pan, this.cipher),
+      bankAccountNo: decryptIfPresent(updated.bankAccountNo, this.cipher),
+      bankIfsc: decryptIfPresent(updated.bankIfsc, this.cipher),
+    });
+  }
+
   // --------------------------------------------------------------------------
   // Private helpers
   // --------------------------------------------------------------------------
@@ -262,4 +383,19 @@ function encryptIfPresent(
     return cipher.encryptField(value);
   }
   return undefined;
+}
+
+/**
+ * Decrypts the stored ciphertext if it is a non-empty string; otherwise
+ * returns null.  Inverse of encryptIfPresent — used to turn stored ciphertext
+ * back into plaintext before passing to toSellerView for masking.
+ */
+function decryptIfPresent(
+  value: string | null,
+  cipher: FieldCipherService,
+): string | null {
+  if (typeof value === 'string' && value.length > 0) {
+    return cipher.decryptField(value);
+  }
+  return null;
 }

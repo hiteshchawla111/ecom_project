@@ -5,7 +5,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 
 import { Prisma, Role, SellerStatus } from '@prisma/client';
-import { SellersService, RegisterSellerInput } from './sellers.service';
+import {
+  SellersService,
+  RegisterSellerInput,
+  UpdateSellerInput,
+} from './sellers.service';
 import { SELLER_REGISTERED } from './seller-events';
 import { SELLER_REGISTERED_AUDIT } from '../audit/audit-actions';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
@@ -25,6 +29,7 @@ const makePrisma = () => {
     seller: {
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
     },
     user: {
       update: jest.fn(),
@@ -43,9 +48,13 @@ const makeAudit = () => ({ record: jest.fn().mockResolvedValue(undefined) });
 /**
  * A minimal FieldCipherService mock.
  * encryptField returns a predictable ciphertext so tests can assert on it.
+ * decryptField inverts the enc(…) wrapper so tests can assert on last-4 masking.
  */
 const makeCipher = () => ({
   encryptField: jest.fn((plain: string) => `enc(${plain})`),
+  decryptField: jest.fn((stored: string) =>
+    stored.replace(/^enc\((.+)\)$/, '$1'),
+  ),
 });
 
 // ---------------------------------------------------------------------------
@@ -399,5 +408,195 @@ describe('SellersService.register', () => {
 
       expect(events.emit).not.toHaveBeenCalled();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SellersService.getMe
+// ---------------------------------------------------------------------------
+
+describe('SellersService.getMe', () => {
+  it("returns a masked SellerView for the caller's seller", async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findUnique.mockResolvedValue(makeSeller());
+
+    const view = await svc.getMe(actor);
+
+    expect(view.id).toBe('seller-001');
+    expect(view.displayName).toBe('Cool Shop');
+    expect(view.slug).toBe('cool-shop');
+    expect(view.status).toBe('PENDING_REVIEW');
+  });
+
+  it('queries prisma with the correct ownership filter', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findUnique.mockResolvedValue(makeSeller());
+
+    await svc.getMe(actor);
+
+    expect(prisma.seller.findUnique).toHaveBeenCalledWith({
+      where: { userId: actor.sub },
+    });
+  });
+
+  it('returned view does NOT contain raw KYC fields', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findUnique.mockResolvedValue(
+      makeSeller({
+        bankAccountNo: 'enc(123456781234)',
+        gstin: 'enc(22AAAAA0000A1Z5)',
+        pan: 'enc(AAAAA0000A)',
+        bankIfsc: 'enc(SBIN0001234)',
+      }),
+    );
+
+    const view = await svc.getMe(actor);
+    const serialised = JSON.stringify(view);
+
+    // Raw KYC keys must not appear in the view
+    const keys = Object.keys(view);
+    expect(keys).not.toContain('bankAccountNo');
+    expect(keys).not.toContain('gstin');
+    expect(keys).not.toContain('pan');
+    expect(keys).not.toContain('bankIfsc');
+
+    // And the ciphertexts must not appear in the serialised value
+    expect(serialised).not.toContain('enc(123456781234)');
+    expect(serialised).not.toContain('enc(22AAAAA0000A1Z5)');
+  });
+
+  it('decrypts stored KYC so that bankAccountLast4 reflects the plaintext', async () => {
+    const { svc, prisma, cipher } = build();
+    // Stored ciphertext; decryptField mock strips the enc(…) wrapper
+    prisma.seller.findUnique.mockResolvedValue(
+      makeSeller({ bankAccountNo: 'enc(123456781234)' }),
+    );
+
+    const view = await svc.getMe(actor);
+
+    // decryptField must have been called with the stored ciphertext
+    expect(cipher.decryptField).toHaveBeenCalledWith('enc(123456781234)');
+    // Last-4 of the decrypted plaintext '123456781234'
+    expect(view.bankAccountLast4).toBe('••••1234');
+  });
+
+  it('throws NotFoundException when the actor has no seller record', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findUnique.mockResolvedValue(null);
+
+    await expect(svc.getMe(actor)).rejects.toMatchObject({
+      message: 'Seller profile not found',
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SellersService.updateMe
+// ---------------------------------------------------------------------------
+
+describe('SellersService.updateMe', () => {
+  it('calls seller.update with only the provided field and the ownership filter', async () => {
+    const { svc, prisma } = build();
+    const updatedSeller = makeSeller({ displayName: 'New Name' });
+    prisma.seller.findUnique.mockResolvedValue(makeSeller());
+    prisma.seller.update.mockResolvedValue(updatedSeller);
+
+    const input: UpdateSellerInput = { displayName: 'New Name' };
+    await svc.updateMe(actor, input);
+
+    const [updateCall] = prisma.seller.update.mock.calls as Array<
+      [{ where: Record<string, unknown>; data: Record<string, unknown> }]
+    >;
+    // Ownership filter
+    expect(updateCall[0].where).toEqual({ userId: actor.sub });
+    // Data contains the provided field
+    expect(updateCall[0].data).toHaveProperty('displayName', 'New Name');
+    // Data must NOT touch slug or status
+    expect(Object.keys(updateCall[0].data)).not.toContain('slug');
+    expect(Object.keys(updateCall[0].data)).not.toContain('status');
+  });
+
+  it('encrypts a provided KYC field before storage', async () => {
+    const { svc, prisma, cipher } = build();
+    const updatedSeller = makeSeller({ bankAccountNo: 'enc(987654321098)' });
+    prisma.seller.findUnique.mockResolvedValue(makeSeller());
+    prisma.seller.update.mockResolvedValue(updatedSeller);
+
+    const input: UpdateSellerInput = { bankAccountNo: '987654321098' };
+    await svc.updateMe(actor, input);
+
+    // encryptField called with the plaintext
+    expect(cipher.encryptField).toHaveBeenCalledWith('987654321098');
+
+    const [updateCall] = prisma.seller.update.mock.calls as Array<
+      [{ data: Record<string, unknown> }]
+    >;
+    // The value passed to Prisma is the ciphertext, not the raw value
+    expect(updateCall[0].data['bankAccountNo']).toBe('enc(987654321098)');
+  });
+
+  it('returns a masked view — decrypts updated KYC for last-4 and presence flags', async () => {
+    const { svc, prisma, cipher } = build();
+    const updatedSeller = makeSeller({ bankAccountNo: 'enc(987654321098)' });
+    prisma.seller.findUnique.mockResolvedValue(makeSeller());
+    prisma.seller.update.mockResolvedValue(updatedSeller);
+
+    const input: UpdateSellerInput = { bankAccountNo: '987654321098' };
+    const view = await svc.updateMe(actor, input);
+
+    // decryptField called on the updated stored ciphertext
+    expect(cipher.decryptField).toHaveBeenCalledWith('enc(987654321098)');
+    // Last-4 of the decrypted plaintext '987654321098'
+    expect(view.bankAccountLast4).toBe('••••1098');
+    // Raw KYC keys absent from the view
+    expect(Object.keys(view)).not.toContain('bankAccountNo');
+  });
+
+  it('does not include unset fields in the update data', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findUnique.mockResolvedValue(makeSeller());
+    prisma.seller.update.mockResolvedValue(
+      makeSeller({ displayName: 'New Name' }),
+    );
+
+    // Only displayName provided — KYC fields are not in input
+    const input: UpdateSellerInput = { displayName: 'New Name' };
+    await svc.updateMe(actor, input);
+
+    const [updateCall] = prisma.seller.update.mock.calls as Array<
+      [{ data: Record<string, unknown> }]
+    >;
+    const dataKeys = Object.keys(updateCall[0].data);
+    expect(dataKeys).not.toContain('gstin');
+    expect(dataKeys).not.toContain('pan');
+    expect(dataKeys).not.toContain('bankAccountNo');
+    expect(dataKeys).not.toContain('bankIfsc');
+  });
+
+  it('throws NotFoundException when the actor has no seller record', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findUnique.mockResolvedValue(null);
+
+    await expect(
+      svc.updateMe(actor, { displayName: 'Anything' }),
+    ).rejects.toMatchObject({
+      message: 'Seller profile not found',
+    });
+  });
+
+  it('UpdateSellerInput has no status field — data passed to update never includes status', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findUnique.mockResolvedValue(makeSeller());
+    prisma.seller.update.mockResolvedValue(makeSeller());
+
+    // TypeScript prevents `status` from being in UpdateSellerInput, but we
+    // also assert at runtime that it never leaks into the update data.
+    const input: UpdateSellerInput = { displayName: 'Safe Name' };
+    await svc.updateMe(actor, input);
+
+    const [updateCall] = prisma.seller.update.mock.calls as Array<
+      [{ data: Record<string, unknown> }]
+    >;
+    expect(Object.keys(updateCall[0].data)).not.toContain('status');
   });
 });

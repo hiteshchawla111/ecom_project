@@ -6,6 +6,8 @@
  * inside request handlers.
  */
 
+import { SellerStatus } from '@prisma/client';
+
 /** Fired when a user successfully registers as a (pending-review) seller. */
 export const SELLER_REGISTERED = 'seller.registered';
 
@@ -26,6 +28,6 @@ export interface SellerRegisteredEvent {
 export interface SellerKycEvent {
   sellerId: string;
   userId: string;
-  status: 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
+  status: Extract<SellerStatus, 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED'>;
   reason?: string;
 }

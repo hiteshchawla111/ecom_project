@@ -20,7 +20,7 @@
 | Phase | Title | Complexity | Status |
 |---|---|---|---|
 | M0 | Single-vendor baseline | — | ✅ Done (was `PLAN.md` Phases 0–5) |
-| M1 | Marketplace Foundation | M | 🟡 (Slice 1 ✅ seller domain foundation: SELLER role + Seller table + KYC cipher + platform seed; slices 2–6 pending) |
+| M1 | Marketplace Foundation | M | 🟡 (Slice 1 ✅ seller domain foundation; Slice 2 ✅ AuditService — order-status/refund/stock-adjust now write atomic AuditLog rows, smoke-verified; slices 3–6 pending) |
 | M2 | Seller System | L | ⬜ |
 | M3 | Catalog V2 + Inventory V2 + Search (parallel group) | L | ⬜ |
 | M4 | Reviews + Notifications (parallel group) | M | ⬜ |

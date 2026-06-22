@@ -241,17 +241,11 @@ export class InventoryService {
           throw new BadRequestException('Addition quantity must be at least 1');
         }
         const delta = quantity;
-        await this.prisma.$transaction(async (tx) => {
-          await this.apply(item.id, {
-            counters: { available: { increment: quantity } },
-            type,
-            delta,
-            reason,
-          }, tx);
-          await this.audit.record(
-            { actorId: actor.sub, action: INVENTORY_ADJUSTED, entityType: 'InventoryItem', entityId: productId, metadata: { type, delta, reason } },
-            tx,
-          );
+        await this.applyWithAudit(actor, productId, item.id, {
+          counters: { available: { increment: quantity } },
+          type,
+          delta,
+          reason,
         });
         return;
       }
@@ -268,17 +262,11 @@ export class InventoryService {
           );
         }
         const delta = -quantity;
-        await this.prisma.$transaction(async (tx) => {
-          await this.apply(item.id, {
-            counters: { available: { decrement: quantity } },
-            type,
-            delta,
-            reason,
-          }, tx);
-          await this.audit.record(
-            { actorId: actor.sub, action: INVENTORY_ADJUSTED, entityType: 'InventoryItem', entityId: productId, metadata: { type, delta, reason } },
-            tx,
-          );
+        await this.applyWithAudit(actor, productId, item.id, {
+          counters: { available: { decrement: quantity } },
+          type,
+          delta,
+          reason,
         });
         this.emitIfCrossedLow(item, item.available - quantity);
         return;
@@ -289,17 +277,11 @@ export class InventoryService {
         // difference from the old count (no-op recounts write a 0-delta row,
         // which is acceptable as an audit trail of the count itself).
         const delta = quantity - item.available;
-        await this.prisma.$transaction(async (tx) => {
-          await this.apply(item.id, {
-            counters: { available: { set: quantity } },
-            type,
-            delta,
-            reason,
-          }, tx);
-          await this.audit.record(
-            { actorId: actor.sub, action: INVENTORY_ADJUSTED, entityType: 'InventoryItem', entityId: productId, metadata: { type, delta, reason } },
-            tx,
-          );
+        await this.applyWithAudit(actor, productId, item.id, {
+          counters: { available: { set: quantity } },
+          type,
+          delta,
+          reason,
         });
         this.emitIfCrossedLow(item, quantity);
         return;
@@ -311,6 +293,41 @@ export class InventoryService {
         // compile error rather than a silent runtime fall-through.
         return assertNever(type);
     }
+  }
+
+  /**
+   * Wraps the apply+audit pair in a single transaction. All three manual-
+   * adjustment branches share identical tx/apply/audit logic — only the
+   * counters and delta differ. Extracted to remove duplication (DRY).
+   */
+  private async applyWithAudit(
+    actor: AccessTokenPayload,
+    productId: string,
+    inventoryItemId: string,
+    move: {
+      counters: Prisma.InventoryItemUpdateInput;
+      type: MovementType;
+      delta: number;
+      reason?: string | null;
+    },
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await this.apply(inventoryItemId, move, tx);
+      await this.audit.record(
+        {
+          actorId: actor.sub,
+          action: INVENTORY_ADJUSTED,
+          entityType: 'InventoryItem',
+          entityId: productId,
+          metadata: {
+            type: move.type,
+            delta: move.delta,
+            reason: move.reason ?? null,
+          },
+        },
+        tx,
+      );
+    });
   }
 
   /**

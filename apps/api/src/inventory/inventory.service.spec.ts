@@ -428,6 +428,22 @@ describe('InventoryService.adjust', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('rejects and propagates when audit.record throws, proving apply+audit share the transaction', async () => {
+    const { svc, prisma, audit } = build();
+    prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 15 }));
+    // Simulate audit failure — the error must propagate out of $transaction
+    audit.record.mockRejectedValueOnce(new Error('audit fail'));
+
+    await expect(
+      svc.adjust(actor, 'p1', {
+        type: MovementType.ADDITION,
+        quantity: 5,
+        reason: 'x',
+      }),
+    ).rejects.toThrow('audit fail');
+  });
+
   it('ADDITION records an INVENTORY_ADJUSTED audit row atomically with the movement', async () => {
     const { svc, prisma, audit } = build();
     prisma.inventoryItem.findUnique.mockResolvedValue(item({ available: 10 }));

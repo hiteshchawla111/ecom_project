@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, Product, ProductStatus } from '@prisma/client';
+import { Prisma, Product, ProductStatus, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -14,6 +14,7 @@ import {
   SortDir,
 } from './dto/list-products.dto';
 import { resolvePlatformSellerId } from './platform-seller';
+import { buildSellerScope, ScopeActor } from './seller-scope';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
@@ -37,8 +38,11 @@ const PRODUCT_INCLUDE = {
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateProductDto): Promise<Product> {
-    const sellerId = await resolvePlatformSellerId(this.prisma);
+  async create(dto: CreateProductDto, actor: ScopeActor): Promise<Product> {
+    const sellerId =
+      actor.role === Role.SELLER && actor.sellerId
+        ? actor.sellerId
+        : await resolvePlatformSellerId(this.prisma);
     try {
       return await this.prisma.product.create({
         data: {
@@ -58,21 +62,24 @@ export class ProductsService {
     }
   }
 
-  async findOne(id: string): Promise<Product> {
+  async findOne(id: string, actor: ScopeActor): Promise<Product> {
     const product = await this.prisma.product.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, deletedAt: null, ...buildSellerScope(actor) },
       include: PRODUCT_INCLUDE,
     });
     if (!product) throw new NotFoundException('Product not found');
     return product;
   }
 
-  async list(query: ListProductsDto): Promise<Paginated<Product>> {
+  async list(
+    query: ListProductsDto,
+    actor: ScopeActor,
+  ): Promise<Paginated<Product>> {
     const page = query.page ?? DEFAULT_PAGE;
     const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
     const skip = (page - 1) * pageSize;
 
-    const where = this.buildWhere(query);
+    const where = this.buildWhere(query, actor);
     const orderBy = this.buildOrderBy(query);
 
     const [data, total] = await Promise.all([
@@ -96,8 +103,14 @@ export class ProductsService {
   }
 
   /** Translates list filters into a Prisma `where` (always excludes soft-deleted). */
-  private buildWhere(query: ListProductsDto): Prisma.ProductWhereInput {
-    const where: Prisma.ProductWhereInput = { deletedAt: null };
+  private buildWhere(
+    query: ListProductsDto,
+    actor: ScopeActor,
+  ): Prisma.ProductWhereInput {
+    const where: Prisma.ProductWhereInput = {
+      deletedAt: null,
+      ...buildSellerScope(actor),
+    };
 
     if (query.search) {
       const contains = { contains: query.search, mode: 'insensitive' as const };
@@ -129,8 +142,12 @@ export class ProductsService {
     return { [column]: dir };
   }
 
-  async update(id: string, dto: UpdateProductDto): Promise<Product> {
-    await this.ensureExists(id);
+  async update(
+    id: string,
+    dto: UpdateProductDto,
+    actor: ScopeActor,
+  ): Promise<Product> {
+    await this.ensureExists(id, actor);
     try {
       return await this.prisma.product.update({
         where: { id },
@@ -148,16 +165,20 @@ export class ProductsService {
     }
   }
 
-  async archive(id: string): Promise<Product> {
-    await this.ensureExists(id);
+  async archive(id: string, actor: ScopeActor): Promise<Product> {
+    await this.ensureExists(id, actor);
     return this.prisma.product.update({
       where: { id },
       data: { status: ProductStatus.ARCHIVED },
     });
   }
 
-  async setActive(id: string, active: boolean): Promise<Product> {
-    await this.ensureExists(id);
+  async setActive(
+    id: string,
+    active: boolean,
+    actor: ScopeActor,
+  ): Promise<Product> {
+    await this.ensureExists(id, actor);
     return this.prisma.product.update({
       where: { id },
       data: {
@@ -166,10 +187,10 @@ export class ProductsService {
     });
   }
 
-  /** Confirms a non-soft-deleted product exists, else 404. */
-  private async ensureExists(id: string): Promise<void> {
+  /** Confirms a non-soft-deleted product exists within the actor's scope, else 404. */
+  private async ensureExists(id: string, actor: ScopeActor): Promise<void> {
     const found = await this.prisma.product.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, deletedAt: null, ...buildSellerScope(actor) },
       select: { id: true },
     });
     if (!found) throw new NotFoundException('Product not found');

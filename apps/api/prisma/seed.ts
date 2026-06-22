@@ -8,7 +8,7 @@ const prisma = new PrismaClient({ adapter });
 
 /**
  * Idempotent seed: sample category hierarchy + products with inventory.
- * Safe to re-run (upserts on unique slug/sku). Dev convenience only.
+ * Safe to re-run (idempotent upserts/guarded creates). Dev convenience only.
  */
 async function main(): Promise<void> {
   // Category hierarchy: Electronics > Phones, Electronics > Laptops
@@ -151,20 +151,6 @@ async function main(): Promise<void> {
       });
     }
   }
-
-  // B3 backfill (idempotent): existing catalog/inventory predates seller ownership.
-  // Only rows with a null sellerId are touched, so re-running is a no-op.
-  const productBackfill = await prisma.product.updateMany({
-    where: { sellerId: null },
-    data: { sellerId: platformSeller.id },
-  });
-  const inventoryBackfill = await prisma.inventoryItem.updateMany({
-    where: { sellerId: null },
-    data: { sellerId: platformSeller.id },
-  });
-  console.log(
-    `Backfilled sellerId: ${productBackfill.count} products, ${inventoryBackfill.count} inventory items.`,
-  );
 
   console.log('Seed complete.');
 }

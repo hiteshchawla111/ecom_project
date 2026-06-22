@@ -20,10 +20,7 @@ import {
   OrderStatus as OrderStatusFlow,
 } from './order-status';
 import { AuditService } from '../audit/audit.service';
-import {
-  ORDER_STATUS_CHANGED,
-  REFUND_ISSUED,
-} from '../audit/audit-actions';
+import { ORDER_STATUS_CHANGED, REFUND_ISSUED } from '../audit/audit-actions';
 import { CheckoutDto } from './dto/checkout.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 import { ListAdminOrdersDto } from './dto/list-admin-orders.dto';

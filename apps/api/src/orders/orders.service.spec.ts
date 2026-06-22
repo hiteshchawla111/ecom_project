@@ -12,10 +12,7 @@ import { OrderStatus, ProductStatus, Role } from '@prisma/client';
 import { OrdersService } from './orders.service';
 import { CheckoutDto } from './dto/checkout.dto';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
-import {
-  ORDER_STATUS_CHANGED,
-  REFUND_ISSUED,
-} from '../audit/audit-actions';
+import { ORDER_STATUS_CHANGED, REFUND_ISSUED } from '../audit/audit-actions';
 
 const makeConfig = () => ({
   get: (key: string) =>

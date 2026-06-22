@@ -26,7 +26,10 @@ export class AuditService {
     try {
       await this.prisma.auditLog.create({ data: this.toData(entry) });
     } catch (err) {
-      this.logger.error(`Audit write failed for ${entry.action}`, err instanceof Error ? err.stack : String(err));
+      this.logger.error(
+        `Audit write failed for ${entry.action}`,
+        err instanceof Error ? err.stack : String(err),
+      );
     }
   }
 

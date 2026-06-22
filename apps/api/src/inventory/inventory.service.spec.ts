@@ -34,13 +34,21 @@ const makeEvents = () => ({ emit: jest.fn() });
 const makeAudit = () => ({ record: jest.fn().mockResolvedValue(undefined) });
 
 /** A canonical actor for adjust tests. */
-const actor: AccessTokenPayload = { sub: 'admin1', email: 'a@b.c', role: Role.ADMIN };
+const actor: AccessTokenPayload = {
+  sub: 'admin1',
+  email: 'a@b.c',
+  role: Role.ADMIN,
+};
 
 const build = () => {
   const prisma = makePrisma();
   const events = makeEvents();
   const audit = makeAudit();
-  const svc = new InventoryService(prisma as never, events as never, audit as never);
+  const svc = new InventoryService(
+    prisma as never,
+    events as never,
+    audit as never,
+  );
   return { svc, prisma, events, audit };
 };
 
@@ -461,7 +469,11 @@ describe('InventoryService.adjust', () => {
         action: INVENTORY_ADJUSTED,
         entityType: 'InventoryItem',
         entityId: 'p1',
-        metadata: { type: MovementType.ADDITION, delta: 5, reason: 'new shipment' },
+        metadata: {
+          type: MovementType.ADDITION,
+          delta: 5,
+          reason: 'new shipment',
+        },
       }),
       expect.anything(), // tx client
     );
@@ -486,7 +498,11 @@ describe('InventoryService.adjust', () => {
         action: INVENTORY_ADJUSTED,
         entityType: 'InventoryItem',
         entityId: 'p1',
-        metadata: { type: MovementType.ADJUSTMENT, delta: -6, reason: 'cycle count' },
+        metadata: {
+          type: MovementType.ADJUSTMENT,
+          delta: -6,
+          reason: 'cycle count',
+        },
       }),
       expect.anything(),
     );

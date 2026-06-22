@@ -19,6 +19,11 @@ import {
   InvalidOrderTransitionError,
   OrderStatus as OrderStatusFlow,
 } from './order-status';
+import { AuditService } from '../audit/audit.service';
+import {
+  ORDER_STATUS_CHANGED,
+  REFUND_ISSUED,
+} from '../audit/audit-actions';
 import { CheckoutDto } from './dto/checkout.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 import { ListAdminOrdersDto } from './dto/list-admin-orders.dto';
@@ -112,6 +117,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     config: ConfigService,
     private readonly inventory: InventoryService,
+    private readonly audit: AuditService,
   ) {
     this.totalsConfig = resolveTotalsConfig(config);
   }
@@ -418,19 +424,55 @@ export class OrdersService {
             tx,
           );
         }
-        return tx.order.update({
+        const u = await tx.order.update({
           where: { id: orderId },
           data: { status: nextStatus },
           include: ORDER_INCLUDE,
         });
+        await this.audit.record(
+          {
+            actorId: actor.sub,
+            action: ORDER_STATUS_CHANGED,
+            entityType: 'Order',
+            entityId: orderId,
+            metadata: { from: order.status, to: nextStatus },
+          },
+          tx,
+        );
+        if (nextStatus === OrderStatus.REFUNDED) {
+          await this.audit.record(
+            {
+              actorId: actor.sub,
+              action: REFUND_ISSUED,
+              entityType: 'Order',
+              entityId: orderId,
+              metadata: { grandTotal: order.grandTotal.toString() },
+            },
+            tx,
+          );
+        }
+        return u;
       });
       return this.toOrderView(updated);
     }
 
-    const updated = await this.prisma.order.update({
-      where: { id: orderId },
-      data: { status: nextStatus },
-      include: ORDER_INCLUDE,
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.order.update({
+        where: { id: orderId },
+        data: { status: nextStatus },
+        include: ORDER_INCLUDE,
+      });
+      await this.audit.record(
+        {
+          actorId: actor.sub,
+          action: ORDER_STATUS_CHANGED,
+          entityType: 'Order',
+          entityId: orderId,
+          metadata: { from: order.status, to: nextStatus },
+        },
+        tx,
+      );
+      return u;
     });
     return this.toOrderView(updated);
   }

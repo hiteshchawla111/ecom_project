@@ -12,6 +12,10 @@ import { OrderStatus, ProductStatus, Role } from '@prisma/client';
 import { OrdersService } from './orders.service';
 import { CheckoutDto } from './dto/checkout.dto';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
+import {
+  ORDER_STATUS_CHANGED,
+  REFUND_ISSUED,
+} from '../audit/audit-actions';
 
 const makeConfig = () => ({
   get: (key: string) =>
@@ -36,6 +40,7 @@ const makePrisma = () => {
       count: jest.fn(),
     },
     cartItem: { deleteMany: jest.fn() },
+    auditLog: { create: jest.fn() },
   };
   prisma.$transaction = jest.fn(async (cb: (tx: any) => Promise<unknown>) =>
     cb(prisma),
@@ -51,15 +56,22 @@ const makeInventory = () => ({
   emitLowStock: jest.fn(),
 });
 
+const makeAudit = () => ({
+  record: jest.fn().mockResolvedValue(undefined),
+  recordAsync: jest.fn().mockResolvedValue(undefined),
+});
+
 const build = () => {
   const prisma = makePrisma();
   const inventory = makeInventory();
+  const audit = makeAudit();
   const svc = new OrdersService(
     prisma as never,
     makeConfig() as never,
     inventory as never,
+    audit as never,
   );
-  return { svc, prisma, inventory };
+  return { svc, prisma, inventory, audit };
 };
 
 const shipping: CheckoutDto = {
@@ -446,6 +458,58 @@ describe('OrdersService.updateStatus', () => {
       svc.updateStatus(customer, 'order1', OrderStatus.CANCELLED),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.order.update).not.toHaveBeenCalled();
+  });
+
+  it('(audit) records ORDER_STATUS_CHANGED for a non-stock transition (PENDING→CONFIRMED) inside a tx', async () => {
+    const { svc, prisma, audit } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
+    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.CONFIRMED));
+
+    await svc.updateStatus(admin, 'order1', OrderStatus.CONFIRMED);
+
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(audit.record).toHaveBeenCalledTimes(1);
+    expect(audit.record).toHaveBeenCalledWith(
+      {
+        actorId: admin.sub,
+        action: ORDER_STATUS_CHANGED,
+        entityType: 'Order',
+        entityId: 'order1',
+        metadata: { from: OrderStatus.PENDING, to: OrderStatus.CONFIRMED },
+      },
+      prisma,
+    );
+  });
+
+  it('(audit) records ORDER_STATUS_CHANGED + REFUND_ISSUED for a REFUNDED transition', async () => {
+    const { svc, prisma, audit } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.DELIVERED));
+    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.REFUNDED));
+
+    await svc.updateStatus(admin, 'order1', OrderStatus.REFUNDED);
+
+    expect(audit.record).toHaveBeenCalledTimes(2);
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: ORDER_STATUS_CHANGED }),
+      prisma,
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: REFUND_ISSUED, entityId: 'order1' }),
+      prisma,
+    );
+  });
+
+  it('(audit) propagates tx errors so status + audit are atomic', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PROCESSING));
+    // Simulate the tx.order.update throwing (e.g. DB constraint); because the
+    // mock $transaction runs the callback synchronously, the thrown error
+    // propagates out of updateStatus, proving audit + update share the tx scope.
+    prisma.order.update.mockRejectedValue(new Error('db error'));
+
+    await expect(
+      svc.updateStatus(admin, 'order1', OrderStatus.SHIPPED),
+    ).rejects.toThrow('db error');
   });
 });
 

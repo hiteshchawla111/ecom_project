@@ -8,10 +8,23 @@ import { Prisma, Role, SellerStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { FieldCipherService } from '../common/crypto/field-cipher';
-import { SELLER_REGISTERED_AUDIT } from '../audit/audit-actions';
+import {
+  SELLER_REGISTERED_AUDIT,
+  SELLER_STATUS_CHANGED_AUDIT,
+} from '../audit/audit-actions';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
 import { toSellerView, SellerView } from './seller-mask';
-import { SELLER_REGISTERED, SellerRegisteredEvent } from './seller-events';
+import {
+  SELLER_REGISTERED,
+  SELLER_KYC_APPROVED,
+  SELLER_KYC_REJECTED,
+  SellerRegisteredEvent,
+  SellerKycEvent,
+} from './seller-events';
+import {
+  assertTransition,
+  InvalidSellerTransitionError,
+} from './seller-status';
 
 // ---------------------------------------------------------------------------
 // Input type (inline — DTO class + validation decorators live in the
@@ -49,6 +62,32 @@ export interface RegisterSellerInput {
   bankAccountNo?: string;
   /** Raw (unencrypted) bank IFSC code. Encrypted before persistence. */
   bankIfsc?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Pagination
+// ---------------------------------------------------------------------------
+
+export interface Paginated<T> {
+  data: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+/**
+ * A non-KYC summary row returned from listSellers.
+ * kycPresent is a derived boolean (true if any KYC field was stored).
+ * Raw KYC values are NEVER included.
+ */
+export interface SellerListRow {
+  id: string;
+  displayName: string;
+  slug: string;
+  status: SellerStatus;
+  kycPresent: boolean;
+  createdAt: Date;
 }
 
 // ---------------------------------------------------------------------------
@@ -290,6 +329,193 @@ export class SellersService {
     });
 
     // Decrypt updated KYC for the masked view.
+    return toSellerView({
+      ...updated,
+      gstin: decryptIfPresent(updated.gstin, this.cipher),
+      pan: decryptIfPresent(updated.pan, this.cipher),
+      bankAccountNo: decryptIfPresent(updated.bankAccountNo, this.cipher),
+      bankIfsc: decryptIfPresent(updated.bankIfsc, this.cipher),
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // Admin methods
+  // --------------------------------------------------------------------------
+
+  /**
+   * Returns a paginated list of sellers (admin view).
+   *
+   * Excludes soft-deleted records. Optionally filters by status.
+   * Returns summary rows with a `kycPresent` boolean; raw KYC is NEVER
+   * returned.
+   */
+  async listSellers(query: {
+    page?: number;
+    pageSize?: number;
+    status?: SellerStatus;
+  }): Promise<Paginated<SellerListRow>> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.SellerWhereInput = {
+      deletedAt: null,
+      ...(query.status !== undefined ? { status: query.status } : {}),
+    };
+
+    const [rows, total] = await Promise.all([
+      this.prisma.seller.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: pageSize,
+        select: {
+          id: true,
+          displayName: true,
+          slug: true,
+          status: true,
+          createdAt: true,
+          // KYC fields: selected only to derive kycPresent; values are NOT
+          // forwarded to the caller.
+          gstin: true,
+          pan: true,
+          bankAccountNo: true,
+          bankIfsc: true,
+        },
+      }),
+      this.prisma.seller.count({ where }),
+    ]);
+
+    const data: SellerListRow[] = rows.map((row) => ({
+      id: row.id,
+      displayName: row.displayName,
+      slug: row.slug,
+      status: row.status,
+      createdAt: row.createdAt,
+      kycPresent: !!(row.gstin || row.pan || row.bankAccountNo || row.bankIfsc),
+    }));
+
+    return {
+      data,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
+  }
+
+  /**
+   * Returns a single seller's masked detail (admin view).
+   *
+   * Decrypts stored KYC and passes to `toSellerView` so presence flags
+   * and the bank-account last-4 are meaningful. Raw KYC is never exposed.
+   *
+   * @throws NotFoundException when no active (non-deleted) seller exists for id.
+   */
+  async getSeller(id: string): Promise<SellerView> {
+    const seller = await this.prisma.seller.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!seller) {
+      throw new NotFoundException('Seller not found');
+    }
+
+    return toSellerView({
+      ...seller,
+      gstin: decryptIfPresent(seller.gstin, this.cipher),
+      pan: decryptIfPresent(seller.pan, this.cipher),
+      bankAccountNo: decryptIfPresent(seller.bankAccountNo, this.cipher),
+      bankIfsc: decryptIfPresent(seller.bankIfsc, this.cipher),
+    });
+  }
+
+  /**
+   * Transitions a seller's status (admin-only action).
+   *
+   * Steps:
+   * 1. Verify the seller exists.
+   * 2. Validate the transition via the state machine.
+   * 3. In a transaction: update status (+ kycVerifiedAt when ACTIVE), audit.
+   * 4. After commit: emit the matching domain event.
+   * 5. Return the masked updated view.
+   *
+   * @throws NotFoundException when the seller does not exist / is soft-deleted.
+   * @throws ConflictException (409) when the transition is illegal.
+   */
+  async updateStatus(
+    id: string,
+    input: { status: SellerStatus; reason?: string },
+    actor: AccessTokenPayload,
+  ): Promise<SellerView> {
+    // 1. Verify seller exists.
+    const seller = await this.prisma.seller.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!seller) {
+      throw new NotFoundException('Seller not found');
+    }
+
+    // 2. Validate the transition.
+    try {
+      assertTransition(seller.status, input.status);
+    } catch (e) {
+      if (e instanceof InvalidSellerTransitionError) {
+        throw new ConflictException(e.message);
+      }
+      throw e;
+    }
+
+    // 3. Transaction: update + audit.
+    const updateData: Prisma.SellerUpdateInput = { status: input.status };
+    if (input.status === SellerStatus.ACTIVE) {
+      updateData.kycVerifiedAt = new Date();
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.seller.update({
+        where: { id },
+        data: updateData,
+      });
+
+      await this.audit.record(
+        {
+          actorId: actor.sub,
+          action: SELLER_STATUS_CHANGED_AUDIT,
+          entityType: 'Seller',
+          entityId: id,
+          metadata: {
+            from: seller.status,
+            to: input.status,
+            reason: input.reason ?? null,
+          },
+        },
+        tx,
+      );
+
+      return result;
+    });
+
+    // 4. Emit domain event after commit.
+    if (input.status === SellerStatus.ACTIVE) {
+      this.events.emit(SELLER_KYC_APPROVED, {
+        sellerId: id,
+        userId: seller.userId,
+        status: input.status,
+        reason: input.reason,
+      } satisfies SellerKycEvent);
+    } else if (input.status === SellerStatus.SUSPENDED) {
+      this.events.emit(SELLER_KYC_REJECTED, {
+        sellerId: id,
+        userId: seller.userId,
+        status: input.status,
+        reason: input.reason,
+      } satisfies SellerKycEvent);
+    }
+    // DEACTIVATED: no event emitted.
+
+    // 5. Return masked view.
     return toSellerView({
       ...updated,
       gstin: decryptIfPresent(updated.gstin, this.cipher),

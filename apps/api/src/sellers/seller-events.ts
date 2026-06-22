@@ -21,3 +21,11 @@ export interface SellerRegisteredEvent {
   userId: string;
   displayName: string;
 }
+
+/** Payload for SELLER_KYC_APPROVED / SELLER_KYC_REJECTED. */
+export interface SellerKycEvent {
+  sellerId: string;
+  userId: string;
+  status: 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
+  reason?: string;
+}

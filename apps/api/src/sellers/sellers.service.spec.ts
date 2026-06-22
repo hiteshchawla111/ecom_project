@@ -10,8 +10,15 @@ import {
   RegisterSellerInput,
   UpdateSellerInput,
 } from './sellers.service';
-import { SELLER_REGISTERED } from './seller-events';
-import { SELLER_REGISTERED_AUDIT } from '../audit/audit-actions';
+import {
+  SELLER_REGISTERED,
+  SELLER_KYC_APPROVED,
+  SELLER_KYC_REJECTED,
+} from './seller-events';
+import {
+  SELLER_REGISTERED_AUDIT,
+  SELLER_STATUS_CHANGED_AUDIT,
+} from '../audit/audit-actions';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
 
 // ---------------------------------------------------------------------------
@@ -28,6 +35,9 @@ const makePrisma = () => {
   const prisma: any = {
     seller: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
@@ -619,5 +629,448 @@ describe('SellersService.updateMe', () => {
       [{ data: Record<string, unknown> }]
     >;
     expect(Object.keys(updateCall[0].data)).not.toContain('status');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SellersService.listSellers
+// ---------------------------------------------------------------------------
+
+describe('SellersService.listSellers', () => {
+  /** A minimal seller row as returned by prisma.seller.findMany (select shape). */
+  const makeListRow = (overrides: Record<string, unknown> = {}) => ({
+    id: 'seller-001',
+    displayName: 'Cool Shop',
+    slug: 'cool-shop',
+    status: SellerStatus.PENDING_REVIEW,
+    createdAt: BASE_DATE,
+    gstin: null,
+    pan: null,
+    bankAccountNo: null,
+    bankIfsc: null,
+    ...overrides,
+  });
+
+  it('returns Paginated shape with correct pagination math', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findMany.mockResolvedValue([makeListRow()]);
+    prisma.seller.count.mockResolvedValue(45);
+
+    const result = await svc.listSellers({ page: 2, pageSize: 20 });
+
+    expect(result.page).toBe(2);
+    expect(result.pageSize).toBe(20);
+    expect(result.total).toBe(45);
+    expect(result.totalPages).toBe(3);
+    expect(result.data).toHaveLength(1);
+  });
+
+  it('uses defaults page=1, pageSize=20 when not provided', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findMany.mockResolvedValue([]);
+    prisma.seller.count.mockResolvedValue(0);
+
+    const result = await svc.listSellers({});
+
+    expect(result.page).toBe(1);
+    expect(result.pageSize).toBe(20);
+    expect(result.totalPages).toBe(1); // Math.max(1, ...)
+  });
+
+  it('filters by status when provided', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findMany.mockResolvedValue([]);
+    prisma.seller.count.mockResolvedValue(0);
+
+    await svc.listSellers({ status: SellerStatus.ACTIVE });
+
+    const [findManyCall] = prisma.seller.findMany.mock.calls as Array<
+      [{ where: Record<string, unknown> }]
+    >;
+    expect(findManyCall[0].where).toMatchObject({
+      status: SellerStatus.ACTIVE,
+    });
+  });
+
+  it('excludes soft-deleted records (deletedAt: null in where)', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findMany.mockResolvedValue([]);
+    prisma.seller.count.mockResolvedValue(0);
+
+    await svc.listSellers({});
+
+    const [findManyCall] = prisma.seller.findMany.mock.calls as Array<
+      [{ where: Record<string, unknown> }]
+    >;
+    expect(findManyCall[0].where).toMatchObject({ deletedAt: null });
+  });
+
+  it('omits status from where when not provided', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findMany.mockResolvedValue([]);
+    prisma.seller.count.mockResolvedValue(0);
+
+    await svc.listSellers({});
+
+    const [findManyCall] = prisma.seller.findMany.mock.calls as Array<
+      [{ where: Record<string, unknown> }]
+    >;
+    expect(Object.keys(findManyCall[0].where)).not.toContain('status');
+  });
+
+  it('rows have kycPresent=true when any KYC field is set', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findMany.mockResolvedValue([
+      makeListRow({ gstin: 'enc(22AAAAA0000A1Z5)' }),
+    ]);
+    prisma.seller.count.mockResolvedValue(1);
+
+    const result = await svc.listSellers({});
+
+    expect(result.data[0].kycPresent).toBe(true);
+  });
+
+  it('rows have kycPresent=false when all KYC fields are null', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findMany.mockResolvedValue([makeListRow()]);
+    prisma.seller.count.mockResolvedValue(1);
+
+    const result = await svc.listSellers({});
+
+    expect(result.data[0].kycPresent).toBe(false);
+  });
+
+  it('rows do NOT contain raw KYC fields', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findMany.mockResolvedValue([
+      makeListRow({
+        gstin: 'enc(22AAAAA0000A1Z5)',
+        pan: 'enc(AAAAA0000A)',
+        bankAccountNo: 'enc(123456781234)',
+        bankIfsc: 'enc(SBIN0001234)',
+      }),
+    ]);
+    prisma.seller.count.mockResolvedValue(1);
+
+    const result = await svc.listSellers({});
+
+    const serialised = JSON.stringify(result);
+    expect(serialised).not.toContain('enc(22AAAAA0000A1Z5)');
+    expect(serialised).not.toContain('enc(AAAAA0000A)');
+    expect(serialised).not.toContain('enc(123456781234)');
+    expect(serialised).not.toContain('enc(SBIN0001234)');
+
+    const rowKeys = Object.keys(result.data[0]);
+    expect(rowKeys).not.toContain('gstin');
+    expect(rowKeys).not.toContain('pan');
+    expect(rowKeys).not.toContain('bankAccountNo');
+    expect(rowKeys).not.toContain('bankIfsc');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SellersService.getSeller
+// ---------------------------------------------------------------------------
+
+describe('SellersService.getSeller', () => {
+  it('returns a masked SellerView for the given id', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findFirst.mockResolvedValue(makeSeller());
+
+    const view = await svc.getSeller('seller-001');
+
+    expect(view.id).toBe('seller-001');
+    expect(view.displayName).toBe('Cool Shop');
+    expect(view.slug).toBe('cool-shop');
+    expect(view.status).toBe(SellerStatus.PENDING_REVIEW);
+  });
+
+  it('queries with id and deletedAt:null filter', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findFirst.mockResolvedValue(makeSeller());
+
+    await svc.getSeller('seller-001');
+
+    expect(prisma.seller.findFirst).toHaveBeenCalledWith({
+      where: { id: 'seller-001', deletedAt: null },
+    });
+  });
+
+  it('decrypts KYC so bankAccountLast4 reflects the plaintext', async () => {
+    const { svc, prisma, cipher } = build();
+    prisma.seller.findFirst.mockResolvedValue(
+      makeSeller({ bankAccountNo: 'enc(123456781234)' }),
+    );
+
+    const view = await svc.getSeller('seller-001');
+
+    expect(cipher.decryptField).toHaveBeenCalledWith('enc(123456781234)');
+    expect(view.bankAccountLast4).toBe('••••1234');
+  });
+
+  it('returned view does NOT contain raw KYC fields', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findFirst.mockResolvedValue(
+      makeSeller({
+        gstin: 'enc(22AAAAA0000A1Z5)',
+        pan: 'enc(AAAAA0000A)',
+        bankAccountNo: 'enc(123456781234)',
+        bankIfsc: 'enc(SBIN0001234)',
+      }),
+    );
+
+    const view = await svc.getSeller('seller-001');
+
+    const keys = Object.keys(view);
+    expect(keys).not.toContain('gstin');
+    expect(keys).not.toContain('pan');
+    expect(keys).not.toContain('bankAccountNo');
+    expect(keys).not.toContain('bankIfsc');
+  });
+
+  it('throws NotFoundException when seller is not found', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findFirst.mockResolvedValue(null);
+
+    await expect(svc.getSeller('nonexistent')).rejects.toMatchObject({
+      message: 'Seller not found',
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SellersService.updateStatus
+// ---------------------------------------------------------------------------
+
+const adminActor: AccessTokenPayload = {
+  sub: 'admin-user-001',
+  email: 'admin@example.com',
+  role: Role.ADMIN,
+};
+
+describe('SellersService.updateStatus', () => {
+  it('PENDING_REVIEW → ACTIVE: sets status, kycVerifiedAt, audits, emits SELLER_KYC_APPROVED', async () => {
+    const { svc, prisma, audit, events } = build();
+    const pendingSeller = makeSeller({ status: SellerStatus.PENDING_REVIEW });
+    const activeSeller = makeSeller({
+      status: SellerStatus.ACTIVE,
+      kycVerifiedAt: BASE_DATE,
+    });
+
+    prisma.seller.findFirst.mockResolvedValue(pendingSeller);
+    prisma.seller.update.mockResolvedValue(activeSeller);
+
+    const view = await svc.updateStatus(
+      'seller-001',
+      { status: SellerStatus.ACTIVE },
+      adminActor,
+    );
+
+    // Status updated
+    expect(view.status).toBe(SellerStatus.ACTIVE);
+
+    // update called with status + kycVerifiedAt
+    const [updateCall] = prisma.seller.update.mock.calls as Array<
+      [{ where: Record<string, unknown>; data: Record<string, unknown> }]
+    >;
+    expect(updateCall[0].where).toEqual({ id: 'seller-001' });
+    expect(updateCall[0].data).toHaveProperty('status', SellerStatus.ACTIVE);
+    expect(updateCall[0].data).toHaveProperty('kycVerifiedAt');
+
+    // Audit recorded with correct fields, NO KYC in metadata
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: adminActor.sub,
+        action: SELLER_STATUS_CHANGED_AUDIT,
+        entityType: 'Seller',
+        entityId: 'seller-001',
+        metadata: expect.objectContaining({
+          from: SellerStatus.PENDING_REVIEW,
+          to: SellerStatus.ACTIVE,
+        }),
+      }),
+      expect.anything(),
+    );
+
+    // Audit metadata must NOT contain KYC fields
+    const [auditEntry] = audit.record.mock.calls as Array<
+      [{ metadata: Record<string, unknown> }]
+    >;
+    const metadata = auditEntry[0].metadata;
+    expect(Object.keys(metadata)).not.toContain('gstin');
+    expect(Object.keys(metadata)).not.toContain('pan');
+    expect(Object.keys(metadata)).not.toContain('bankAccountNo');
+    expect(Object.keys(metadata)).not.toContain('bankIfsc');
+
+    // Event emitted after commit
+    expect(events.emit).toHaveBeenCalledWith(
+      SELLER_KYC_APPROVED,
+      expect.objectContaining({
+        sellerId: 'seller-001',
+        userId: pendingSeller.userId,
+        status: SellerStatus.ACTIVE,
+      }),
+    );
+  });
+
+  it('PENDING_REVIEW → SUSPENDED (reject): emits SELLER_KYC_REJECTED with reason', async () => {
+    const { svc, prisma, events } = build();
+    const pendingSeller = makeSeller({ status: SellerStatus.PENDING_REVIEW });
+    const suspendedSeller = makeSeller({ status: SellerStatus.SUSPENDED });
+
+    prisma.seller.findFirst.mockResolvedValue(pendingSeller);
+    prisma.seller.update.mockResolvedValue(suspendedSeller);
+
+    await svc.updateStatus(
+      'seller-001',
+      { status: SellerStatus.SUSPENDED, reason: 'Incomplete KYC documents' },
+      adminActor,
+    );
+
+    expect(events.emit).toHaveBeenCalledWith(
+      SELLER_KYC_REJECTED,
+      expect.objectContaining({
+        sellerId: 'seller-001',
+        userId: pendingSeller.userId,
+        status: SellerStatus.SUSPENDED,
+        reason: 'Incomplete KYC documents',
+      }),
+    );
+    // Must NOT emit APPROVED
+    expect(events.emit).not.toHaveBeenCalledWith(
+      SELLER_KYC_APPROVED,
+      expect.anything(),
+    );
+  });
+
+  it('ACTIVE → DEACTIVATED: updates status, no event emitted', async () => {
+    const { svc, prisma, events } = build();
+    const activeSeller = makeSeller({ status: SellerStatus.ACTIVE });
+    const deactivatedSeller = makeSeller({ status: SellerStatus.DEACTIVATED });
+
+    prisma.seller.findFirst.mockResolvedValue(activeSeller);
+    prisma.seller.update.mockResolvedValue(deactivatedSeller);
+
+    const view = await svc.updateStatus(
+      'seller-001',
+      { status: SellerStatus.DEACTIVATED },
+      adminActor,
+    );
+
+    expect(view.status).toBe(SellerStatus.DEACTIVATED);
+    expect(events.emit).not.toHaveBeenCalled();
+  });
+
+  it('illegal transition throws ConflictException (409) — no update/audit/emit', async () => {
+    const { svc, prisma, audit, events } = build();
+    // PENDING_REVIEW → DEACTIVATED is not allowed
+    prisma.seller.findFirst.mockResolvedValue(
+      makeSeller({ status: SellerStatus.PENDING_REVIEW }),
+    );
+
+    await expect(
+      svc.updateStatus(
+        'seller-001',
+        { status: SellerStatus.DEACTIVATED },
+        adminActor,
+      ),
+    ).rejects.toMatchObject({
+      status: 409,
+    });
+
+    expect(prisma.seller.update).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
+    expect(events.emit).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundException when seller does not exist', async () => {
+    const { svc, prisma } = build();
+    prisma.seller.findFirst.mockResolvedValue(null);
+
+    await expect(
+      svc.updateStatus(
+        'nonexistent',
+        { status: SellerStatus.ACTIVE },
+        adminActor,
+      ),
+    ).rejects.toMatchObject({
+      message: 'Seller not found',
+    });
+  });
+
+  it('audit is called INSIDE the transaction (same tx client)', async () => {
+    const { svc, prisma, audit } = build();
+    const pendingSeller = makeSeller({ status: SellerStatus.PENDING_REVIEW });
+    const activeSeller = makeSeller({ status: SellerStatus.ACTIVE });
+
+    prisma.seller.findFirst.mockResolvedValue(pendingSeller);
+    prisma.seller.update.mockResolvedValue(activeSeller);
+
+    // Override $transaction to capture the tx arg passed to audit.record
+    const capturedTxArgs: unknown[] = [];
+    prisma.$transaction.mockImplementation(
+      async (cb: (tx: unknown) => Promise<unknown>) => {
+        const result = await cb(prisma);
+        return result;
+      },
+    );
+    audit.record.mockImplementation((_entry: unknown, tx: unknown) => {
+      capturedTxArgs.push(tx);
+      return Promise.resolve(undefined);
+    });
+
+    await svc.updateStatus(
+      'seller-001',
+      { status: SellerStatus.ACTIVE },
+      adminActor,
+    );
+
+    // audit.record must have been called with a tx argument (non-undefined)
+    expect(capturedTxArgs).toHaveLength(1);
+    expect(capturedTxArgs[0]).toBeDefined();
+  });
+
+  it('ACTIVE → ACTIVE: kycVerifiedAt is set when approving', async () => {
+    const { svc, prisma } = build();
+    const suspendedSeller = makeSeller({ status: SellerStatus.SUSPENDED });
+    const activeSeller = makeSeller({
+      status: SellerStatus.ACTIVE,
+      kycVerifiedAt: BASE_DATE,
+    });
+
+    prisma.seller.findFirst.mockResolvedValue(suspendedSeller);
+    prisma.seller.update.mockResolvedValue(activeSeller);
+
+    await svc.updateStatus(
+      'seller-001',
+      { status: SellerStatus.ACTIVE },
+      adminActor,
+    );
+
+    const [updateCall] = prisma.seller.update.mock.calls as Array<
+      [{ data: Record<string, unknown> }]
+    >;
+    // kycVerifiedAt must be set on any ACTIVE transition
+    expect(updateCall[0].data).toHaveProperty('kycVerifiedAt');
+  });
+
+  it('non-ACTIVE transition does NOT set kycVerifiedAt', async () => {
+    const { svc, prisma } = build();
+    const activeSeller = makeSeller({ status: SellerStatus.ACTIVE });
+    const suspendedSeller = makeSeller({ status: SellerStatus.SUSPENDED });
+
+    prisma.seller.findFirst.mockResolvedValue(activeSeller);
+    prisma.seller.update.mockResolvedValue(suspendedSeller);
+
+    await svc.updateStatus(
+      'seller-001',
+      { status: SellerStatus.SUSPENDED },
+      adminActor,
+    );
+
+    const [updateCall] = prisma.seller.update.mock.calls as Array<
+      [{ data: Record<string, unknown> }]
+    >;
+    expect(Object.keys(updateCall[0].data)).not.toContain('kycVerifiedAt');
   });
 });

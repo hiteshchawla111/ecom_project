@@ -21,7 +21,7 @@
 |---|---|---|---|
 | M0 | Single-vendor baseline | — | ✅ Done (was `PLAN.md` Phases 0–5) |
 | M1 | Marketplace Foundation | M | ✅ Done (all 6 slices: seller domain/KYC-cipher · AuditService · security hardening · seller auth+ApprovedGuard · admin seller-mgmt API+notifications · admin UI; 327 API + 5 e2e + 160 admin tests; per-slice + whole-branch reviewed + live-smoke-verified; acceptance criteria §M1 met) |
-| M2 | Seller System | L | ⬜ |
+| M2 | Seller System | L | 🟡 (slice 1 — ownership migration B1–B5 + call-site fixes — done & smoke-verified vs `ecom_dev`; next: slice 2 service-layer ownership scoping) |
 | M3 | Catalog V2 + Inventory V2 + Search (parallel group) | L | ⬜ |
 | M4 | Reviews + Notifications (parallel group) | M | ⬜ |
 | M5 | Order Split + Payments + Logistics (parallel group) | XL | ⬜ |

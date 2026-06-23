@@ -26,7 +26,9 @@ type PublicSellerInput = Pick<
 >;
 
 /** Maps a Seller record to its public view (5 fields, nothing else). */
-export function toPublicSellerView(seller: PublicSellerInput): PublicSellerView {
+export function toPublicSellerView(
+  seller: PublicSellerInput,
+): PublicSellerView {
   return {
     id: seller.id,
     displayName: seller.displayName,

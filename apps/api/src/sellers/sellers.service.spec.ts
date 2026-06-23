@@ -1008,7 +1008,9 @@ describe('SellersService public reads', () => {
     it('returns the id for an ACTIVE, non-deleted seller', async () => {
       const { svc, prisma } = buildPublicService();
       prisma.seller.findFirst.mockResolvedValue({ id: 's1' });
-      await expect(svc.getActiveSellerIdBySlug('demo-shop')).resolves.toBe('s1');
+      await expect(svc.getActiveSellerIdBySlug('demo-shop')).resolves.toBe(
+        's1',
+      );
     });
 
     it('throws NotFoundException when no ACTIVE seller matches', async () => {

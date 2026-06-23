@@ -53,12 +53,12 @@ export function CategoryTiles({ categories }: CategoryTilesProps) {
               href={`/categories/${category.slug}`}
               className={`group relative flex aspect-[4/3] flex-col justify-end overflow-hidden rounded-lg bg-gradient-to-br ${gradientFor(
                 category.name,
-              )} p-5 text-neutral-0 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-700`}
+              )} p-5 text-surface shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-700`}
             >
               {/* Decorative emblem — first letter, large and faint, top-right. */}
               <span
                 aria-hidden="true"
-                className="absolute right-4 top-3 font-heading text-6xl font-bold leading-none text-neutral-0/20 transition-transform duration-300 group-hover:scale-110"
+                className="absolute right-4 top-3 font-heading text-6xl font-bold leading-none text-surface/20 transition-transform duration-300 group-hover:scale-110"
               >
                 {category.name.charAt(0).toUpperCase()}
               </span>
@@ -67,7 +67,7 @@ export function CategoryTiles({ categories }: CategoryTilesProps) {
                 {category.name}
               </h2>
               {childCount > 0 && (
-                <p className="mt-1 text-sm text-neutral-0/80">
+                <p className="mt-1 text-sm text-surface/80">
                   {childCount} {childCount === 1 ? 'subcategory' : 'subcategories'}
                 </p>
               )}
@@ -79,7 +79,7 @@ export function CategoryTiles({ categories }: CategoryTilesProps) {
                   <li key={child.id}>
                     <Link
                       href={`/categories/${child.slug}`}
-                      className="inline-flex rounded-full border border-neutral-200 bg-neutral-0 px-3 py-1 text-sm text-neutral-700 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                      className="inline-flex rounded-full border border-line bg-surface px-3 py-1 text-sm text-content-muted transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
                     >
                       {child.name}
                     </Link>

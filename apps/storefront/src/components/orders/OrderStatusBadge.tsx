@@ -23,7 +23,7 @@ const LABELS: Record<string, string> = {
 };
 
 export function OrderStatusBadge({ status }: { status: string }) {
-  const style = STYLES[status] ?? 'bg-neutral-100 text-neutral-900';
+  const style = STYLES[status] ?? 'bg-surface-muted text-content';
   const label = LABELS[status] ?? status;
   return (
     <span

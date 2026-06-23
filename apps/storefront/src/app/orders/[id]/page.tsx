@@ -30,9 +30,9 @@ export default async function OrderConfirmationPage({
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-10">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-neutral-900">Order placed</h1>
-        <p className="text-sm text-neutral-600">
-          Thank you — your order <span className="font-medium text-neutral-900">{order.id}</span> has been received.
+        <h1 className="text-2xl font-semibold text-content">Order placed</h1>
+        <p className="text-sm text-content-muted">
+          Thank you — your order <span className="font-medium text-content">{order.id}</span> has been received.
         </p>
       </header>
       <OrderSummary order={order} />

@@ -13,15 +13,15 @@ export default async function ResetPasswordPage({
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-neutral-900">
+        <h1 className="text-2xl font-semibold text-content">
           Set a new password
         </h1>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-content-muted">
           Choose a new password for your account.
         </p>
       </header>
       <ResetPasswordForm token={token ?? ''} />
-      <p className="text-sm text-neutral-600">
+      <p className="text-sm text-content-muted">
         Remembered it?{' '}
         <Link
           href="/login"

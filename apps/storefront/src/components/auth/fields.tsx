@@ -28,7 +28,7 @@ export function TextField({
   const hintId = hint ? `${id}-hint` : undefined;
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-neutral-800">
+      <label htmlFor={id} className="text-sm font-medium text-content">
         {label}
       </label>
       <input
@@ -40,10 +40,10 @@ export function TextField({
         autoComplete={autoComplete}
         aria-describedby={hintId}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-neutral-200 bg-neutral-0 px-3 py-2 text-neutral-900 outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+        className="rounded-md border border-line bg-surface px-3 py-2 text-content outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
       />
       {hint ? (
-        <p id={hintId} className="text-xs text-neutral-400">
+        <p id={hintId} className="text-xs text-content-subtle">
           {hint}
         </p>
       ) : null}
@@ -76,7 +76,7 @@ export function SubmitButton({
     <button
       type="submit"
       disabled={pending}
-      className="mt-1 rounded-md bg-primary-500 px-4 py-2.5 font-medium text-neutral-0 transition-colors hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-300 disabled:cursor-not-allowed disabled:opacity-60"
+      className="mt-1 rounded-md bg-primary-500 px-4 py-2.5 font-medium text-surface transition-colors hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-300 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? 'Please wait…' : children}
     </button>

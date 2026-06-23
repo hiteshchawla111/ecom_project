@@ -43,11 +43,11 @@ export default async function ProductDetailPage({
 
         <div className="flex w-full flex-col gap-4">
           {product.brand && (
-            <span className="text-sm font-medium uppercase tracking-wide text-neutral-600">
+            <span className="text-sm font-medium uppercase tracking-wide text-content-muted">
               {product.brand}
             </span>
           )}
-          <h1 className="text-3xl font-bold text-neutral-900">
+          <h1 className="text-3xl font-bold text-content">
             {product.name}
           </h1>
 
@@ -69,11 +69,11 @@ export default async function ProductDetailPage({
 
           <AddToCartButton productId={product.id} disabled={!available} />
 
-          <div className="mt-2 border-t border-neutral-200 pt-4">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-600">
+          <div className="mt-2 border-t border-line pt-4">
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-content-muted">
               Description
             </h2>
-            <p className="whitespace-pre-line text-neutral-900">
+            <p className="whitespace-pre-line text-content">
               {product.description}
             </p>
           </div>

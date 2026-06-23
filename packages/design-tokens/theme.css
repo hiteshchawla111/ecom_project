@@ -55,7 +55,41 @@
   --shadow-md: 0 4px 12px rgba(28, 25, 23, 0.08);
   --shadow-lg: 0 12px 32px rgba(28, 25, 23, 0.12);
 
+  /* Semantic surface/text tokens — the theme-aware layer. Components consume
+     these (bg-surface, text-content, border-line, …) instead of raw neutrals,
+     so the whole UI flips by overriding them under [data-theme="dark"] below.
+     Light values map to the existing warm-gray scale. Brand/accent/state hues
+     stay constant across themes (lifted for dark in the override block). */
+  --color-surface: #ffffff;        /* cards, page surfaces (was neutral-0) */
+  --color-surface-raised: #ffffff; /* elevated panels, menus */
+  --color-surface-sunk: #fafaf9;   /* app background (was neutral-50) */
+  --color-surface-muted: #f5f5f4;  /* subtle fills, table stripes (neutral-100) */
+  --color-line: #e7e5e4;           /* borders, dividers (was neutral-200) */
+  --color-content: #1c1917;        /* primary text (was neutral-900) */
+  --color-content-muted: #57534e;  /* secondary text (was neutral-600) */
+  --color-content-subtle: #a8a29e; /* placeholder/disabled (was neutral-400) */
+
   /* Fonts */
   --font-sans: Inter, system-ui, sans-serif;
   --font-heading: "Plus Jakarta Sans", Inter, sans-serif;
+}
+
+/* Dark theme — opt-in via data-theme="dark" on <html>. Soft near-black
+   surfaces (never #000) on a warm-tinted stone ramp, +luminance per step for
+   an elevation ladder. Primary is lifted toward primary-300/400 so coral keeps
+   contrast on dark. Body text stays >= WCAG AA on every surface. */
+:root[data-theme="dark"] {
+  --color-surface: #1f1b18;
+  --color-surface-raised: #292420;
+  --color-surface-sunk: #14110f;
+  --color-surface-muted: #2a2521;
+  --color-line: #3a332e;
+  --color-content: #f5f0eb;
+  --color-content-muted: #b8b0a8;
+  --color-content-subtle: #8a827a;
+
+  /* Lift the brand so it reads on dark without vibrating. */
+  --color-primary-500: #ff8052;
+  --color-primary-600: #ff6b35;
+  --color-primary-700: #ffa878;
 }

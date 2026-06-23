@@ -36,9 +36,9 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={`/products/${product.id}`}
-      className="group flex h-full flex-col overflow-hidden rounded-lg border border-neutral-200 bg-neutral-0 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary-300 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+      className="group flex h-full flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary-300 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-neutral-100">
+      <div className="relative aspect-square w-full overflow-hidden bg-surface-muted">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
@@ -49,7 +49,7 @@ export function ProductCard({ product }: ProductCardProps) {
         {onSale && (
           <span
             data-testid="sale-ribbon"
-            className="absolute left-3 top-3 rounded-full bg-accent-600 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-neutral-0 shadow-sm"
+            className="absolute left-3 top-3 rounded-full bg-accent-600 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-surface shadow-sm"
           >
             Sale
           </span>
@@ -57,13 +57,13 @@ export function ProductCard({ product }: ProductCardProps) {
       </div>
       <div className="flex flex-1 flex-col gap-1 p-4">
         {product.brand ? (
-          <span className="text-xs font-medium uppercase tracking-wide text-neutral-400">
+          <span className="text-xs font-medium uppercase tracking-wide text-content-subtle">
             {product.brand}
           </span>
         ) : (
           <span className="h-4" aria-hidden="true" />
         )}
-        <h3 className="line-clamp-2 min-h-11 text-base font-medium leading-snug text-neutral-900 transition-colors group-hover:text-primary-700">
+        <h3 className="line-clamp-2 min-h-11 text-base font-medium leading-snug text-content transition-colors group-hover:text-primary-700">
           {product.name}
         </h3>
         <div className="mt-auto pt-2">

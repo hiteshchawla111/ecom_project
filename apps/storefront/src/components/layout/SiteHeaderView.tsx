@@ -10,7 +10,7 @@ export const NAV_LINKS = [
 ] as const;
 
 const linkClass =
-  'rounded-md px-2 py-1 text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
+  'rounded-md px-2 py-1 text-sm font-medium text-content-muted transition-colors hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
 
 export interface SiteHeaderViewProps {
   user: CurrentUser | null;
@@ -23,7 +23,7 @@ export interface SiteHeaderViewProps {
  */
 export function SiteHeaderView({ user }: SiteHeaderViewProps) {
   return (
-    <header className="sticky top-0 z-30 border-b border-neutral-200 bg-neutral-0/95 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3">
         <div className="flex items-center gap-6">
           <Link
@@ -48,7 +48,7 @@ export function SiteHeaderView({ user }: SiteHeaderViewProps) {
         <div className="flex items-center gap-2">
           <Link
             href="/cart"
-            className="relative rounded-md p-2 text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+            className="relative rounded-md p-2 text-content-muted transition-colors hover:bg-surface-muted hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
           >
             <CartIcon />
             <CartCountBadge />
@@ -58,7 +58,7 @@ export function SiteHeaderView({ user }: SiteHeaderViewProps) {
           {user ? (
             <Link
               href="/account"
-              className="hidden rounded-md px-3 py-1.5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 sm:inline-block"
+              className="hidden rounded-md px-3 py-1.5 text-sm font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 sm:inline-block"
             >
               My account
             </Link>
@@ -66,13 +66,13 @@ export function SiteHeaderView({ user }: SiteHeaderViewProps) {
             <div className="hidden items-center gap-2 sm:flex">
               <Link
                 href="/login"
-                className="rounded-md px-3 py-1.5 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                className="rounded-md px-3 py-1.5 text-sm font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
               >
                 Log in
               </Link>
               <Link
                 href="/register"
-                className="rounded-md bg-primary-500 px-3 py-1.5 text-sm font-medium text-neutral-0 transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                className="rounded-md bg-primary-500 px-3 py-1.5 text-sm font-medium text-surface transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
               >
                 Sign up
               </Link>

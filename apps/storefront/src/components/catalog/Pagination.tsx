@@ -18,13 +18,13 @@ export interface PaginationProps {
 type PageToken = number | 'ellipsis';
 
 const numberLinkClass =
-  'inline-flex h-9 min-w-9 items-center justify-center rounded-md border border-neutral-200 px-3 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
+  'inline-flex h-9 min-w-9 items-center justify-center rounded-md border border-line px-3 text-sm font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
 const currentClass =
-  'inline-flex h-9 min-w-9 items-center justify-center rounded-md bg-primary-500 px-3 text-sm font-semibold text-neutral-0';
+  'inline-flex h-9 min-w-9 items-center justify-center rounded-md bg-primary-500 px-3 text-sm font-semibold text-surface';
 const stepLinkClass =
-  'inline-flex h-9 items-center justify-center rounded-md border border-neutral-200 px-3 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
+  'inline-flex h-9 items-center justify-center rounded-md border border-line px-3 text-sm font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
 const stepDisabledClass =
-  'inline-flex h-9 items-center justify-center rounded-md border border-neutral-200 px-3 text-sm text-neutral-400';
+  'inline-flex h-9 items-center justify-center rounded-md border border-line px-3 text-sm text-content-subtle';
 
 /**
  * Build the list of page tokens with ellipses. Always includes page 1 and the
@@ -77,7 +77,7 @@ export function Pagination({
       aria-label="Pagination"
       className="flex flex-col items-center justify-between gap-3 sm:flex-row"
     >
-      <p className="text-sm text-neutral-600">
+      <p className="text-sm text-content-muted">
         Showing {rangeStart}–{rangeEnd} of {total}
       </p>
 
@@ -102,7 +102,7 @@ export function Pagination({
             <span
               key={`ellipsis-${i}`}
               aria-hidden="true"
-              className="inline-flex h-9 min-w-9 items-center justify-center px-1 text-sm text-neutral-400"
+              className="inline-flex h-9 min-w-9 items-center justify-center px-1 text-sm text-content-subtle"
             >
               …
             </span>

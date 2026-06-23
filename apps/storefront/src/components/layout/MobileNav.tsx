@@ -14,7 +14,7 @@ export interface MobileNavProps {
 }
 
 const itemClass =
-  'block rounded-md px-3 py-2 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
+  'block rounded-md px-3 py-2 text-sm font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
 
 /**
  * Mobile disclosure menu (hidden on `md+`). Menu contents only mount while open,
@@ -33,7 +33,7 @@ export function MobileNav({ links, isAuthenticated }: MobileNavProps) {
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((v) => !v)}
-        className="rounded-md p-2 text-neutral-700 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+        className="rounded-md p-2 text-content-muted transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
       >
         <svg
           aria-hidden="true"
@@ -55,7 +55,7 @@ export function MobileNav({ links, isAuthenticated }: MobileNavProps) {
       {open && (
         <div
           id={panelId}
-          className="absolute right-0 mt-2 w-56 rounded-lg border border-neutral-200 bg-neutral-0 p-2 shadow-lg"
+          className="absolute right-0 mt-2 w-56 rounded-lg border border-line bg-surface p-2 shadow-lg"
         >
           <nav aria-label="Mobile" className="flex flex-col gap-1">
             {links.map((link) => (
@@ -68,7 +68,7 @@ export function MobileNav({ links, isAuthenticated }: MobileNavProps) {
                 {link.label}
               </Link>
             ))}
-            <div className="my-1 border-t border-neutral-200" />
+            <div className="my-1 border-t border-line" />
             {isAuthenticated ? (
               <Link
                 href="/account"

@@ -57,10 +57,10 @@ export default async function CategoryPage({
         >
           ← All categories
         </Link>
-        <h1 className="text-2xl font-semibold text-neutral-900">
+        <h1 className="text-2xl font-semibold text-content">
           {category.name}
         </h1>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-content-muted">
           {total} {total === 1 ? 'product' : 'products'}
         </p>
       </header>
@@ -71,7 +71,7 @@ export default async function CategoryPage({
             <Link
               key={child.id}
               href={`/categories/${child.slug}`}
-              className="rounded-full border border-neutral-200 px-3 py-1 text-sm text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+              className="rounded-full border border-line px-3 py-1 text-sm text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
             >
               {child.name}
             </Link>
@@ -80,7 +80,7 @@ export default async function CategoryPage({
       )}
 
       {data.length === 0 ? (
-        <p className="text-neutral-600">No products in this category yet.</p>
+        <p className="text-content-muted">No products in this category yet.</p>
       ) : (
         <ul className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
           {data.map((product) => (

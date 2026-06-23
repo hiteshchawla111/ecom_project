@@ -15,7 +15,7 @@ export function CategoryShortcuts({ categories }: CategoryShortcutsProps) {
   return (
     <section className="flex flex-col gap-4">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-xl font-semibold text-neutral-900">
+        <h2 className="text-xl font-semibold text-content">
           Shop by category
         </h2>
         <Link
@@ -30,7 +30,7 @@ export function CategoryShortcuts({ categories }: CategoryShortcutsProps) {
           <li key={category.id}>
             <Link
               href={`/categories/${category.slug}`}
-              className="flex items-center justify-center rounded-lg border border-neutral-200 bg-neutral-0 px-4 py-5 text-center text-sm font-medium text-neutral-900 shadow-sm transition-colors hover:border-primary-300 hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+              className="flex items-center justify-center rounded-lg border border-line bg-surface px-4 py-5 text-center text-sm font-medium text-content shadow-sm transition-colors hover:border-primary-300 hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
             >
               {category.name}
             </Link>

@@ -379,3 +379,233 @@ describe('7. Per-seller SKU uniqueness', () => {
       .expect(409);
   });
 });
+
+// ---------------------------------------------------------------------------
+// CSV import cases (slice 4, task 3)
+// All SKUs use the e2e-sp-* namespace → covered by the afterAll sellerId sweep.
+// ---------------------------------------------------------------------------
+
+/** Build a minimal valid CSV row string (no trailing newline). */
+function csvRow(
+  name: string,
+  sku: string,
+  price: string,
+  categoryId: string,
+  description = 'Test description',
+): string {
+  return `${name},${sku},${description},${price},${categoryId}`;
+}
+
+describe('8. CSV import — partial success', () => {
+  it('2 valid rows + 1 invalid (empty name) → 201 with created:2 failed:1', async () => {
+    const sku1 = `${NS}-imp-ps-1-${Date.now()}`;
+    const sku2 = `${NS}-imp-ps-2-${Date.now()}`;
+    const csvString = [
+      'name,sku,description,price,categoryId',
+      csvRow('Import Product 1', sku1, '19.99', CATEGORY_ID),
+      csvRow('Import Product 2', sku2, '29.99', CATEGORY_ID),
+      csvRow('', `${NS}-imp-ps-bad-${Date.now()}`, '9.99', CATEGORY_ID), // invalid: empty name
+    ].join('\n');
+
+    const res = await request(app.getHttpServer())
+      .post('/seller/products/import')
+      .set('Authorization', auth(tokenA))
+      .attach('file', Buffer.from(csvString), 'products.csv')
+      .expect(201);
+
+    const created = bodyField<number>(res.body, 'created');
+    const failed = bodyField<number>(res.body, 'failed');
+    const errors = bodyField<Array<{ row: number; message: string }>>(
+      res.body,
+      'errors',
+    );
+    const productIds = bodyField<string[]>(res.body, 'productIds');
+
+    expect(created).toBe(2);
+    expect(failed).toBe(1);
+    expect(errors).toHaveLength(1);
+    expect(productIds).toHaveLength(2);
+
+    // Track for cleanup (redundant but explicit).
+    createdProductIds.push(...productIds);
+  });
+
+  it('the 2 created products appear in Seller A list, NOT in Seller B list', async () => {
+    const sku1 = `${NS}-imp-iso-1-${Date.now()}`;
+    const sku2 = `${NS}-imp-iso-2-${Date.now()}`;
+    const csvString = [
+      'name,sku,description,price,categoryId',
+      csvRow('Isolation Product 1', sku1, '11.99', CATEGORY_ID),
+      csvRow('Isolation Product 2', sku2, '22.99', CATEGORY_ID),
+    ].join('\n');
+
+    const importRes = await request(app.getHttpServer())
+      .post('/seller/products/import')
+      .set('Authorization', auth(tokenA))
+      .attach('file', Buffer.from(csvString), 'products.csv')
+      .expect(201);
+
+    const productIds = bodyField<string[]>(importRes.body, 'productIds');
+    expect(productIds).toHaveLength(2);
+    createdProductIds.push(...productIds);
+
+    // Seller A can see both products.
+    const resA = await request(app.getHttpServer())
+      .get('/seller/products')
+      .query({ pageSize: 100 })
+      .set('Authorization', auth(tokenA))
+      .expect(200);
+
+    const idsA: string[] = bodyData(resA.body).map((p) => p.id);
+    expect(idsA).toContain(productIds[0]);
+    expect(idsA).toContain(productIds[1]);
+
+    // Seller B cannot see Seller A's products.
+    const resB = await request(app.getHttpServer())
+      .get('/seller/products')
+      .query({ pageSize: 100 })
+      .set('Authorization', auth(tokenB))
+      .expect(200);
+
+    const idsB: string[] = bodyData(resB.body).map((p) => p.id);
+    expect(idsB).not.toContain(productIds[0]);
+    expect(idsB).not.toContain(productIds[1]);
+  });
+});
+
+describe('9. CSV import — ownership ignores sellerId column', () => {
+  it('row with sellerId=sellerBId is still owned by Seller A (uploader)', async () => {
+    // The service uses forbidNonWhitelisted:false, so the extra sellerId column
+    // is stripped silently and the row is created owned by the authenticated seller.
+    const sku = `${NS}-imp-own-${Date.now()}`;
+    const csvString = [
+      'name,sku,description,price,categoryId,sellerId',
+      // Append sellerBId as an extra column value after categoryId
+      `Ownership Test,${sku},Desc,49.99,${CATEGORY_ID},${sellerBId}`,
+    ].join('\n');
+
+    const res = await request(app.getHttpServer())
+      .post('/seller/products/import')
+      .set('Authorization', auth(tokenA))
+      .attach('file', Buffer.from(csvString), 'products.csv')
+      .expect(201);
+
+    const created = bodyField<number>(res.body, 'created');
+    const productIds = bodyField<string[]>(res.body, 'productIds');
+
+    // Either the row succeeded (sellerId stripped → owned by A) or it errored
+    // (rejected as non-whitelisted) — either way the product is NOT owned by B.
+    if (created === 1) {
+      createdProductIds.push(...productIds);
+
+      // Verify the product appears in Seller A's list.
+      const resA = await request(app.getHttpServer())
+        .get('/seller/products')
+        .query({ pageSize: 100 })
+        .set('Authorization', auth(tokenA))
+        .expect(200);
+      const idsA: string[] = bodyData(resA.body).map((p) => p.id);
+      expect(idsA).toContain(productIds[0]);
+
+      // And does NOT appear in Seller B's list.
+      const resB = await request(app.getHttpServer())
+        .get('/seller/products')
+        .query({ pageSize: 100 })
+        .set('Authorization', auth(tokenB))
+        .expect(200);
+      const idsB: string[] = bodyData(resB.body).map((p) => p.id);
+      expect(idsB).not.toContain(productIds[0]);
+    } else {
+      // Row errored — ownership could not have been set to B. This is safe.
+      const failed = bodyField<number>(res.body, 'failed');
+      expect(failed).toBe(1);
+      // Confirm nothing ended up in Seller B's list with this SKU.
+      const resB = await request(app.getHttpServer())
+        .get('/seller/products')
+        .query({ pageSize: 100 })
+        .set('Authorization', auth(tokenB))
+        .expect(200);
+      const bProducts = bodyData(resB.body) as Array<{
+        id: string;
+        sku?: string;
+      }>;
+      const skusB = bProducts.map(
+        (p) => (p as Record<string, unknown>).sku as string | undefined,
+      );
+      expect(skusB).not.toContain(sku);
+    }
+  });
+});
+
+describe('10. CSV import — per-row duplicate SKU conflict', () => {
+  it('one existing SKU + one fresh SKU → created:1 failed:1 with dup SKU in errors', async () => {
+    const dupSku = `${NS}-imp-dup-${Date.now()}`;
+
+    // Pre-create a product with the dup SKU via the regular endpoint.
+    const preRes = await request(app.getHttpServer())
+      .post('/seller/products')
+      .set('Authorization', auth(tokenA))
+      .send(productPayload({ name: 'Pre-existing Dup', sku: dupSku }))
+      .expect(201);
+    createdProductIds.push(bodyField<string>(preRes.body, 'id'));
+
+    const freshSku = `${NS}-imp-fresh-${Date.now()}`;
+    const csvString = [
+      'name,sku,description,price,categoryId',
+      csvRow('Dup SKU Row', dupSku, '10.00', CATEGORY_ID),
+      csvRow('Fresh SKU Row', freshSku, '10.00', CATEGORY_ID),
+    ].join('\n');
+
+    const res = await request(app.getHttpServer())
+      .post('/seller/products/import')
+      .set('Authorization', auth(tokenA))
+      .attach('file', Buffer.from(csvString), 'products.csv')
+      .expect(201);
+
+    const created = bodyField<number>(res.body, 'created');
+    const failed = bodyField<number>(res.body, 'failed');
+    const errors = bodyField<
+      Array<{ row: number; sku?: string; message: string }>
+    >(res.body, 'errors');
+    const productIds = bodyField<string[]>(res.body, 'productIds');
+
+    expect(created).toBe(1);
+    expect(failed).toBe(1);
+    expect(productIds).toHaveLength(1);
+    createdProductIds.push(...productIds);
+
+    // The error entry must reference the duplicate SKU.
+    expect(errors).toHaveLength(1);
+    expect(errors[0].sku).toBe(dupSku);
+  });
+});
+
+describe('11. CSV import — row cap (501 rows → 400)', () => {
+  it('CSV with 501 data rows → 400 BadRequest', async () => {
+    const headerRow = 'name,sku,description,price,categoryId';
+    const dataRows = Array.from({ length: 501 }, (_, i) =>
+      csvRow(
+        `Cap Product ${i}`,
+        `${NS}-imp-cap-${Date.now()}-${i}`,
+        '1.00',
+        CATEGORY_ID,
+      ),
+    );
+    const csvString = [headerRow, ...dataRows].join('\n');
+
+    await request(app.getHttpServer())
+      .post('/seller/products/import')
+      .set('Authorization', auth(tokenA))
+      .attach('file', Buffer.from(csvString), 'products.csv')
+      .expect(400);
+  });
+});
+
+describe('12. CSV import — missing file → 400', () => {
+  it('POST /seller/products/import with no file attached → 400', async () => {
+    await request(app.getHttpServer())
+      .post('/seller/products/import')
+      .set('Authorization', auth(tokenA))
+      .expect(400);
+  });
+});

@@ -232,7 +232,7 @@ export class InventoryService {
    * Order-driven types (RESERVATION/RELEASE) are not permitted here.
    */
   async adjust(
-    actor: AccessTokenPayload,
+    actor: AccessTokenPayload & { sellerId?: string },
     productId: string,
     input: { type: ManualMovementType; quantity: number; reason: string },
   ): Promise<void> {
@@ -306,7 +306,7 @@ export class InventoryService {
    * counters and delta differ. Extracted to remove duplication (DRY).
    */
   private async applyWithAudit(
-    actor: AccessTokenPayload,
+    actor: AccessTokenPayload & { sellerId?: string },
     productId: string,
     inventoryItemId: string,
     move: {

@@ -109,9 +109,9 @@ export function SellerProductImportPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {result.errors.map((e) => (
+                  {result.errors.map((e, i) => (
                     <tr
-                      key={`${e.row}-${e.sku ?? ''}`}
+                      key={`${e.row}-${e.sku ?? ''}-${i}`}
                       className="border-t border-line text-content"
                     >
                       <td className="px-4 py-2">{e.row}</td>

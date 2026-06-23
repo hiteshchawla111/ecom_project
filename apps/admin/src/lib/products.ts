@@ -14,6 +14,8 @@ export interface Product {
   brand: string | null;
   status: ProductStatus;
   categoryId: string;
+  /** The owning seller (public-safe fields). Optional — defensive if absent. */
+  seller?: { displayName: string; slug: string };
 }
 
 /** Paginated envelope mirroring the API list response. */

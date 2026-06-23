@@ -65,6 +65,7 @@ const item = (over: Record<string, unknown> = {}) => ({
   available: 10,
   reserved: 0,
   lowStockThreshold: 5,
+  sellerId: 'seller-x',
   ...over,
 });
 
@@ -541,6 +542,7 @@ describe('InventoryService low-stock alerts', () => {
       productId: 'p1',
       available: 4,
       threshold: 5,
+      sellerId: 'seller-x',
     });
   });
 
@@ -582,6 +584,7 @@ describe('InventoryService low-stock alerts', () => {
       productId: 'p1',
       available: 3,
       threshold: 5,
+      sellerId: 'seller-x',
     });
   });
 
@@ -601,6 +604,7 @@ describe('InventoryService low-stock alerts', () => {
       productId: 'p1',
       available: 2,
       threshold: 5,
+      sellerId: 'seller-x',
     });
   });
 

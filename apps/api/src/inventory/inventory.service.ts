@@ -474,19 +474,34 @@ export class InventoryService {
    * on every subsequent change. A threshold of 0 only fires at depletion.
    */
   private lowStockCrossing(
-    item: { productId: string; available: number; lowStockThreshold: number },
+    item: {
+      productId: string;
+      available: number;
+      lowStockThreshold: number;
+      sellerId: string;
+    },
     newAvailable: number,
   ): LowStockEvent | null {
-    const { productId, available: before, lowStockThreshold: threshold } = item;
+    const {
+      productId,
+      available: before,
+      lowStockThreshold: threshold,
+      sellerId,
+    } = item;
     if (before > threshold && newAvailable <= threshold) {
-      return { productId, available: newAvailable, threshold };
+      return { productId, available: newAvailable, threshold, sellerId };
     }
     return null;
   }
 
   /** Emit the crossing event for an immediate-commit op, if any. */
   private emitIfCrossedLow(
-    item: { productId: string; available: number; lowStockThreshold: number },
+    item: {
+      productId: string;
+      available: number;
+      lowStockThreshold: number;
+      sellerId: string;
+    },
     newAvailable: number,
   ): void {
     const crossing = this.lowStockCrossing(item, newAvailable);

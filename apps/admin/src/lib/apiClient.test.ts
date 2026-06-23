@@ -62,6 +62,32 @@ describe('apiClient', () => {
     expect(tokenStore.get()).toBeNull();
   });
 
+  it('does not force application/json for a FormData body (lets the browser set multipart)', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    const fd = new FormData();
+    fd.append('file', new Blob(['x'], { type: 'text/csv' }), 'p.csv');
+
+    await apiClient.request('/seller/products/import', { method: 'POST', body: fd });
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const headers = new Headers(init.headers);
+    expect(headers.has('Content-Type')).toBe(false);
+  });
+
+  it('still defaults a non-FormData body to application/json', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+
+    await apiClient.request('/x', { method: 'POST', body: JSON.stringify({ a: 1 }) });
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const headers = new Headers(init.headers);
+    expect(headers.get('Content-Type')).toBe('application/json');
+  });
+
   it('concurrent 401s trigger exactly one /auth/refresh', async () => {
     tokenStore.set({ accessToken: 'old', refreshToken: 'oldR' });
     let refreshed = false;

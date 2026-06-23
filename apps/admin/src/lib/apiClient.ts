@@ -33,7 +33,13 @@ function refreshOnce(): Promise<TokenPair> {
 
 function buildHeaders(accessToken: string | undefined, init?: RequestInit): Headers {
   const headers = new Headers(init?.headers);
-  if (init?.body && !headers.has('Content-Type')) {
+  // Don't force application/json for FormData — the browser must set
+  // `multipart/form-data; boundary=…` itself (a manual Content-Type breaks parsing).
+  if (
+    init?.body &&
+    !(init.body instanceof FormData) &&
+    !headers.has('Content-Type')
+  ) {
     headers.set('Content-Type', 'application/json');
   }
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);

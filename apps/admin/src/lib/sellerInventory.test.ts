@@ -4,6 +4,7 @@ import {
   listSellerStock,
   getSellerStockItem,
   createSellerMovement,
+  getSellerInventoryReport,
 } from './sellerInventory';
 
 vi.mock('./apiClient', () => ({ apiClient: { request: vi.fn() } }));
@@ -34,5 +35,19 @@ describe('sellerInventory client', () => {
       method: 'POST',
       body: JSON.stringify({ type: 'ADDITION', quantity: 5, reason: 'restock' }),
     });
+  });
+
+  it('getSellerInventoryReport GETs /seller/inventory/reports (scoped)', async () => {
+    (apiClient.request as ReturnType<typeof vi.fn>).mockResolvedValue({
+      totalProducts: 2,
+      totalAvailable: 38,
+      totalReserved: 0,
+      lowStockCount: 1,
+      outOfStockCount: 0,
+      valuation: '445.50',
+    });
+    const res = await getSellerInventoryReport();
+    expect(apiClient.request).toHaveBeenCalledWith('/seller/inventory/reports');
+    expect(res.valuation).toBe('445.50');
   });
 });

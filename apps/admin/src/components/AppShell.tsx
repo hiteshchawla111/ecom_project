@@ -46,8 +46,11 @@ export function AppShell() {
               <NavLink to="/seller/products" className={navLinkClass}>
                 My Products
               </NavLink>
-              <NavLink to="/seller/inventory" className={navLinkClass}>
+              <NavLink to="/seller/inventory" end className={navLinkClass}>
                 My Inventory
+              </NavLink>
+              <NavLink to="/seller/inventory/reports" className={navLinkClass}>
+                Inventory report
               </NavLink>
             </>
           ) : (
@@ -77,8 +80,11 @@ export function AppShell() {
                   </NavLink>
                 </>
               )}
-              <NavLink to="/inventory" className={navLinkClass}>
+              <NavLink to="/inventory" end className={navLinkClass}>
                 Inventory
+              </NavLink>
+              <NavLink to="/inventory/reports" className={navLinkClass}>
+                Inventory report
               </NavLink>
             </>
           )}

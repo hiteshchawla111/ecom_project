@@ -8,6 +8,13 @@ import {
 } from '../lib/products';
 import { StatusBadge } from '../components/products/StatusBadge';
 import { Pagination } from '../components/ui/Pagination';
+import { RowActionsMenu } from '../components/ui/RowActionsMenu';
+
+// Shared menu-item styling so every row action reads consistently.
+const menuItemClass =
+  'rounded px-3 py-1.5 text-left text-sm text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50';
+const menuItemDangerClass =
+  'rounded px-3 py-1.5 text-left text-sm text-error-500 transition-colors hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50';
 
 const PAGE_SIZE = 20;
 const usd = new Intl.NumberFormat('en-US', {
@@ -163,36 +170,40 @@ export function ProductsPage() {
                       <StatusBadge status={product.status} />
                     </td>
                     <td className="px-4 py-2">
-                      <div className="flex justify-end gap-2">
-                        {!isArchived && (
-                          <Link
-                            to={`/products/${product.id}/edit`}
-                            className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                      <div className="flex justify-end">
+                        {isArchived ? (
+                          <span className="text-xs text-neutral-400">
+                            No actions
+                          </span>
+                        ) : (
+                          <RowActionsMenu
+                            label={`Actions for ${product.name}`}
                           >
-                            Edit
-                          </Link>
-                        )}
-                        {!isArchived && (
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => onToggleActive(product)}
-                            className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50"
-                          >
-                            {product.status === 'ACTIVE'
-                              ? 'Deactivate'
-                              : 'Activate'}
-                          </button>
-                        )}
-                        {!isArchived && (
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => onArchive(product)}
-                            className="rounded-md border border-error-500 px-3 py-1.5 text-xs font-medium text-error-500 transition-colors hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50"
-                          >
-                            Archive
-                          </button>
+                            <Link
+                              to={`/products/${product.id}/edit`}
+                              className={menuItemClass}
+                            >
+                              Edit
+                            </Link>
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => onToggleActive(product)}
+                              className={menuItemClass}
+                            >
+                              {product.status === 'ACTIVE'
+                                ? 'Deactivate'
+                                : 'Activate'}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => onArchive(product)}
+                              className={menuItemDangerClass}
+                            >
+                              Archive
+                            </button>
+                          </RowActionsMenu>
                         )}
                       </div>
                     </td>

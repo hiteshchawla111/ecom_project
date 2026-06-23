@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { LogoutButton } from './LogoutButton';
+import { ThemeToggle } from './ui/ThemeToggle';
 
 // Active state is conveyed by a left accent border + tint + weight (not color
 // alone); the transparent border on inactive links keeps the width stable.
@@ -80,7 +81,10 @@ export function AppShell() {
             <span className="sr-only">Signed in as </span>
             <span data-testid="current-user">{user!.email}</span>
           </span>
-          <LogoutButton />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <LogoutButton />
+          </div>
         </header>
         <main className="flex-1 overflow-y-auto bg-surface-sunk p-6">
           <Outlet />

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { CurrentUser } from '@/lib/api-auth';
 import { MobileNav } from './MobileNav';
+import { ThemeToggle } from './ThemeToggle';
 import { CartCountBadge } from '@/components/cart/CartCountBadge';
 
 /** Primary navigation links, shared by the desktop bar and the mobile menu. */
@@ -46,6 +47,7 @@ export function SiteHeaderView({ user }: SiteHeaderViewProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <Link
             href="/cart"
             className="relative rounded-md p-2 text-content-muted transition-colors hover:bg-surface-muted hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"

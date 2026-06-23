@@ -126,6 +126,9 @@ model Seller {
   updatedAt      DateTime     @updatedAt
   deletedAt      DateTime?
 
+  products       Product[]
+  inventoryItems InventoryItem[]
+
   @@index([status])
   @@index([deletedAt, createdAt])
 }
@@ -161,7 +164,7 @@ model Category {
 model Product {
   id          String         @id @default(cuid())
   name        String
-  sku         String         @unique
+  sku         String
   description String
   price       Decimal        @db.Decimal(12, 2)
   salePrice   Decimal?       @db.Decimal(12, 2)
@@ -170,6 +173,9 @@ model Product {
 
   category    Category       @relation(fields: [categoryId], references: [id])
   categoryId  String
+
+  seller      Seller         @relation(fields: [sellerId], references: [id])
+  sellerId    String
 
   images      ProductImage[]
   inventory   InventoryItem?
@@ -180,7 +186,9 @@ model Product {
   updatedAt   DateTime       @updatedAt
   deletedAt   DateTime?
 
+  @@unique([sku, sellerId])
   @@index([categoryId])
+  @@index([sellerId])
   @@index([status])
   @@index([deletedAt, createdAt])
 }
@@ -204,6 +212,8 @@ model InventoryItem {
   id             String              @id @default(cuid())
   product        Product             @relation(fields: [productId], references: [id])
   productId      String              @unique
+  seller         Seller              @relation(fields: [sellerId], references: [id])
+  sellerId       String
   available      Int                 @default(0)
   reserved       Int                 @default(0)
   lowStockThreshold Int              @default(0)
@@ -214,6 +224,7 @@ model InventoryItem {
   updatedAt      DateTime            @updatedAt
 
   @@index([available])
+  @@index([sellerId])
 }
 
 enum MovementType {

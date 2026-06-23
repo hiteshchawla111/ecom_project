@@ -14,8 +14,14 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ListProductsDto } from './dto/list-products.dto';
 import { SetActiveDto } from './dto/set-active.dto';
+import { ScopeActor } from './seller-scope';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AccessTokenPayload } from '../auth/auth-tokens';
+
+/** Unscoped actor for public (unauthenticated) catalog reads. ADMIN role → buildSellerScope returns {} → no WHERE clause added. */
+const PUBLIC_READ_ACTOR: ScopeActor = { role: Role.ADMIN };
 
 /**
  * Reads are public (the storefront catalog needs them). Mutations are
@@ -30,37 +36,48 @@ export class ProductsController {
   @Public()
   @Get()
   list(@Query() query: ListProductsDto) {
-    return this.products.list(query);
+    return this.products.list(query, PUBLIC_READ_ACTOR);
   }
 
   @Public()
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.products.findOne(id);
+    return this.products.findOne(id, PUBLIC_READ_ACTOR);
   }
 
   @Roles(Role.ADMIN)
   @Post()
-  create(@Body() dto: CreateProductDto) {
-    return this.products.create(dto);
+  create(
+    @CurrentUser() user: AccessTokenPayload,
+    @Body() dto: CreateProductDto,
+  ) {
+    return this.products.create(dto, user);
   }
 
   @Roles(Role.ADMIN)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
-    return this.products.update(id, dto);
+  update(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateProductDto,
+  ) {
+    return this.products.update(id, dto, user);
   }
 
   @Roles(Role.ADMIN)
   @HttpCode(200)
   @Post(':id/archive')
-  archive(@Param('id') id: string) {
-    return this.products.archive(id);
+  archive(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.products.archive(id, user);
   }
 
   @Roles(Role.ADMIN)
   @Patch(':id/active')
-  setActive(@Param('id') id: string, @Body() dto: SetActiveDto) {
-    return this.products.setActive(id, dto.active);
+  setActive(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Body() dto: SetActiveDto,
+  ) {
+    return this.products.setActive(id, dto.active, user);
   }
 }

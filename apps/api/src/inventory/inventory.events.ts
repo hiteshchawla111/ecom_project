@@ -8,4 +8,6 @@ export interface LowStockEvent {
   available: number;
   /** The threshold that was crossed. */
   threshold: number;
+  /** The seller that owns the product (for owning-seller notification). */
+  sellerId: string;
 }

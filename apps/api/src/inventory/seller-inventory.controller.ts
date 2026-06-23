@@ -42,6 +42,15 @@ export class SellerInventoryController {
     return this.inventory.listStock(query, this.actor(sellerId));
   }
 
+  /**
+   * Aggregate inventory health for the acting seller only. Declared before
+   * `:productId` so the literal route isn't captured as a product id.
+   */
+  @Get('reports')
+  report(@CurrentSeller() sellerId: string) {
+    return this.inventory.report(this.actor(sellerId));
+  }
+
   @Get(':productId')
   getStockItem(
     @CurrentSeller() sellerId: string,

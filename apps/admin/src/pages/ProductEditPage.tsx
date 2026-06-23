@@ -60,13 +60,13 @@ export function ProductEditPage() {
         >
           ← Back to products
         </Link>
-        <h2 className="font-heading text-2xl font-semibold text-neutral-900">
+        <h2 className="font-heading text-2xl font-semibold text-content">
           Edit product
         </h2>
       </header>
 
       {loading ? (
-        <p role="status" aria-live="polite" className="text-neutral-600">
+        <p role="status" aria-live="polite" className="text-content-muted">
           Loading…
         </p>
       ) : loadError || !product ? (

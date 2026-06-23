@@ -210,7 +210,7 @@ export function ProductForm({
 }
 
 const inputClass =
-  'w-full rounded-md border border-neutral-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
+  'w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
 
 function Field({
   id,
@@ -225,7 +225,7 @@ function Field({
 }) {
   return (
     <div className="flex flex-1 flex-col gap-1">
-      <label htmlFor={id} className="text-sm font-medium text-neutral-900">
+      <label htmlFor={id} className="text-sm font-medium text-content">
         {label}
       </label>
       {children}

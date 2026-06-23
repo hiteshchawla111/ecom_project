@@ -114,8 +114,8 @@ export default async function ProductsPage({
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-4 py-10">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-neutral-900">Shop</h1>
-        <p className="text-sm text-neutral-600">
+        <h1 className="text-2xl font-semibold text-content">Shop</h1>
+        <p className="text-sm text-content-muted">
           {total} {total === 1 ? 'product' : 'products'}
         </p>
       </header>
@@ -123,7 +123,7 @@ export default async function ProductsPage({
       <CatalogFilters categories={categories} current={values} />
 
       {data.length === 0 ? (
-        <p className="text-neutral-600">No products match your filters.</p>
+        <p className="text-content-muted">No products match your filters.</p>
       ) : (
         <ul className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
           {data.map((product) => (

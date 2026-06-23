@@ -48,15 +48,15 @@ export function InventoryPage() {
   return (
     <section className="flex flex-col gap-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-heading text-2xl font-semibold text-neutral-900">
+        <h2 className="font-heading text-2xl font-semibold text-content">
           Inventory
         </h2>
-        <label className="flex items-center gap-2 text-sm text-neutral-600">
+        <label className="flex items-center gap-2 text-sm text-content-muted">
           <input
             type="checkbox"
             checked={lowStock}
             onChange={(e) => onToggleLowStock(e.target.checked)}
-            className="h-4 w-4 rounded border-neutral-300 text-primary-500 focus:ring-primary-700"
+            className="h-4 w-4 rounded border-line text-primary-500 focus:ring-primary-700"
           />
           Low stock only
         </label>
@@ -72,17 +72,17 @@ export function InventoryPage() {
       )}
 
       {loading ? (
-        <p role="status" aria-live="polite" className="text-neutral-600">
+        <p role="status" aria-live="polite" className="text-content-muted">
           Loading…
         </p>
       ) : error ? null : rows.length === 0 ? (
-        <p role="status" aria-live="polite" className="text-neutral-600">
+        <p role="status" aria-live="polite" className="text-content-muted">
           {lowStock ? 'No low-stock items.' : 'No inventory found.'}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-neutral-200">
+        <div className="overflow-x-auto rounded-lg border border-line">
           <table className="w-full text-left text-sm">
-            <thead className="bg-neutral-100 text-neutral-600">
+            <thead className="bg-surface-muted text-content-muted">
               <tr>
                 <th scope="col" className="px-4 py-2.5 font-medium">
                   Product
@@ -111,15 +111,15 @@ export function InventoryPage() {
               {rows.map((r) => (
                 <tr
                   key={r.productId}
-                  className="border-t border-neutral-200 text-neutral-900 transition-colors hover:bg-neutral-50"
+                  className="border-t border-line text-content transition-colors hover:bg-surface-sunk"
                 >
                   <td className="px-4 py-2 font-medium">{r.name}</td>
-                  <td className="px-4 py-2 text-neutral-600">{r.sku}</td>
+                  <td className="px-4 py-2 text-content-muted">{r.sku}</td>
                   <td className="px-4 py-2 text-right">{r.available}</td>
-                  <td className="px-4 py-2 text-right text-neutral-600">
+                  <td className="px-4 py-2 text-right text-content-muted">
                     {r.reserved}
                   </td>
-                  <td className="px-4 py-2 text-right text-neutral-600">
+                  <td className="px-4 py-2 text-right text-content-muted">
                     {r.lowStockThreshold}
                   </td>
                   <td className="px-4 py-2">
@@ -129,7 +129,7 @@ export function InventoryPage() {
                     <div className="flex justify-end">
                       <Link
                         to={`/inventory/${r.productId}`}
-                        className="rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                        className="rounded-md border border-line px-3 py-1.5 text-xs font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
                       >
                         Manage
                       </Link>

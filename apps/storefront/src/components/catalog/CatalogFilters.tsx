@@ -54,15 +54,15 @@ export function CatalogFilters({ categories, current }: CatalogFiltersProps) {
       : 'createdAt:desc';
 
   const labelClass =
-    'text-xs font-semibold uppercase tracking-wide text-neutral-500';
+    'text-xs font-semibold uppercase tracking-wide text-content-subtle';
   const fieldClass =
-    'rounded-md border border-neutral-200 bg-neutral-0 px-3 py-2 text-sm text-neutral-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
+    'rounded-md border border-line bg-surface px-3 py-2 text-sm text-content focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
 
   return (
     <form
       method="get"
       action="/products"
-      className="flex flex-col gap-4 rounded-lg border border-neutral-200 bg-neutral-0 p-4 shadow-sm sm:flex-row sm:flex-wrap sm:items-end"
+      className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-4 shadow-sm sm:flex-row sm:flex-wrap sm:items-end"
     >
       <div className="flex min-w-48 flex-1 flex-col gap-1.5">
         <label htmlFor="filter-search" className={labelClass}>
@@ -111,7 +111,7 @@ export function CatalogFilters({ categories, current }: CatalogFiltersProps) {
             defaultValue={current?.minPrice ?? ''}
             className={`w-24 ${fieldClass}`}
           />
-          <span aria-hidden="true" className="text-neutral-400">
+          <span aria-hidden="true" className="text-content-subtle">
             –
           </span>
           <input
@@ -149,7 +149,7 @@ export function CatalogFilters({ categories, current }: CatalogFiltersProps) {
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-neutral-0 transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-surface transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
         >
           Apply
         </button>

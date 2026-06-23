@@ -17,7 +17,7 @@ export function Price({ price, salePrice, className }: PriceProps) {
   if (!onSale || salePrice === null) {
     return (
       <span className={className}>
-        <span className="font-bold text-neutral-900">{formatPrice(price)}</span>
+        <span className="font-bold text-content">{formatPrice(price)}</span>
       </span>
     );
   }
@@ -25,7 +25,7 @@ export function Price({ price, salePrice, className }: PriceProps) {
   return (
     <span className={className}>
       <span className="font-bold text-accent-600">{formatPrice(salePrice)}</span>{' '}
-      <del className="text-neutral-400">{formatPrice(price)}</del>{' '}
+      <del className="text-content-subtle">{formatPrice(price)}</del>{' '}
       <span className="rounded-full bg-accent-400/20 px-2 py-0.5 text-xs font-medium text-accent-600">
         Sale
       </span>

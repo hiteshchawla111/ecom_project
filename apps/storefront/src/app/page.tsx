@@ -27,7 +27,7 @@ export default async function Home() {
       {featured.length > 0 && (
         <section className="flex flex-col gap-4">
           <div className="flex items-baseline justify-between">
-            <h2 className="text-xl font-semibold text-neutral-900">
+            <h2 className="text-xl font-semibold text-content">
               New arrivals
             </h2>
           </div>

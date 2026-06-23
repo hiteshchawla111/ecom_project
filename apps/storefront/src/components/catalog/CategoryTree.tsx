@@ -27,8 +27,8 @@ export function CategoryTree({ categories, depth = 0 }: CategoryTreeProps) {
               href={`/categories/${category.slug}`}
               className={`group flex items-center gap-2 rounded-md px-3 py-2 transition-colors hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 ${
                 isTop
-                  ? 'font-heading text-base font-semibold text-neutral-900'
-                  : 'text-sm text-neutral-700 hover:text-neutral-900'
+                  ? 'font-heading text-base font-semibold text-content'
+                  : 'text-sm text-content-muted hover:text-content'
               }`}
             >
               <span
@@ -36,14 +36,14 @@ export function CategoryTree({ categories, depth = 0 }: CategoryTreeProps) {
                 className={`inline-block shrink-0 rounded-full ${
                   isTop
                     ? 'h-2 w-2 bg-primary-500'
-                    : 'h-1.5 w-1.5 bg-neutral-300 group-hover:bg-primary-500'
+                    : 'h-1.5 w-1.5 bg-line group-hover:bg-primary-500'
                 }`}
               />
               <span className="truncate">{category.name}</span>
             </Link>
 
             {hasChildren && (
-              <div className="ml-4 border-l border-neutral-200 pl-2">
+              <div className="ml-4 border-l border-line pl-2">
                 <CategoryTree categories={category.children!} depth={depth + 1} />
               </div>
             )}

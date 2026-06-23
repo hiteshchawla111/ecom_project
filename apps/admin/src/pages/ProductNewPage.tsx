@@ -43,7 +43,7 @@ export function ProductNewPage() {
         >
           ← Back to products
         </Link>
-        <h2 className="font-heading text-2xl font-semibold text-neutral-900">
+        <h2 className="font-heading text-2xl font-semibold text-content">
           New product
         </h2>
       </header>

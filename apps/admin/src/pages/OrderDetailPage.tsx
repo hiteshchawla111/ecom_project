@@ -97,7 +97,7 @@ export function OrderDetailPage() {
 
   if (loading) {
     return (
-      <p role="status" aria-live="polite" className="text-neutral-600">
+      <p role="status" aria-live="polite" className="text-content-muted">
         Loading…
       </p>
     );
@@ -106,7 +106,7 @@ export function OrderDetailPage() {
   if (notFound) {
     return (
       <section className="flex flex-col gap-4">
-        <p className="text-neutral-600">Order not found.</p>
+        <p className="text-content-muted">Order not found.</p>
         <Link to="/orders" className="text-sm text-primary-700 hover:underline">
           ← Back to orders
         </Link>
@@ -123,7 +123,7 @@ export function OrderDetailPage() {
         <button
           type="button"
           onClick={reload}
-          className="self-start rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-900 hover:bg-neutral-100"
+          className="self-start rounded-md border border-line px-3 py-1.5 text-xs font-medium text-content hover:bg-surface-muted"
         >
           Try again
         </button>
@@ -145,12 +145,12 @@ export function OrderDetailPage() {
 
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h2 className="font-heading text-2xl font-semibold text-neutral-900">
+          <h2 className="font-heading text-2xl font-semibold text-content">
             Order
           </h2>
           <OrderStatusBadge status={order.status} />
         </div>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-content-muted">
           Placed {dateFmt.format(new Date(order.createdAt))}
         </p>
       </header>
@@ -186,9 +186,9 @@ export function OrderDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Items + totals */}
-        <div className="lg:col-span-2 overflow-x-auto rounded-lg border border-neutral-200">
+        <div className="lg:col-span-2 overflow-x-auto rounded-lg border border-line">
           <table className="w-full text-left text-sm">
-            <thead className="bg-neutral-100 text-neutral-600">
+            <thead className="bg-surface-muted text-content-muted">
               <tr>
                 <th scope="col" className="px-4 py-2.5 font-medium">Product</th>
                 <th scope="col" className="px-4 py-2.5 text-right font-medium">Unit</th>
@@ -198,7 +198,7 @@ export function OrderDetailPage() {
             </thead>
             <tbody>
               {order.items.map((item) => (
-                <tr key={item.productId} className="border-t border-neutral-200 text-neutral-900">
+                <tr key={item.productId} className="border-t border-line text-content">
                   <td className="px-4 py-2 font-medium">{item.productName}</td>
                   <td className="px-4 py-2 text-right">{money(item.unitPrice)}</td>
                   <td className="px-4 py-2 text-right">{item.quantity}</td>
@@ -206,23 +206,23 @@ export function OrderDetailPage() {
                 </tr>
               ))}
             </tbody>
-            <tfoot className="border-t border-neutral-200 text-neutral-900">
+            <tfoot className="border-t border-line text-content">
               <tr>
-                <td colSpan={3} className="px-4 py-1.5 text-right text-neutral-600">Subtotal</td>
+                <td colSpan={3} className="px-4 py-1.5 text-right text-content-muted">Subtotal</td>
                 <td className="px-4 py-1.5 text-right">{money(order.subtotal)}</td>
               </tr>
               {Number(order.discountTotal) > 0 && (
                 <tr>
-                  <td colSpan={3} className="px-4 py-1.5 text-right text-neutral-600">Discount</td>
+                  <td colSpan={3} className="px-4 py-1.5 text-right text-content-muted">Discount</td>
                   <td className="px-4 py-1.5 text-right">−{money(order.discountTotal)}</td>
                 </tr>
               )}
               <tr>
-                <td colSpan={3} className="px-4 py-1.5 text-right text-neutral-600">Tax</td>
+                <td colSpan={3} className="px-4 py-1.5 text-right text-content-muted">Tax</td>
                 <td className="px-4 py-1.5 text-right">{money(order.taxTotal)}</td>
               </tr>
               <tr>
-                <td colSpan={3} className="px-4 py-1.5 text-right text-neutral-600">Shipping</td>
+                <td colSpan={3} className="px-4 py-1.5 text-right text-content-muted">Shipping</td>
                 <td className="px-4 py-1.5 text-right">{money(order.shippingTotal)}</td>
               </tr>
               <tr className="font-semibold">
@@ -235,18 +235,18 @@ export function OrderDetailPage() {
 
         {/* Customer + shipping */}
         <aside className="flex flex-col gap-4">
-          <div className="rounded-lg border border-neutral-200 p-4">
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+          <div className="rounded-lg border border-line p-4">
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-content-subtle">
               Customer
             </h3>
-            <p className="font-medium text-neutral-900">{order.customerName}</p>
-            <p className="text-sm text-neutral-600">{order.customerEmail}</p>
+            <p className="font-medium text-content">{order.customerName}</p>
+            <p className="text-sm text-content-muted">{order.customerEmail}</p>
           </div>
-          <div className="rounded-lg border border-neutral-200 p-4">
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+          <div className="rounded-lg border border-line p-4">
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-content-subtle">
               Shipping
             </h3>
-            <address className="text-sm not-italic text-neutral-900">
+            <address className="text-sm not-italic text-content">
               {order.shipFullName}
               <br />
               {order.shipLine1}

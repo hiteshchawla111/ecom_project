@@ -75,17 +75,17 @@ export function SellersPage() {
   return (
     <section className="flex flex-col gap-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-2xl font-semibold text-neutral-900">
+        <h1 className="font-heading text-2xl font-semibold text-content">
           Sellers
         </h1>
-        <label className="flex items-center gap-2 text-sm text-neutral-600">
+        <label className="flex items-center gap-2 text-sm text-content-muted">
           Status
           <select
             value={status}
             onChange={(e) =>
               onStatusChange(e.target.value as SellerStatus | '')
             }
-            className="rounded-md border border-neutral-200 bg-neutral-0 px-3 py-1.5 text-sm text-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+            className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
           >
             <option value="">All</option>
             {STATUSES.map((s) => (
@@ -114,15 +114,15 @@ export function SellersPage() {
       )}
 
       {loading ? (
-        <p role="status" aria-live="polite" className="text-neutral-600">
+        <p role="status" aria-live="polite" className="text-content-muted">
           Loading…
         </p>
       ) : error ? null : sellers.length === 0 ? (
-        <p className="text-neutral-600">No sellers found.</p>
+        <p className="text-content-muted">No sellers found.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-neutral-200">
+        <div className="overflow-x-auto rounded-lg border border-line">
           <table className="w-full text-left text-sm">
-            <thead className="bg-neutral-100 text-neutral-600">
+            <thead className="bg-surface-muted text-content-muted">
               <tr>
                 <th scope="col" className="px-4 py-2.5 font-medium">
                   Seller
@@ -145,7 +145,7 @@ export function SellersPage() {
               {sellers.map((s) => (
                 <tr
                   key={s.id}
-                  className="border-t border-neutral-200 text-neutral-900 transition-colors hover:bg-neutral-50"
+                  className="border-t border-line text-content transition-colors hover:bg-surface-sunk"
                 >
                   <td className="px-4 py-2">
                     <Link
@@ -155,14 +155,14 @@ export function SellersPage() {
                       {s.displayName}
                     </Link>
                   </td>
-                  <td className="px-4 py-2 text-neutral-600">{s.slug}</td>
-                  <td className="px-4 py-2 text-neutral-600">
+                  <td className="px-4 py-2 text-content-muted">{s.slug}</td>
+                  <td className="px-4 py-2 text-content-muted">
                     {s.kycPresent ? 'Provided' : '—'}
                   </td>
                   <td className="px-4 py-2">
                     <SellerStatusBadge status={s.status} />
                   </td>
-                  <td className="px-4 py-2 text-neutral-600">
+                  <td className="px-4 py-2 text-content-muted">
                     {dateFmt.format(new Date(s.createdAt))}
                   </td>
                 </tr>

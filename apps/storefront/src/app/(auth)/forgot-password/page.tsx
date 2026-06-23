@@ -8,15 +8,15 @@ export default function ForgotPasswordPage() {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-neutral-900">
+        <h1 className="text-2xl font-semibold text-content">
           Reset your password
         </h1>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-content-muted">
           Enter your email and we&apos;ll send a link to set a new password.
         </p>
       </header>
       <ForgotPasswordForm />
-      <p className="text-sm text-neutral-600">
+      <p className="text-sm text-content-muted">
         Remembered it?{' '}
         <Link
           href="/login"

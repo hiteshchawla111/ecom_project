@@ -110,7 +110,7 @@ export function SellerDetailPage() {
 
   if (loading) {
     return (
-      <p role="status" aria-live="polite" className="text-neutral-600">
+      <p role="status" aria-live="polite" className="text-content-muted">
         Loading…
       </p>
     );
@@ -119,7 +119,7 @@ export function SellerDetailPage() {
   if (notFound) {
     return (
       <section className="flex flex-col gap-4">
-        <p className="text-neutral-600">Seller not found.</p>
+        <p className="text-content-muted">Seller not found.</p>
         <Link to="/sellers" className="text-sm text-primary-700 hover:underline">
           ← Back to sellers
         </Link>
@@ -139,7 +139,7 @@ export function SellerDetailPage() {
         <button
           type="button"
           onClick={reload}
-          className="self-start rounded-md border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-900 hover:bg-neutral-100"
+          className="self-start rounded-md border border-line px-3 py-1.5 text-xs font-medium text-content hover:bg-surface-muted"
         >
           Try again
         </button>
@@ -161,12 +161,12 @@ export function SellerDetailPage() {
 
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h2 className="font-heading text-2xl font-semibold text-neutral-900">
+          <h2 className="font-heading text-2xl font-semibold text-content">
             {seller.displayName}
           </h2>
           <SellerStatusBadge status={seller.status} />
         </div>
-        <p className="text-sm text-neutral-600">
+        <p className="text-sm text-content-muted">
           Joined {dateFmt.format(new Date(seller.createdAt))}
         </p>
       </header>
@@ -206,38 +206,38 @@ export function SellerDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Profile */}
         <div className="lg:col-span-2 flex flex-col gap-4">
-          <div className="rounded-lg border border-neutral-200 p-4">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+          <div className="rounded-lg border border-line p-4">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-content-subtle">
               Profile
             </h3>
             <dl className="grid gap-y-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-32 shrink-0 text-neutral-500">Slug</dt>
-                <dd className="text-neutral-900">{seller.slug}</dd>
+                <dt className="w-32 shrink-0 text-content-subtle">Slug</dt>
+                <dd className="text-content">{seller.slug}</dd>
               </div>
               {seller.description && (
                 <div className="flex gap-2">
-                  <dt className="w-32 shrink-0 text-neutral-500">Description</dt>
-                  <dd className="text-neutral-900">{seller.description}</dd>
+                  <dt className="w-32 shrink-0 text-content-subtle">Description</dt>
+                  <dd className="text-content">{seller.description}</dd>
                 </div>
               )}
               {seller.logoUrl && (
                 <div className="flex gap-2">
-                  <dt className="w-32 shrink-0 text-neutral-500">Logo URL</dt>
-                  <dd className="truncate text-neutral-900">{seller.logoUrl}</dd>
+                  <dt className="w-32 shrink-0 text-content-subtle">Logo URL</dt>
+                  <dd className="truncate text-content">{seller.logoUrl}</dd>
                 </div>
               )}
               <div className="flex gap-2">
-                <dt className="w-32 shrink-0 text-neutral-500">KYC verified</dt>
-                <dd className="text-neutral-900">
+                <dt className="w-32 shrink-0 text-content-subtle">KYC verified</dt>
+                <dd className="text-content">
                   {seller.kycVerifiedAt
                     ? dateFmt.format(new Date(seller.kycVerifiedAt))
                     : '—'}
                 </dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-32 shrink-0 text-neutral-500">Created</dt>
-                <dd className="text-neutral-900">
+                <dt className="w-32 shrink-0 text-content-subtle">Created</dt>
+                <dd className="text-content">
                   {dateFmt.format(new Date(seller.createdAt))}
                 </dd>
               </div>
@@ -247,32 +247,32 @@ export function SellerDetailPage() {
 
         {/* KYC panel — masked only, no raw values */}
         <aside>
-          <div className="rounded-lg border border-neutral-200 p-4">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+          <div className="rounded-lg border border-line p-4">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-content-subtle">
               KYC documents
             </h3>
             <dl className="flex flex-col gap-y-3 text-sm">
               <div>
-                <dt className="text-neutral-500">Bank account</dt>
-                <dd className="font-medium text-neutral-900">
+                <dt className="text-content-subtle">Bank account</dt>
+                <dd className="font-medium text-content">
                   {seller.bankAccountLast4 ?? '—'}
                 </dd>
               </div>
               <div>
-                <dt className="text-neutral-500">GSTIN</dt>
-                <dd className="font-medium text-neutral-900">
+                <dt className="text-content-subtle">GSTIN</dt>
+                <dd className="font-medium text-content">
                   {seller.gstinPresent ? 'Provided' : 'Not provided'}
                 </dd>
               </div>
               <div>
-                <dt className="text-neutral-500">PAN</dt>
-                <dd className="font-medium text-neutral-900">
+                <dt className="text-content-subtle">PAN</dt>
+                <dd className="font-medium text-content">
                   {seller.panPresent ? 'Provided' : 'Not provided'}
                 </dd>
               </div>
               <div>
-                <dt className="text-neutral-500">Bank IFSC</dt>
-                <dd className="font-medium text-neutral-900">
+                <dt className="text-content-subtle">Bank IFSC</dt>
+                <dd className="font-medium text-content">
                   {seller.bankIfscPresent ? 'Provided' : 'Not provided'}
                 </dd>
               </div>
@@ -282,7 +282,7 @@ export function SellerDetailPage() {
       </div>
 
       {transitions.length === 0 && (
-        <p className="text-sm text-neutral-500">No actions available.</p>
+        <p className="text-sm text-content-subtle">No actions available.</p>
       )}
     </section>
   );

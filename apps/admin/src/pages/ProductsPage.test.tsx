@@ -80,6 +80,7 @@ describe('ProductsPage', () => {
 
     renderPage();
     const row = (await screen.findByText('Aurora Phone')).closest('tr')!;
+    await userEvent.click(within(row).getByRole('button', { name: /actions for/i }));
     await userEvent.click(within(row).getByRole('button', { name: /archive/i }));
 
     await waitFor(() => expect(archiveProduct).toHaveBeenCalledWith('p1'));
@@ -92,6 +93,7 @@ describe('ProductsPage', () => {
 
     renderPage();
     const row = (await screen.findByText('Aurora Phone')).closest('tr')!;
+    await userEvent.click(within(row).getByRole('button', { name: /actions for/i }));
     await userEvent.click(within(row).getByRole('button', { name: /archive/i }));
 
     expect(archiveProduct).not.toHaveBeenCalled();
@@ -105,6 +107,7 @@ describe('ProductsPage', () => {
 
     renderPage();
     const row = (await screen.findByText('Aurora Phone')).closest('tr')!;
+    await userEvent.click(within(row).getByRole('button', { name: /actions for/i }));
     await userEvent.click(
       within(row).getByRole('button', { name: /deactivate/i }),
     );
@@ -120,6 +123,7 @@ describe('ProductsPage', () => {
 
     renderPage();
     const row = (await screen.findByText('Aurora Phone')).closest('tr')!;
+    await userEvent.click(within(row).getByRole('button', { name: /actions for/i }));
     await userEvent.click(within(row).getByRole('button', { name: /activate/i }));
 
     await waitFor(() => expect(setProductActive).toHaveBeenCalledWith('p1', true));

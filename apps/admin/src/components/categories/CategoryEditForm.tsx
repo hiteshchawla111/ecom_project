@@ -16,7 +16,7 @@ interface CategoryEditFormProps {
 }
 
 const inputClass =
-  'w-full rounded-md border border-neutral-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
+  'w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
 
 /**
  * Inline edit form for a single category: rename, re-slug, reparent (or detach
@@ -65,7 +65,7 @@ export function CategoryEditForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-2 flex flex-col gap-3 rounded-md border border-neutral-200 bg-neutral-50 p-3 sm:flex-row sm:items-end"
+      className="mt-2 flex flex-col gap-3 rounded-md border border-line bg-surface-sunk p-3 sm:flex-row sm:items-end"
       noValidate
     >
       {error && (
@@ -74,7 +74,7 @@ export function CategoryEditForm({
         </p>
       )}
       <div className="flex flex-1 flex-col gap-1">
-        <label htmlFor={nameId} className="text-xs font-medium text-neutral-600">
+        <label htmlFor={nameId} className="text-xs font-medium text-content-muted">
           Name
         </label>
         <input
@@ -85,7 +85,7 @@ export function CategoryEditForm({
         />
       </div>
       <div className="flex flex-1 flex-col gap-1">
-        <label htmlFor={slugId} className="text-xs font-medium text-neutral-600">
+        <label htmlFor={slugId} className="text-xs font-medium text-content-muted">
           Slug
         </label>
         <input
@@ -98,7 +98,7 @@ export function CategoryEditForm({
       <div className="flex flex-1 flex-col gap-1">
         <label
           htmlFor={parentSelId}
-          className="text-xs font-medium text-neutral-600"
+          className="text-xs font-medium text-content-muted"
         >
           Parent
         </label>
@@ -127,7 +127,7 @@ export function CategoryEditForm({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+          className="rounded-md border border-line px-3 py-2 text-sm font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
         >
           Cancel
         </button>

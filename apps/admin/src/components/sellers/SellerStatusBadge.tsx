@@ -5,7 +5,7 @@ const STYLES: Record<SellerStatus, string> = {
   PENDING_REVIEW: 'bg-warning-500/10 text-warning-500',
   ACTIVE: 'bg-success-500/10 text-success-500',
   SUSPENDED: 'bg-error-500/10 text-error-500',
-  DEACTIVATED: 'bg-neutral-200 text-neutral-600',
+  DEACTIVATED: 'bg-line text-content-muted',
 };
 
 const LABELS: Record<SellerStatus, string> = {

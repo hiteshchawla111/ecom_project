@@ -4,6 +4,6 @@
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background: var(--color-neutral-50);
-  color: var(--color-neutral-900);
+  background: var(--color-surface-sunk);
+  color: var(--color-content);
 }

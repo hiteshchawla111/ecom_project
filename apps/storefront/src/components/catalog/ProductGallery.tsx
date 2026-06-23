@@ -20,9 +20,9 @@ export function ProductGallery({ images, fallbackAlt }: ProductGalleryProps) {
 
   if (images.length === 0) {
     return (
-      <div className="aspect-square w-full overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100">
+      <div className="aspect-square w-full overflow-hidden rounded-lg border border-line bg-surface-muted">
         <div
-          className="flex h-full w-full items-center justify-center text-neutral-400"
+          className="flex h-full w-full items-center justify-center text-content-subtle"
           aria-hidden="true"
         >
           No image
@@ -35,7 +35,7 @@ export function ProductGallery({ images, fallbackAlt }: ProductGalleryProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="aspect-square w-full overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100">
+      <div className="aspect-square w-full overflow-hidden rounded-lg border border-line bg-surface-muted">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           data-testid="gallery-main"
@@ -56,10 +56,10 @@ export function ProductGallery({ images, fallbackAlt }: ProductGalleryProps) {
                   aria-label={`View image ${index + 1}`}
                   aria-current={isActive ? 'true' : undefined}
                   onClick={() => setActiveIndex(index)}
-                  className={`aspect-square w-full overflow-hidden rounded-md border bg-neutral-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 ${
+                  className={`aspect-square w-full overflow-hidden rounded-md border bg-surface-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 ${
                     isActive
                       ? 'border-primary-500 ring-1 ring-primary-500'
-                      : 'border-neutral-200 hover:border-primary-300'
+                      : 'border-line hover:border-primary-300'
                   }`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}

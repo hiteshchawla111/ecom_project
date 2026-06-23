@@ -12,7 +12,7 @@ export function CartCountBadge() {
     <span
       data-testid="cart-count"
       aria-label={`${itemCount} item${itemCount === 1 ? '' : 's'} in cart`}
-      className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-primary-500 px-1.5 text-xs font-semibold text-neutral-0"
+      className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-primary-500 px-1.5 text-xs font-semibold text-surface"
     >
       {itemCount}
     </span>

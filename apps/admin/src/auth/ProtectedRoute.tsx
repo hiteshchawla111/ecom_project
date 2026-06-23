@@ -12,7 +12,7 @@ export function ProtectedRoute() {
         role="status"
         aria-live="polite"
         aria-label="Loading"
-        className="flex min-h-screen items-center justify-center text-neutral-600"
+        className="flex min-h-screen items-center justify-center text-content-muted"
       >
         Loading…
       </div>

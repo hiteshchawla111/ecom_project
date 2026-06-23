@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import { isInternalRole } from './roles';
+import { canEnterShell } from './roles';
 import { AccessDeniedPage } from '../pages/AccessDeniedPage';
 
 export function ProtectedRoute() {
@@ -24,7 +24,7 @@ export function ProtectedRoute() {
   }
 
   // UX-only gate — the API enforces real authorization on every request.
-  if (!isInternalRole(user.role)) {
+  if (!canEnterShell(user.role)) {
     return <AccessDeniedPage />;
   }
 

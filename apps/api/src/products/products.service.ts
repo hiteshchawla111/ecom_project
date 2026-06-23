@@ -32,6 +32,8 @@ export interface Paginated<T> {
 const PRODUCT_INCLUDE = {
   category: true,
   images: { orderBy: { position: 'asc' as const } },
+  // The owning seller — public-safe fields only (shop name + slug; never KYC/PII).
+  seller: { select: { displayName: true, slug: true } },
 } satisfies Prisma.ProductInclude;
 
 @Injectable()
@@ -55,6 +57,17 @@ export class ProductsService {
           categoryId: dto.categoryId,
           status: dto.status,
           sellerId,
+          // Provision the stock ledger row atomically — a product is immediately
+          // manageable in inventory (zero stock until an ADDITION is posted).
+          // sellerId mirrors the product's owner (the inventory scope filters on it).
+          inventory: {
+            create: {
+              sellerId,
+              available: 0,
+              reserved: 0,
+              lowStockThreshold: 0,
+            },
+          },
         },
       });
     } catch (err) {

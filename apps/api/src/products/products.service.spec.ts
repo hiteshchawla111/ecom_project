@@ -87,6 +87,32 @@ describe('ProductsService', () => {
       );
       await expect(svc.create(baseCreate, ADMIN)).rejects.toThrow();
     });
+
+    it('provisions an InventoryItem (seller-owned, zero stock) atomically with the product', async () => {
+      const { svc, prisma } = build();
+      prisma.product.create.mockResolvedValue({ id: 'p1', ...baseCreate });
+
+      await svc.create(baseCreate, SELLER_A); // SELLER_A = { role: SELLER, sellerId: 'seller-a' }
+
+      const [createCall] = prisma.product.create.mock.calls as Array<
+        [
+          {
+            data: {
+              sellerId?: string;
+              inventory?: { create?: Record<string, unknown> };
+            };
+          },
+        ]
+      >;
+      const data = createCall[0].data;
+      expect(data.sellerId).toBe('seller-a');
+      expect(data.inventory?.create).toEqual({
+        sellerId: 'seller-a',
+        available: 0,
+        reserved: 0,
+        lowStockThreshold: 0,
+      });
+    });
   });
 
   describe('findOne', () => {

@@ -64,6 +64,21 @@ describe('ProtectedRoute', () => {
     await waitFor(() => expect(screen.getByText(/access denied/i)).toBeInTheDocument());
   });
 
+  it('renders the outlet for SELLER', async () => {
+    bootAs('SELLER');
+    renderAt('/');
+    await waitFor(() => expect(screen.getByText('SHELL CONTENT')).toBeInTheDocument());
+  });
+
+  it('shows access denied for CUSTOMER (not SELLER)', async () => {
+    bootAs('CUSTOMER');
+    renderAt('/');
+    await waitFor(() => {
+      expect(screen.getByText(/access denied/i)).toBeInTheDocument();
+      expect(screen.queryByText('SHELL CONTENT')).not.toBeInTheDocument();
+    });
+  });
+
   it('shows the loading indicator and no protected content while auth is resolving', () => {
     tokenStore.set({ accessToken: 'AT', refreshToken: 'RT' });
     // Never resolves: keeps AuthProvider in the 'loading' state.

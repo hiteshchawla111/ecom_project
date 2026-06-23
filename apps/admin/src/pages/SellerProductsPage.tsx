@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  archiveProduct,
-  listProducts,
-  setProductActive,
-  type Product,
-} from '../lib/products';
+  archiveSellerProduct,
+  listSellerProducts,
+  setSellerProductActive,
+} from '../lib/sellerProducts';
+import type { Product } from '../lib/products';
 import { StatusBadge } from '../components/products/StatusBadge';
 import { Pagination } from '../components/ui/Pagination';
 import { RowActionsMenu } from '../components/ui/RowActionsMenu';
@@ -22,7 +22,7 @@ const usd = new Intl.NumberFormat('en-US', {
   currency: 'USD',
 });
 
-export function ProductsPage() {
+export function SellerProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -41,7 +41,7 @@ export function ProductsPage() {
     let cancelled = false;
     async function load() {
       try {
-        const res = await listProducts({ page, pageSize: PAGE_SIZE });
+        const res = await listSellerProducts({ page, pageSize: PAGE_SIZE });
         if (cancelled) return;
         // If a non-first page came back empty (e.g. the last item was removed),
         // step back one page; the dep change triggers a fresh fetch.
@@ -83,29 +83,37 @@ export function ProductsPage() {
 
   function onArchive(product: Product) {
     const ok = window.confirm(
-      `Archive “${product.name}”? It will no longer be visible in the storefront.`,
+      `Archive "${product.name}"? It will no longer be visible in the storefront.`,
     );
     if (!ok) return;
-    void runAction(product.id, () => archiveProduct(product.id));
+    void runAction(product.id, () => archiveSellerProduct(product.id));
   }
 
   function onToggleActive(product: Product) {
     const activate = product.status !== 'ACTIVE';
-    void runAction(product.id, () => setProductActive(product.id, activate));
+    void runAction(product.id, () => setSellerProductActive(product.id, activate));
   }
 
   return (
     <section className="flex flex-col gap-6">
       <header className="flex items-center justify-between">
         <h2 className="font-heading text-2xl font-semibold text-content">
-          Products
+          My products
         </h2>
-        <Link
-          to="/products/new"
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
-        >
-          Add product
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/seller/products/import"
+            className="rounded-md border border-line px-4 py-2 text-sm font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+          >
+            Import CSV
+          </Link>
+          <Link
+            to="/seller/products/new"
+            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+          >
+            Add product
+          </Link>
+        </div>
       </header>
 
       {error && (
@@ -147,9 +155,6 @@ export function ProductsPage() {
                 <th scope="col" className="px-4 py-2.5 font-medium">
                   Status
                 </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
-                  Sold by
-                </th>
                 <th scope="col" className="px-4 py-2.5 text-right font-medium">
                   Actions
                 </th>
@@ -172,9 +177,6 @@ export function ProductsPage() {
                     <td className="px-4 py-2">
                       <StatusBadge status={product.status} />
                     </td>
-                    <td className="px-4 py-2 text-content-muted">
-                      {product.seller?.displayName ?? '—'}
-                    </td>
                     <td className="px-4 py-2">
                       <div className="flex justify-end">
                         {isArchived ? (
@@ -186,7 +188,7 @@ export function ProductsPage() {
                             label={`Actions for ${product.name}`}
                           >
                             <Link
-                              to={`/products/${product.id}/edit`}
+                              to={`/seller/products/${product.id}/edit`}
                               className={menuItemClass}
                             >
                               Edit

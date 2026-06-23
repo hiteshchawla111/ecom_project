@@ -1,5 +1,5 @@
 /** Roles mirror the API's Prisma Role enum. */
-export type Role = 'CUSTOMER' | 'ADMIN' | 'INVENTORY_MANAGER';
+export type Role = 'CUSTOMER' | 'ADMIN' | 'INVENTORY_MANAGER' | 'SELLER';
 
 /** Authenticated user, as returned by GET /auth/me. */
 export interface AuthUser {

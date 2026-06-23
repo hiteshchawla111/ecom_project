@@ -7,6 +7,7 @@ import {
   updateSellerProduct,
   archiveSellerProduct,
   setSellerProductActive,
+  importSellerProducts,
 } from './sellerProducts';
 
 vi.mock('./apiClient', () => ({
@@ -30,6 +31,27 @@ describe('listSellerProducts', () => {
     });
     await listSellerProducts();
     expect(apiClient.request).toHaveBeenCalledWith('/seller/products');
+  });
+});
+
+describe('importSellerProducts', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('POSTs a FormData (field "file") to /seller/products/import', async () => {
+    (apiClient.request as ReturnType<typeof vi.fn>).mockResolvedValue({
+      created: 2, failed: 0, productIds: ['a', 'b'], errors: [],
+    });
+    const file = new File(['name,sku\nX,X1'], 'p.csv', { type: 'text/csv' });
+
+    const res = await importSellerProducts(file);
+
+    expect(apiClient.request).toHaveBeenCalledTimes(1);
+    const [path, init] = (apiClient.request as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(path).toBe('/seller/products/import');
+    expect((init as RequestInit).method).toBe('POST');
+    expect((init as RequestInit).body).toBeInstanceOf(FormData);
+    expect(((init as RequestInit).body as FormData).get('file')).toBe(file);
+    expect(res.created).toBe(2);
   });
 });
 

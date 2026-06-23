@@ -69,3 +69,28 @@ export function setSellerProductActive(
     body: JSON.stringify({ active }),
   });
 }
+
+/** One failed row in a bulk import (mirrors the API RowError). */
+export interface RowError {
+  row: number;
+  sku?: string;
+  message: string;
+}
+
+/** Result of a bulk product import (mirrors the API ImportResult). */
+export interface ImportResult {
+  created: number;
+  failed: number;
+  productIds: string[];
+  errors: RowError[];
+}
+
+/** Upload a CSV of products for the acting seller (multipart, field "file"). */
+export function importSellerProducts(file: File): Promise<ImportResult> {
+  const form = new FormData();
+  form.append('file', file);
+  return apiClient.request<ImportResult>('/seller/products/import', {
+    method: 'POST',
+    body: form,
+  });
+}

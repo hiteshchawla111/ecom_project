@@ -15,11 +15,12 @@ import { InventoryPage } from './pages/InventoryPage';
 import { InventoryItemPage } from './pages/InventoryItemPage';
 import { SellersPage } from './pages/SellersPage';
 import { SellerDetailPage } from './pages/SellerDetailPage';
-import { SellerComingSoon } from './pages/SellerComingSoon';
 import { SellerProductsPage } from './pages/SellerProductsPage';
 import { SellerProductNewPage } from './pages/SellerProductNewPage';
 import { SellerProductEditPage } from './pages/SellerProductEditPage';
 import { SellerProductImportPage } from './pages/SellerProductImportPage';
+import { SellerInventoryPage } from './pages/SellerInventoryPage';
+import { SellerInventoryItemPage } from './pages/SellerInventoryItemPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -54,7 +55,8 @@ export const router = createBrowserRouter([
               { path: 'seller/products/import', element: <SellerProductImportPage /> },
               { path: 'seller/products/new', element: <SellerProductNewPage /> },
               { path: 'seller/products/:id/edit', element: <SellerProductEditPage /> },
-              { path: 'seller/inventory', element: <SellerComingSoon area="Inventory" /> },
+              { path: 'seller/inventory', element: <SellerInventoryPage /> },
+              { path: 'seller/inventory/:productId', element: <SellerInventoryItemPage /> },
             ],
           },
         ],

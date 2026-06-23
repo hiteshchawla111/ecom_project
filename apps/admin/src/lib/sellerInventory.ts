@@ -1,5 +1,9 @@
 import { apiClient } from './apiClient';
 import type { Paginated } from './products';
+import type {
+  MovementView,
+  CreateMovementInput,
+} from './inventory';
 
 /**
  * A stock row as returned by GET /seller/inventory (mirrors the API StockRow).
@@ -48,4 +52,27 @@ export function listSellerStock(
     lowStock: query.lowStock,
   })}`;
   return apiClient.request<Paginated<SellerStockRow>>(path);
+}
+
+/** A seller's stock item with its movement history (mirrors the API StockItemView). */
+export interface SellerStockItemView extends SellerStockRow {
+  movements: MovementView[];
+}
+
+/** Fetch one of the seller's stock items + recent movements. */
+export function getSellerStockItem(
+  productId: string,
+): Promise<SellerStockItemView> {
+  return apiClient.request<SellerStockItemView>(`/seller/inventory/${productId}`);
+}
+
+/** Post a manual stock movement against the seller's own product. */
+export function createSellerMovement(
+  productId: string,
+  input: CreateMovementInput,
+): Promise<void> {
+  return apiClient.request<void>(`/seller/inventory/${productId}/movements`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }

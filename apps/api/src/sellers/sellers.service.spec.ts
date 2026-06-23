@@ -4,6 +4,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 
+import { NotFoundException } from '@nestjs/common';
 import { Prisma, Role, SellerStatus } from '@prisma/client';
 import {
   SellersService,
@@ -915,6 +916,107 @@ describe('SellersService.getSeller', () => {
 
     await expect(svc.getSeller('nonexistent')).rejects.toMatchObject({
       message: 'Seller not found',
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SellersService public reads (Task 2 — M3a Catalog V2)
+// ---------------------------------------------------------------------------
+
+// Minimal mocks — these methods are the only deps the public-read paths touch.
+const makePublicReadDeps = () => {
+  const prisma = {
+    seller: {
+      findFirst: jest.fn(),
+    },
+  };
+  const events = { emit: jest.fn() };
+  const audit = { record: jest.fn() };
+  const cipher = { encrypt: jest.fn(), decrypt: jest.fn() };
+  return { prisma, events, audit, cipher };
+};
+
+const buildPublicService = () => {
+  const { prisma, events, audit, cipher } = makePublicReadDeps();
+  // Constructor arg order: (prisma, events, audit, cipher) — matches sellers.service.ts.
+  const svc = new SellersService(
+    prisma as never,
+    events as never,
+    audit as never,
+    cipher as never,
+  );
+  return { svc, prisma };
+};
+
+const activeSellerFixture = {
+  id: 's1',
+  displayName: 'Demo Shop',
+  slug: 'demo-shop',
+  description: 'desc',
+  logoUrl: null,
+  status: SellerStatus.ACTIVE,
+  gstin: 'SECRET',
+  pan: 'SECRET',
+  bankAccountNo: '000012345678',
+  bankIfsc: 'IFSC',
+  kycVerifiedAt: null,
+  commissionRate: null,
+  userId: 'u1',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  deletedAt: null,
+};
+
+describe('SellersService public reads', () => {
+  describe('getPublicBySlug', () => {
+    it('returns the public view for an ACTIVE, non-deleted seller', async () => {
+      const { svc, prisma } = buildPublicService();
+      prisma.seller.findFirst.mockResolvedValue(activeSellerFixture);
+
+      const res = await svc.getPublicBySlug('demo-shop');
+
+      // Gate asserted on the where clause.
+      const [call] = prisma.seller.findFirst.mock.calls as Array<
+        [{ where: Record<string, unknown> }]
+      >;
+      expect(call[0].where).toEqual({
+        slug: 'demo-shop',
+        status: SellerStatus.ACTIVE,
+        deletedAt: null,
+      });
+      // Only public fields leak out.
+      expect(res).toEqual({
+        id: 's1',
+        displayName: 'Demo Shop',
+        slug: 'demo-shop',
+        description: 'desc',
+        logoUrl: null,
+      });
+    });
+
+    it('throws NotFoundException when no ACTIVE seller matches', async () => {
+      const { svc, prisma } = buildPublicService();
+      prisma.seller.findFirst.mockResolvedValue(null);
+      await expect(svc.getPublicBySlug('missing')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('getActiveSellerIdBySlug', () => {
+    it('returns the id for an ACTIVE, non-deleted seller', async () => {
+      const { svc, prisma } = buildPublicService();
+      prisma.seller.findFirst.mockResolvedValue({ id: 's1' });
+      await expect(svc.getActiveSellerIdBySlug('demo-shop')).resolves.toBe('s1');
+    });
+
+    it('throws NotFoundException when no ACTIVE seller matches', async () => {
+      const { svc, prisma } = buildPublicService();
+      prisma.seller.findFirst.mockResolvedValue(null);
+      await expect(
+        svc.getActiveSellerIdBySlug('missing'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

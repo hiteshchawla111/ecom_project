@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -7,8 +8,11 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -19,6 +23,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { SellerApprovedGuard } from '../sellers/guards/seller-approved.guard';
 import { CurrentSeller } from '../auth/decorators/current-seller.decorator';
 import { ScopeActor } from './seller-scope';
+import {
+  ProductCsvImportService,
+  MAX_IMPORT_BYTES,
+} from './product-csv-import.service';
+import { ImportResult, RowError } from './dto/import-result.dto';
 
 /**
  * Seller-facing product catalog. Every route is scoped to the acting seller:
@@ -31,7 +40,10 @@ import { ScopeActor } from './seller-scope';
 @UseGuards(SellerApprovedGuard)
 @Controller('seller/products')
 export class SellerProductsController {
-  constructor(private readonly products: ProductsService) {}
+  constructor(
+    private readonly products: ProductsService,
+    private readonly csvImport: ProductCsvImportService,
+  ) {}
 
   private actor(sellerId: string): ScopeActor {
     return { role: Role.SELLER, sellerId };
@@ -50,6 +62,46 @@ export class SellerProductsController {
   @Post()
   create(@CurrentSeller() sellerId: string, @Body() dto: CreateProductDto) {
     return this.products.create(dto, this.actor(sellerId));
+  }
+
+  @Post('import')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_IMPORT_BYTES } }),
+  )
+  async import(
+    @CurrentSeller() sellerId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<ImportResult> {
+    if (!file) {
+      throw new BadRequestException('A CSV file is required (field "file")');
+    }
+    const { valid, errors: parseErrors } = this.csvImport.parseAndValidate(
+      file.buffer,
+    );
+
+    const actor = this.actor(sellerId);
+    const productIds: string[] = [];
+    const errors: RowError[] = [...parseErrors];
+
+    for (const { dto, row } of valid) {
+      try {
+        const created = await this.products.create(dto, actor);
+        productIds.push(created.id);
+      } catch (err) {
+        errors.push({
+          row,
+          sku: dto.sku,
+          message: err instanceof Error ? err.message : 'Failed to create',
+        });
+      }
+    }
+
+    return {
+      created: productIds.length,
+      failed: errors.length,
+      productIds,
+      errors,
+    };
   }
 
   @Patch(':id')

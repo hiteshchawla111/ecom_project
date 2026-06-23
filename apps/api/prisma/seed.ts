@@ -152,6 +152,13 @@ async function main(): Promise<void> {
     }
   }
 
+  // Default brand hue (coral, matches DESIGN.md primary-500). Idempotent.
+  await prisma.appSetting.upsert({
+    where: { key: 'brand.hue' },
+    update: {},
+    create: { key: 'brand.hue', value: '28' },
+  });
+
   console.log('Seed complete.');
 }
 

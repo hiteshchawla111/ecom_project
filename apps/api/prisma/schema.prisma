@@ -386,3 +386,17 @@ model AuditLog {
   @@index([actorId, createdAt])
   @@index([entityType, entityId])
 }
+
+// ---------------------------------------------------------------------------
+// App settings
+// ---------------------------------------------------------------------------
+
+// Singleton key/value store for global app settings (no multi-tenant in PRD).
+// Currently holds `brand.hue` — the admin-chosen brand hue (0–360) both
+// frontends resolve their primary color from. Values are stored as strings;
+// callers parse/validate per key.
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

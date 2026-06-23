@@ -18,6 +18,7 @@ import { CustomersModule } from './customers/customers.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SellersModule } from './sellers/sellers.module';
+import { SettingsModule } from './settings/settings.module';
 
 /**
  * Parse an env var as a positive integer, falling back to `fallback` when the
@@ -53,6 +54,7 @@ const num = (v: string | undefined, fallback: number): number => {
     CartModule,
     OrdersModule,
     SellersModule,
+    SettingsModule,
     InventoryModule,
     CustomersModule,
     AnalyticsModule,

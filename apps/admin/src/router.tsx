@@ -19,6 +19,7 @@ import { SellerComingSoon } from './pages/SellerComingSoon';
 import { SellerProductsPage } from './pages/SellerProductsPage';
 import { SellerProductNewPage } from './pages/SellerProductNewPage';
 import { SellerProductEditPage } from './pages/SellerProductEditPage';
+import { SellerProductImportPage } from './pages/SellerProductImportPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
             element: <SellerOnlyRoute />,
             children: [
               { path: 'seller/products', element: <SellerProductsPage /> },
+              { path: 'seller/products/import', element: <SellerProductImportPage /> },
               { path: 'seller/products/new', element: <SellerProductNewPage /> },
               { path: 'seller/products/:id/edit', element: <SellerProductEditPage /> },
               { path: 'seller/inventory', element: <SellerComingSoon area="Inventory" /> },

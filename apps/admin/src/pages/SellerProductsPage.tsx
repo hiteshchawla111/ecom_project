@@ -100,12 +100,20 @@ export function SellerProductsPage() {
         <h2 className="font-heading text-2xl font-semibold text-content">
           My products
         </h2>
-        <Link
-          to="/seller/products/new"
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
-        >
-          Add product
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/seller/products/import"
+            className="rounded-md border border-line px-4 py-2 text-sm font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+          >
+            Import CSV
+          </Link>
+          <Link
+            to="/seller/products/new"
+            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+          >
+            Add product
+          </Link>
+        </div>
       </header>
 
       {error && (

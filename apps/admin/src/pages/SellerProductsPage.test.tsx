@@ -79,6 +79,16 @@ describe('SellerProductsPage', () => {
     expect(addLink).toHaveAttribute('href', '/seller/products/new');
   });
 
+  it('links to the CSV import page', async () => {
+    listSellerProducts.mockResolvedValue(page([product()]));
+    renderPage();
+    await screen.findByText('Aurora Phone');
+    expect(screen.getByRole('link', { name: /import csv/i })).toHaveAttribute(
+      'href',
+      '/seller/products/import',
+    );
+  });
+
   it('edit action link points to /seller/products/:id/edit', async () => {
     listSellerProducts.mockResolvedValue(page([product()]));
     renderPage();

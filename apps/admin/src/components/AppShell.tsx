@@ -18,6 +18,7 @@ const groupLabelClass =
 export function AppShell() {
   const { user } = useAuth();
   const isAdmin = user!.role === 'ADMIN';
+  const isSeller = user!.role === 'SELLER';
 
   return (
     <div className="flex min-h-screen">
@@ -27,10 +28,10 @@ export function AppShell() {
             aria-hidden="true"
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 font-heading text-base font-bold text-white shadow-sm"
           >
-            A
+            {isSeller ? 'S' : 'A'}
           </span>
           <h1 className="font-heading text-lg font-semibold tracking-tight text-content">
-            Admin
+            {isSeller ? 'Seller' : 'Admin'}
           </h1>
         </div>
 
@@ -38,34 +39,49 @@ export function AppShell() {
           <NavLink to="/" end className={navLinkClass}>
             Dashboard
           </NavLink>
-          {isAdmin && (
+
+          {isSeller ? (
             <>
               <p className={groupLabelClass}>Catalog</p>
-              <NavLink to="/products" className={navLinkClass}>
-                Products
+              <NavLink to="/seller/products" className={navLinkClass}>
+                My Products
               </NavLink>
-              <NavLink to="/categories" className={navLinkClass}>
-                Categories
+              <NavLink to="/seller/inventory" className={navLinkClass}>
+                My Inventory
               </NavLink>
             </>
-          )}
-
-          {/* Operations — Orders and Sellers are ADMIN-only; Inventory is open
-              to both internal roles (ADMIN + INVENTORY_MANAGER). */}
-          <p className={groupLabelClass}>Operations</p>
-          {isAdmin && (
+          ) : (
             <>
-              <NavLink to="/orders" className={navLinkClass}>
-                Orders
-              </NavLink>
-              <NavLink to="/sellers" className={navLinkClass}>
-                Sellers
+              {isAdmin && (
+                <>
+                  <p className={groupLabelClass}>Catalog</p>
+                  <NavLink to="/products" className={navLinkClass}>
+                    Products
+                  </NavLink>
+                  <NavLink to="/categories" className={navLinkClass}>
+                    Categories
+                  </NavLink>
+                </>
+              )}
+
+              {/* Operations — Orders and Sellers are ADMIN-only; Inventory is open
+                  to both internal roles (ADMIN + INVENTORY_MANAGER). */}
+              <p className={groupLabelClass}>Operations</p>
+              {isAdmin && (
+                <>
+                  <NavLink to="/orders" className={navLinkClass}>
+                    Orders
+                  </NavLink>
+                  <NavLink to="/sellers" className={navLinkClass}>
+                    Sellers
+                  </NavLink>
+                </>
+              )}
+              <NavLink to="/inventory" className={navLinkClass}>
+                Inventory
               </NavLink>
             </>
           )}
-          <NavLink to="/inventory" className={navLinkClass}>
-            Inventory
-          </NavLink>
         </nav>
       </aside>
 

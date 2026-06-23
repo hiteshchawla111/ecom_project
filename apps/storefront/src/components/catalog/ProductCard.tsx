@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Product } from '@/lib/catalog';
+import { isOnSale } from '@/lib/money';
 import { Price } from './Price';
 
 interface ProductCardProps {
@@ -30,20 +31,29 @@ export function ProductCard({ product }: ProductCardProps) {
   const image = product.images?.[0];
   const src = image?.url ?? placeholderImage(product.id);
   const alt = image?.alt ?? product.name;
+  const onSale = isOnSale(product.price, product.salePrice);
 
   return (
     <Link
       href={`/products/${product.id}`}
-      className="group flex h-full flex-col overflow-hidden rounded-xl border border-neutral-200 bg-neutral-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+      className="group flex h-full flex-col overflow-hidden rounded-lg border border-neutral-200 bg-neutral-0 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary-300 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
     >
-      <div className="aspect-square w-full overflow-hidden bg-neutral-100">
+      <div className="relative aspect-square w-full overflow-hidden bg-neutral-100">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
           alt={alt}
           loading="lazy"
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
         />
+        {onSale && (
+          <span
+            data-testid="sale-ribbon"
+            className="absolute left-3 top-3 rounded-full bg-accent-600 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-neutral-0 shadow-sm"
+          >
+            Sale
+          </span>
+        )}
       </div>
       <div className="flex flex-1 flex-col gap-1 p-4">
         {product.brand ? (
@@ -57,7 +67,11 @@ export function ProductCard({ product }: ProductCardProps) {
           {product.name}
         </h3>
         <div className="mt-auto pt-2">
-          <Price price={product.price} salePrice={product.salePrice} />
+          <Price
+            price={product.price}
+            salePrice={product.salePrice}
+            className="font-heading"
+          />
         </div>
       </div>
     </Link>

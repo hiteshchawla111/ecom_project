@@ -32,7 +32,19 @@ describe('ProductCard', () => {
   it('renders the sale price when on sale', () => {
     render(<ProductCard product={{ ...base, salePrice: '699' }} />);
     expect(screen.getByText('$699.00')).toBeInTheDocument();
-    expect(screen.getByText(/sale/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/sale/i).length).toBeGreaterThan(0);
+  });
+
+  it('shows a Sale ribbon overlaid on the image when on sale', () => {
+    render(<ProductCard product={{ ...base, salePrice: '699' }} />);
+    // A presentational ribbon flagged for tests; mirrors the API sale flag,
+    // computes no prices (CLAUDE.md: no client-side price math).
+    expect(screen.getByTestId('sale-ribbon')).toBeInTheDocument();
+  });
+
+  it('does not show a Sale ribbon when not on sale', () => {
+    render(<ProductCard product={base} />);
+    expect(screen.queryByTestId('sale-ribbon')).not.toBeInTheDocument();
   });
 
   it('renders the first image with its alt text', () => {

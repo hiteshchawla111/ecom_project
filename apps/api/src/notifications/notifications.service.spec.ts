@@ -100,6 +100,30 @@ describe('NotificationsService.recordLowStock', () => {
     );
     expect(prisma.notification.create).toHaveBeenCalledTimes(1);
   });
+
+  it('still records the admin alert (and does not throw) if the seller lookup fails', async () => {
+    const prisma = makePrisma();
+    const svc = new NotificationsService(prisma as never);
+    prisma.seller.findUnique.mockRejectedValue(new Error('db down'));
+    prisma.notification.create.mockResolvedValue({});
+
+    await expect(
+      svc.recordLowStock({
+        productId: 'p1',
+        available: 1,
+        threshold: 5,
+        sellerId: 's-err',
+      }),
+    ).resolves.toBeUndefined();
+
+    // admin write happened (once), seller write skipped
+    expect(prisma.notification.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ userId: null }),
+      }),
+    );
+    expect(prisma.notification.create).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('NotificationsService.recordSellerRegistered', () => {

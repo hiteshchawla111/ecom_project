@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LowStockEvent } from '../inventory/inventory.events';
@@ -16,6 +16,8 @@ import {
  */
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -36,20 +38,28 @@ export class NotificationsService {
       data: { type: NotificationType.LOW_STOCK, userId: null, payload },
     });
 
-    // Owning-seller alert: resolve the seller's user. If the seller is gone,
-    // the admin alert above still stands — don't fail the whole write.
-    const seller = await this.prisma.seller.findUnique({
-      where: { id: event.sellerId },
-      select: { userId: true },
-    });
-    if (seller) {
-      await this.prisma.notification.create({
-        data: {
-          type: NotificationType.LOW_STOCK,
-          userId: seller.userId,
-          payload,
-        },
+    // Owning-seller alert: resolve the seller's user. If the seller is gone
+    // or the lookup/write fails, the admin alert above still stands — log and
+    // swallow rather than fail the whole handler.
+    try {
+      const seller = await this.prisma.seller.findUnique({
+        where: { id: event.sellerId },
+        select: { userId: true },
       });
+      if (seller) {
+        await this.prisma.notification.create({
+          data: {
+            type: NotificationType.LOW_STOCK,
+            userId: seller.userId,
+            payload,
+          },
+        });
+      }
+    } catch (err) {
+      this.logger.error(
+        `Failed to write owning-seller low-stock notification for seller ${event.sellerId}`,
+        err instanceof Error ? err.stack : String(err),
+      );
     }
   }
 

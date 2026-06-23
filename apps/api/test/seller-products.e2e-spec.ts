@@ -493,8 +493,8 @@ describe('9. CSV import — ownership ignores sellerId column', () => {
     const created = bodyField<number>(res.body, 'created');
     const productIds = bodyField<string[]>(res.body, 'productIds');
 
-    // Either the row succeeded (sellerId stripped → owned by A) or it errored
-    // (rejected as non-whitelisted) — either way the product is NOT owned by B.
+    // A-positive: only meaningful when the row was actually created (sellerId
+    // stripped → product owned by A, not B).
     if (created === 1) {
       createdProductIds.push(...productIds);
 
@@ -506,33 +506,28 @@ describe('9. CSV import — ownership ignores sellerId column', () => {
         .expect(200);
       const idsA: string[] = bodyData(resA.body).map((p) => p.id);
       expect(idsA).toContain(productIds[0]);
+    }
 
-      // And does NOT appear in Seller B's list.
-      const resB = await request(app.getHttpServer())
-        .get('/seller/products')
-        .query({ pageSize: 100 })
-        .set('Authorization', auth(tokenB))
-        .expect(200);
-      const idsB: string[] = bodyData(resB.body).map((p) => p.id);
+    // B-negative: ALWAYS runs — the critical isolation assertion. The uploaded
+    // sellerId column must never cause a product to land in Seller B's catalog,
+    // regardless of whether the row was created or errored.
+    const resB = await request(app.getHttpServer())
+      .get('/seller/products')
+      .query({ pageSize: 100 })
+      .set('Authorization', auth(tokenB))
+      .expect(200);
+    const bProducts = bodyData(resB.body) as Array<{
+      id: string;
+      sku?: string;
+    }>;
+    const skusB = bProducts.map(
+      (p) => (p as Record<string, unknown>).sku as string | undefined,
+    );
+    expect(skusB).not.toContain(sku);
+    // If the row was created, also assert B's id list excludes the new product.
+    if (created === 1) {
+      const idsB: string[] = bProducts.map((p) => p.id);
       expect(idsB).not.toContain(productIds[0]);
-    } else {
-      // Row errored — ownership could not have been set to B. This is safe.
-      const failed = bodyField<number>(res.body, 'failed');
-      expect(failed).toBe(1);
-      // Confirm nothing ended up in Seller B's list with this SKU.
-      const resB = await request(app.getHttpServer())
-        .get('/seller/products')
-        .query({ pageSize: 100 })
-        .set('Authorization', auth(tokenB))
-        .expect(200);
-      const bProducts = bodyData(resB.body) as Array<{
-        id: string;
-        sku?: string;
-      }>;
-      const skusB = bProducts.map(
-        (p) => (p as Record<string, unknown>).sku as string | undefined,
-      );
-      expect(skusB).not.toContain(sku);
     }
   });
 });

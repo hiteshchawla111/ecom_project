@@ -20,15 +20,15 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-screen">
-      <aside className="flex w-56 shrink-0 flex-col border-r border-neutral-200 bg-neutral-0 p-4">
-        <div className="flex items-center gap-2 px-1">
+      <aside className="flex w-60 shrink-0 flex-col border-r border-neutral-200 bg-neutral-0 p-4">
+        <div className="flex items-center gap-2.5 px-1">
           <span
             aria-hidden="true"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary-500 font-heading text-sm font-bold text-white"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 font-heading text-base font-bold text-white shadow-sm"
           >
             A
           </span>
-          <h1 className="font-heading text-lg font-semibold text-neutral-900">
+          <h1 className="font-heading text-lg font-semibold tracking-tight text-neutral-900">
             Admin
           </h1>
         </div>
@@ -69,8 +69,14 @@ export function AppShell() {
       </aside>
 
       <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-neutral-200 bg-neutral-0 px-6 py-3">
-          <span className="text-sm text-neutral-600">
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-200 bg-neutral-0/90 px-6 py-3 backdrop-blur">
+          <span className="flex items-center gap-2 text-sm text-neutral-600">
+            <span
+              aria-hidden="true"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold uppercase text-primary-700"
+            >
+              {user!.email.charAt(0)}
+            </span>
             <span className="sr-only">Signed in as </span>
             <span data-testid="current-user">{user!.email}</span>
           </span>

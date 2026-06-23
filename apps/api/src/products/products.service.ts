@@ -87,12 +87,13 @@ export class ProductsService {
   async list(
     query: ListProductsDto,
     actor: ScopeActor,
+    filter?: { sellerId?: string },
   ): Promise<Paginated<Product>> {
     const page = query.page ?? DEFAULT_PAGE;
     const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
     const skip = (page - 1) * pageSize;
 
-    const where = this.buildWhere(query, actor);
+    const where = this.buildWhere(query, actor, filter);
     const orderBy = this.buildOrderBy(query);
 
     const [data, total] = await Promise.all([
@@ -119,11 +120,16 @@ export class ProductsService {
   private buildWhere(
     query: ListProductsDto,
     actor: ScopeActor,
+    filter?: { sellerId?: string },
   ): Prisma.ProductWhereInput {
     const where: Prisma.ProductWhereInput = {
       deletedAt: null,
       ...buildSellerScope(actor),
     };
+
+    // Explicit, caller-supplied seller filter (e.g. a public seller storefront
+    // listing). Distinct from buildSellerScope, which confines the *actor*.
+    if (filter?.sellerId) where.sellerId = filter.sellerId;
 
     if (query.search) {
       const contains = { contains: query.search, mode: 'insensitive' as const };

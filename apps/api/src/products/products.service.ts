@@ -32,6 +32,8 @@ export interface Paginated<T> {
 const PRODUCT_INCLUDE = {
   category: true,
   images: { orderBy: { position: 'asc' as const } },
+  // The owning seller — public-safe fields only (shop name + slug; never KYC/PII).
+  seller: { select: { displayName: true, slug: true } },
 } satisfies Prisma.ProductInclude;
 
 @Injectable()

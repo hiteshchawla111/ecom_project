@@ -4,7 +4,7 @@ import type { ProductStatus } from '../../lib/products';
 const STYLES: Record<ProductStatus, string> = {
   ACTIVE: 'bg-success-500/10 text-success-500',
   INACTIVE: 'bg-warning-500/10 text-warning-500',
-  ARCHIVED: 'bg-neutral-200 text-neutral-600',
+  ARCHIVED: 'bg-line text-content-muted',
 };
 
 const LABELS: Record<ProductStatus, string> = {

@@ -12,7 +12,7 @@ import { RowActionsMenu } from '../components/ui/RowActionsMenu';
 
 // Shared menu-item styling so every row action reads consistently.
 const menuItemClass =
-  'rounded px-3 py-1.5 text-left text-sm text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50';
+  'rounded px-3 py-1.5 text-left text-sm text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50';
 const menuItemDangerClass =
   'rounded px-3 py-1.5 text-left text-sm text-error-500 transition-colors hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50';
 
@@ -97,7 +97,7 @@ export function ProductsPage() {
   return (
     <section className="flex flex-col gap-6">
       <header className="flex items-center justify-between">
-        <h2 className="font-heading text-2xl font-semibold text-neutral-900">
+        <h2 className="font-heading text-2xl font-semibold text-content">
           Products
         </h2>
         <Link
@@ -125,15 +125,15 @@ export function ProductsPage() {
       )}
 
       {loading ? (
-        <p role="status" aria-live="polite" className="text-neutral-600">
+        <p role="status" aria-live="polite" className="text-content-muted">
           Loading…
         </p>
       ) : error ? null : products.length === 0 ? (
-        <p className="text-neutral-600">No products yet.</p>
+        <p className="text-content-muted">No products yet.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-neutral-200">
+        <div className="overflow-x-auto rounded-lg border border-line">
           <table className="w-full text-left text-sm">
-            <thead className="bg-neutral-100 text-neutral-600">
+            <thead className="bg-surface-muted text-content-muted">
               <tr>
                 <th scope="col" className="px-4 py-2.5 font-medium">
                   Name
@@ -159,10 +159,10 @@ export function ProductsPage() {
                 return (
                   <tr
                     key={product.id}
-                    className="border-t border-neutral-200 text-neutral-900 transition-colors hover:bg-neutral-50"
+                    className="border-t border-line text-content transition-colors hover:bg-surface-sunk"
                   >
                     <td className="px-4 py-2 font-medium">{product.name}</td>
-                    <td className="px-4 py-2 text-neutral-600">{product.sku}</td>
+                    <td className="px-4 py-2 text-content-muted">{product.sku}</td>
                     <td className="px-4 py-2">
                       {usd.format(Number(product.price))}
                     </td>
@@ -172,7 +172,7 @@ export function ProductsPage() {
                     <td className="px-4 py-2">
                       <div className="flex justify-end">
                         {isArchived ? (
-                          <span className="text-xs text-neutral-400">
+                          <span className="text-xs text-content-subtle">
                             No actions
                           </span>
                         ) : (

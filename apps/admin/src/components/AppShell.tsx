@@ -8,11 +8,11 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center rounded-md border-l-2 px-3 py-2 transition-colors ${
     isActive
       ? 'border-primary-500 bg-primary-500/10 font-medium text-primary-700'
-      : 'border-transparent text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
+      : 'border-transparent text-content-muted hover:bg-surface-muted hover:text-content'
   }`;
 
 const groupLabelClass =
-  'px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-neutral-400';
+  'px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-content-subtle';
 
 export function AppShell() {
   const { user } = useAuth();
@@ -20,7 +20,7 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-screen">
-      <aside className="flex w-60 shrink-0 flex-col border-r border-neutral-200 bg-neutral-0 p-4">
+      <aside className="flex w-60 shrink-0 flex-col border-r border-line bg-surface p-4">
         <div className="flex items-center gap-2.5 px-1">
           <span
             aria-hidden="true"
@@ -28,7 +28,7 @@ export function AppShell() {
           >
             A
           </span>
-          <h1 className="font-heading text-lg font-semibold tracking-tight text-neutral-900">
+          <h1 className="font-heading text-lg font-semibold tracking-tight text-content">
             Admin
           </h1>
         </div>
@@ -69,8 +69,8 @@ export function AppShell() {
       </aside>
 
       <div className="flex flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-200 bg-neutral-0/90 px-6 py-3 backdrop-blur">
-          <span className="flex items-center gap-2 text-sm text-neutral-600">
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface/90 px-6 py-3 backdrop-blur">
+          <span className="flex items-center gap-2 text-sm text-content-muted">
             <span
               aria-hidden="true"
               className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold uppercase text-primary-700"
@@ -82,7 +82,7 @@ export function AppShell() {
           </span>
           <LogoutButton />
         </header>
-        <main className="flex-1 overflow-y-auto bg-neutral-50 p-6">
+        <main className="flex-1 overflow-y-auto bg-surface-sunk p-6">
           <Outlet />
         </main>
       </div>

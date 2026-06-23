@@ -29,9 +29,9 @@ export function StatCard({ label, value, hint, icon, trend }: StatCardProps) {
   const isUp = trend?.direction === 'up';
 
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-neutral-200 bg-neutral-0 p-4 shadow-sm transition-shadow hover:shadow-md">
+    <div className="flex flex-col gap-1 rounded-lg border border-line bg-surface p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+        <span className="text-xs font-semibold uppercase tracking-wide text-content-subtle">
           {label}
         </span>
         {icon && (
@@ -44,7 +44,7 @@ export function StatCard({ label, value, hint, icon, trend }: StatCardProps) {
         )}
       </div>
 
-      <span className="font-heading text-2xl font-semibold text-neutral-900">
+      <span className="font-heading text-2xl font-semibold text-content">
         {value}
       </span>
 
@@ -60,7 +60,7 @@ export function StatCard({ label, value, hint, icon, trend }: StatCardProps) {
         </span>
       )}
 
-      {hint && <span className="text-xs text-neutral-400">{hint}</span>}
+      {hint && <span className="text-xs text-content-subtle">{hint}</span>}
     </div>
   );
 }

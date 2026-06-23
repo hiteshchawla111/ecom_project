@@ -13,7 +13,7 @@ import { ApiError } from '../lib/types';
 import { CategoryEditForm } from '../components/categories/CategoryEditForm';
 
 const inputClass =
-  'w-full rounded-md border border-neutral-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
+  'w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
 
 export function CategoriesPage() {
   const [tree, setTree] = useState<Category[]>([]);
@@ -108,18 +108,18 @@ export function CategoriesPage() {
   return (
     <section className="flex flex-col gap-8">
       <header>
-        <h2 className="font-heading text-2xl font-semibold text-neutral-900">
+        <h2 className="font-heading text-2xl font-semibold text-content">
           Categories
         </h2>
       </header>
 
       <form
         onSubmit={onCreate}
-        className="flex max-w-2xl flex-col gap-4 rounded-lg border border-neutral-200 p-4 sm:flex-row sm:items-end"
+        className="flex max-w-2xl flex-col gap-4 rounded-lg border border-line p-4 sm:flex-row sm:items-end"
         noValidate
       >
         <div className="flex flex-1 flex-col gap-1">
-          <label htmlFor="cat-name" className="text-sm font-medium text-neutral-900">
+          <label htmlFor="cat-name" className="text-sm font-medium text-content">
             Name
           </label>
           <input
@@ -130,7 +130,7 @@ export function CategoriesPage() {
           />
         </div>
         <div className="flex flex-1 flex-col gap-1">
-          <label htmlFor="cat-slug" className="text-sm font-medium text-neutral-900">
+          <label htmlFor="cat-slug" className="text-sm font-medium text-content">
             Slug
           </label>
           <input
@@ -144,7 +144,7 @@ export function CategoriesPage() {
         <div className="flex flex-1 flex-col gap-1">
           <label
             htmlFor="cat-parent"
-            className="text-sm font-medium text-neutral-900"
+            className="text-sm font-medium text-content"
           >
             Parent (optional)
           </label>
@@ -189,11 +189,11 @@ export function CategoriesPage() {
       )}
 
       {loading ? (
-        <p role="status" aria-live="polite" className="text-neutral-600">
+        <p role="status" aria-live="polite" className="text-content-muted">
           Loading…
         </p>
       ) : tree.length === 0 ? (
-        <p className="text-neutral-600">No categories yet.</p>
+        <p className="text-content-muted">No categories yet.</p>
       ) : (
         <CategoryNodes
           categories={tree}
@@ -235,16 +235,16 @@ function CategoryNodes({
     <ul className="flex flex-col gap-1">
       {categories.map((category) => (
         <li key={category.id}>
-          <div className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-neutral-100">
-            <span className="text-neutral-900">
+          <div className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-surface-muted">
+            <span className="text-content">
               <span>{category.name}</span>{' '}
-              <span className="text-xs text-neutral-400">/{category.slug}</span>
+              <span className="text-xs text-content-subtle">/{category.slug}</span>
             </span>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => onEditStart(category)}
-                className="rounded-md border border-neutral-200 px-2.5 py-1 text-xs font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
               >
                 Edit
               </button>
@@ -272,7 +272,7 @@ function CategoryNodes({
             />
           )}
           {category.children && category.children.length > 0 && (
-            <div className="ml-4 border-l border-neutral-200 pl-2">
+            <div className="ml-4 border-l border-line pl-2">
               <CategoryNodes
                 categories={category.children}
                 busyId={busyId}

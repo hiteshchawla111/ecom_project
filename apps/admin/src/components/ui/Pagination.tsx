@@ -16,11 +16,11 @@ export interface PaginationProps {
 type PageToken = number | 'ellipsis';
 
 const numberClass =
-  'inline-flex h-9 min-w-9 items-center justify-center rounded-md border border-neutral-200 px-3 text-xs font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
+  'inline-flex h-9 min-w-9 items-center justify-center rounded-md border border-line px-3 text-xs font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
 const currentClass =
   'inline-flex h-9 min-w-9 items-center justify-center rounded-md bg-primary-500 px-3 text-xs font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
 const stepClass =
-  'inline-flex h-9 items-center justify-center rounded-md border border-neutral-200 px-3 text-xs font-medium text-neutral-900 transition-colors hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50 disabled:hover:bg-transparent';
+  'inline-flex h-9 items-center justify-center rounded-md border border-line px-3 text-xs font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50 disabled:hover:bg-transparent';
 
 /**
  * Build the list of page tokens with ellipses. Always includes page 1 and the
@@ -72,7 +72,7 @@ export function Pagination({
       aria-label="Pagination"
       className="flex flex-col items-center justify-between gap-3 sm:flex-row"
     >
-      <p className="text-sm text-neutral-600">
+      <p className="text-sm text-content-muted">
         Showing {rangeStart}–{rangeEnd} of {total}
       </p>
 
@@ -93,7 +93,7 @@ export function Pagination({
               <span
                 key={`ellipsis-${i}`}
                 aria-hidden="true"
-                className="inline-flex h-9 min-w-9 items-center justify-center px-1 text-xs text-neutral-400"
+                className="inline-flex h-9 min-w-9 items-center justify-center px-1 text-xs text-content-subtle"
               >
                 …
               </span>

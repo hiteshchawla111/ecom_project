@@ -63,10 +63,10 @@ export function DashboardPage() {
   return (
     <section className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h2 className="font-heading text-2xl font-semibold text-neutral-900">
+        <h2 className="font-heading text-2xl font-semibold text-content">
           Dashboard
         </h2>
-        <p className="text-neutral-600">Welcome, {user?.email}.</p>
+        <p className="text-content-muted">Welcome, {user?.email}.</p>
       </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

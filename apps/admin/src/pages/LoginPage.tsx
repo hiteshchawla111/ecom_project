@@ -41,9 +41,9 @@ export function LoginPage() {
       <form
         onSubmit={onSubmit}
         noValidate
-        className="flex w-full max-w-sm flex-col gap-4 rounded-lg border border-neutral-200 bg-neutral-0 p-6"
+        className="flex w-full max-w-sm flex-col gap-4 rounded-lg border border-line bg-surface p-6"
       >
-        <h1 className="font-heading text-2xl font-semibold text-neutral-900">Admin sign in</h1>
+        <h1 className="font-heading text-2xl font-semibold text-content">Admin sign in</h1>
 
         {error && (
           <p
@@ -57,7 +57,7 @@ export function LoginPage() {
           </p>
         )}
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-neutral-800">
+        <label className="flex flex-col gap-1 text-sm font-medium text-content">
           Email
           <input
             name="email"
@@ -68,11 +68,11 @@ export function LoginPage() {
             aria-invalid={!!error}
             aria-describedby={error ? 'login-error' : undefined}
             onChange={(e) => setEmail(e.target.value)}
-            className="rounded-md border border-neutral-200 px-3 py-2 text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            className="rounded-md border border-line px-3 py-2 text-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-neutral-800">
+        <label className="flex flex-col gap-1 text-sm font-medium text-content">
           Password
           <input
             name="password"
@@ -83,7 +83,7 @@ export function LoginPage() {
             aria-invalid={!!error}
             aria-describedby={error ? 'login-error' : undefined}
             onChange={(e) => setPassword(e.target.value)}
-            className="rounded-md border border-neutral-200 px-3 py-2 text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            className="rounded-md border border-line px-3 py-2 text-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
           />
         </label>
 

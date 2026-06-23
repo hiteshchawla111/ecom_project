@@ -50,7 +50,7 @@ export function RowActionsMenu({ label, children }: RowActionsMenuProps) {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-content-muted transition-colors hover:bg-surface-muted hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
       >
         <span aria-hidden="true" className="text-lg leading-none">
           ⋯
@@ -62,7 +62,7 @@ export function RowActionsMenu({ label, children }: RowActionsMenuProps) {
         <div
           role="menu"
           onClick={() => setOpen(false)}
-          className="absolute right-0 z-20 mt-1 flex w-44 flex-col gap-0.5 rounded-md border border-neutral-200 bg-neutral-0 p-1 shadow-lg"
+          className="absolute right-0 z-20 mt-1 flex w-44 flex-col gap-0.5 rounded-md border border-line bg-surface p-1 shadow-lg"
         >
           {children}
         </div>

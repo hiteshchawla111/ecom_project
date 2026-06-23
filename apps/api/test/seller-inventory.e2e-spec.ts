@@ -444,18 +444,22 @@ describe('7. Low-stock notification via DEDUCTION below threshold', () => {
       .send({ type: 'DEDUCTION', quantity: 21, reason: 'stock write-off' })
       .expect(204);
 
-    // The LowStockListener handles the event asynchronously but within the
-    // same process/event loop. A brief wait lets the async handler complete.
-    await new Promise<void>((resolve) => setTimeout(resolve, 200));
+    // The LowStockListener handles the event asynchronously (post-response).
+    // Poll for the persisted notification rather than waiting a fixed interval,
+    // so a slow event loop / DB under load doesn't cause a false negative.
+    const findLowStockNotification = () =>
+      prisma.notification.findFirst({
+        where: { type: NotificationType.LOW_STOCK, userId: userAId },
+      });
+
+    let notification = await findLowStockNotification();
+    const deadline = Date.now() + 5_000;
+    while (notification === null && Date.now() < deadline) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      notification = await findLowStockNotification();
+    }
 
     // Assert a LOW_STOCK notification row was created for the owning seller.
-    const notification = await prisma.notification.findFirst({
-      where: {
-        type: NotificationType.LOW_STOCK,
-        userId: userAId,
-      },
-    });
-
     expect(notification).not.toBeNull();
     expect(notification?.userId).toBe(userAId);
   }, 10_000);

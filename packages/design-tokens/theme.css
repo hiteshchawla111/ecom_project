@@ -9,13 +9,17 @@
  * (e.g. bg-primary-500, text-neutral-900, border-neutral-200).
  */
 @theme {
-  /* Primary — coral / orange */
-  --color-primary-50: #fff3ed;
-  --color-primary-100: #ffe0cc;
-  --color-primary-300: #ffa878;
-  --color-primary-500: #ff6b35;
-  --color-primary-600: #e85420;
-  --color-primary-700: #c2410c;
+  /* Primary — derived from a single runtime hue (--brand-hue, default coral 28)
+     in OKLCH so the admin-chosen brand color regenerates an even, contrast-safe
+     scale. Fixed lightness + chroma per step; only the hue varies. Override
+     --brand-hue on :root (injected from the saved setting) to re-theme both
+     apps with no rebuild. */
+  --color-primary-50: oklch(0.97 0.02 var(--brand-hue, 28));
+  --color-primary-100: oklch(0.93 0.05 var(--brand-hue, 28));
+  --color-primary-300: oklch(0.78 0.12 var(--brand-hue, 28));
+  --color-primary-500: oklch(0.68 0.18 var(--brand-hue, 28));
+  --color-primary-600: oklch(0.61 0.18 var(--brand-hue, 28));
+  --color-primary-700: oklch(0.52 0.15 var(--brand-hue, 28));
 
   /* Secondary — deep teal */
   --color-secondary-50: #ecfeff;
@@ -88,8 +92,9 @@
   --color-content-muted: #b8b0a8;
   --color-content-subtle: #8a827a;
 
-  /* Lift the brand so it reads on dark without vibrating. */
-  --color-primary-500: #ff8052;
-  --color-primary-600: #ff6b35;
-  --color-primary-700: #ffa878;
+  /* Lift the brand (higher lightness) so it reads on dark without vibrating —
+     still derived from the runtime hue. */
+  --color-primary-500: oklch(0.72 0.18 var(--brand-hue, 28));
+  --color-primary-600: oklch(0.66 0.18 var(--brand-hue, 28));
+  --color-primary-700: oklch(0.80 0.13 var(--brand-hue, 28));
 }

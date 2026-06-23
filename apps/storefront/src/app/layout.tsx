@@ -8,6 +8,7 @@ import { CartProvider } from "@/components/cart/CartProvider";
 import { getCurrentUser } from "@/lib/session";
 import { getCart, liveCartDeps, type CartView } from "@/lib/api-cart";
 import { THEME_COOKIE, parseTheme } from "@/lib/theme";
+import { getBrandHue } from "@/lib/branding";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -45,10 +46,14 @@ export default async function RootLayout({
   // before paint — no flash of the wrong theme. Read-only (never set cookies
   // during render).
   const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
+  // Resolve the brand hue server-side too, so the primary OKLCH scale is set
+  // before paint — admin-chosen color with no flash. Falls back to coral.
+  const brandHue = await getBrandHue();
   return (
     <html
       lang="en"
       data-theme={theme}
+      style={{ ['--brand-hue' as string]: String(brandHue) }}
       className={`${inter.variable} ${jakarta.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">

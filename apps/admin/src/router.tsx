@@ -14,6 +14,7 @@ import { InventoryPage } from './pages/InventoryPage';
 import { InventoryItemPage } from './pages/InventoryItemPage';
 import { SellersPage } from './pages/SellersPage';
 import { SellerDetailPage } from './pages/SellerDetailPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -39,6 +40,7 @@ export const router = createBrowserRouter([
               { path: 'orders/:id', element: <OrderDetailPage /> },
               { path: 'sellers', element: <SellersPage /> },
               { path: 'sellers/:id', element: <SellerDetailPage /> },
+              { path: 'settings', element: <SettingsPage /> },
             ],
           },
         ],

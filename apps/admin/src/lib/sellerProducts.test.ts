@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { apiClient } from './apiClient';
-import { listSellerProducts } from './sellerProducts';
+import {
+  listSellerProducts,
+  getSellerProduct,
+  createSellerProduct,
+  updateSellerProduct,
+  archiveSellerProduct,
+  setSellerProductActive,
+} from './sellerProducts';
 
 vi.mock('./apiClient', () => ({
   apiClient: { request: vi.fn() },
@@ -23,5 +30,52 @@ describe('listSellerProducts', () => {
     });
     await listSellerProducts();
     expect(apiClient.request).toHaveBeenCalledWith('/seller/products');
+  });
+});
+
+describe('seller product mutations', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('getSellerProduct GETs /seller/products/:id', async () => {
+    (apiClient.request as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'p1' });
+    await getSellerProduct('p1');
+    expect(apiClient.request).toHaveBeenCalledWith('/seller/products/p1');
+  });
+
+  it('createSellerProduct POSTs /seller/products with a pruned body', async () => {
+    (apiClient.request as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'p1' });
+    await createSellerProduct({
+      name: 'X', sku: 'X1', description: 'd', price: 5, categoryId: 'c1',
+    });
+    expect(apiClient.request).toHaveBeenCalledWith('/seller/products', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'X', sku: 'X1', description: 'd', price: 5, categoryId: 'c1' }),
+    });
+  });
+
+  it('updateSellerProduct PATCHes /seller/products/:id', async () => {
+    (apiClient.request as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'p1' });
+    await updateSellerProduct('p1', {
+      name: 'X', description: 'd', price: 5, categoryId: 'c1',
+    });
+    expect(apiClient.request).toHaveBeenCalledWith('/seller/products/p1', {
+      method: 'PATCH',
+      body: JSON.stringify({ name: 'X', description: 'd', price: 5, categoryId: 'c1' }),
+    });
+  });
+
+  it('archiveSellerProduct POSTs /seller/products/:id/archive', async () => {
+    (apiClient.request as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'p1' });
+    await archiveSellerProduct('p1');
+    expect(apiClient.request).toHaveBeenCalledWith('/seller/products/p1/archive', { method: 'POST' });
+  });
+
+  it('setSellerProductActive PATCHes /seller/products/:id/active with {active}', async () => {
+    (apiClient.request as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'p1' });
+    await setSellerProductActive('p1', false);
+    expect(apiClient.request).toHaveBeenCalledWith('/seller/products/p1/active', {
+      method: 'PATCH',
+      body: JSON.stringify({ active: false }),
+    });
   });
 });

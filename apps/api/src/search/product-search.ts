@@ -21,11 +21,18 @@ export interface ProductSearchResult {
   totalPages: number;
 }
 
+/** A lean autocomplete row — enough to render a dropdown entry and link by id. */
+export interface ProductSuggestion {
+  id: string;
+  name: string;
+  price: string;
+  salePrice: string | null;
+}
+
 /**
  * Swappable product-search seam (ADR-009). The default binding is the
  * Postgres GIN FTS impl (ADR-011); an Elasticsearch adapter can be bound by
- * env later without touching the controller. Callers receive a fully
- * paginated, ranked, ACTIVE-only result.
+ * env later without touching the controller.
  */
 export interface ProductSearch {
   search(
@@ -33,6 +40,9 @@ export interface ProductSearch {
     page: number,
     pageSize: number,
   ): Promise<ProductSearchResult>;
+
+  /** Ranked, ACTIVE-only, prefix-matched autocomplete suggestions (capped at `limit`). */
+  suggest(q: string, limit: number): Promise<ProductSuggestion[]>;
 }
 
 /** DI token for `ProductSearch` (interfaces have no runtime identity in TS). */

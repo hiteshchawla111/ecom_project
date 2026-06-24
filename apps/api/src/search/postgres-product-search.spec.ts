@@ -78,4 +78,63 @@ describe('PostgresProductSearch', () => {
     expect(res.total).toBe(25);
     expect(res.totalPages).toBe(3);
   });
+
+  describe('suggest', () => {
+    type SuggestRow = {
+      id: string;
+      name: string;
+      price: string;
+      salePrice: string | null;
+      rank: number;
+    };
+
+    const buildSuggest = (rows: SuggestRow[]) => {
+      const prisma = {
+        $queryRaw: jest.fn().mockResolvedValue(rows),
+        product: { findMany: jest.fn() },
+      };
+      const svc = new PostgresProductSearch(prisma as never);
+      return { svc, prisma };
+    };
+
+    it('short-circuits a blank query to [] with no DB call', async () => {
+      const { svc, prisma } = buildSuggest([]);
+      const res = await svc.suggest('   ', 8);
+      expect(res).toEqual([]);
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it('short-circuits a tokenless query (e.g. "!!!") to [] with no DB call', async () => {
+      const { svc, prisma } = buildSuggest([]);
+      const res = await svc.suggest('!!!', 8);
+      expect(res).toEqual([]);
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it('queries and maps rows to lean suggestions, preserving null salePrice', async () => {
+      const rows: SuggestRow[] = [
+        {
+          id: 'a',
+          name: 'Aurora X',
+          price: '799.00',
+          salePrice: '699.00',
+          rank: 0.9,
+        },
+        {
+          id: 'b',
+          name: 'Aurora Lite',
+          price: '399.00',
+          salePrice: null,
+          rank: 0.5,
+        },
+      ];
+      const { svc, prisma } = buildSuggest(rows);
+      const res = await svc.suggest('auro', 8);
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(res).toEqual([
+        { id: 'a', name: 'Aurora X', price: '799.00', salePrice: '699.00' },
+        { id: 'b', name: 'Aurora Lite', price: '399.00', salePrice: null },
+      ]);
+    });
+  });
 });

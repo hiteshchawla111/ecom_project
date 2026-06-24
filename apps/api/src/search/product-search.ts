@@ -1,11 +1,11 @@
 import { Prisma } from '@prisma/client';
+import { PRODUCT_INCLUDE } from '../products/products.service';
 
-/** Relations included so a search hit renders identically to a catalog card. */
-export const PRODUCT_SEARCH_INCLUDE = {
-  category: true,
-  images: { orderBy: { position: 'asc' as const } },
-  seller: { select: { displayName: true, slug: true } },
-} satisfies Prisma.ProductInclude;
+/**
+ * Search hits render identically to catalog cards — reuse the catalog's
+ * single include definition (one source of truth; cannot drift).
+ */
+export const PRODUCT_SEARCH_INCLUDE = PRODUCT_INCLUDE;
 
 /** A search result row: a Product plus the included relations. */
 export type ProductSearchItem = Prisma.ProductGetPayload<{

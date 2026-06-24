@@ -5,7 +5,12 @@ vi.mock('./apiClient', () => ({
   apiClient: { request: (...a: unknown[]) => request(...a) },
 }));
 
-import { listStock, getStockItem, createMovement } from './inventory';
+import {
+  listStock,
+  getStockItem,
+  createMovement,
+  getInventoryReport,
+} from './inventory';
 
 beforeEach(() => {
   request.mockReset();
@@ -45,6 +50,22 @@ describe('getStockItem', () => {
     request.mockResolvedValue({ productId: 'p1', movements: [] });
     await getStockItem('p1');
     expect(request).toHaveBeenCalledWith('/inventory/p1');
+  });
+});
+
+describe('getInventoryReport', () => {
+  it('GETs /inventory/reports (cross-seller, admin)', async () => {
+    request.mockResolvedValue({
+      totalProducts: 16,
+      totalAvailable: 59,
+      totalReserved: 1,
+      lowStockCount: 13,
+      outOfStockCount: 12,
+      valuation: '11824.50',
+    });
+    const res = await getInventoryReport();
+    expect(request).toHaveBeenCalledWith('/inventory/reports');
+    expect(res.valuation).toBe('11824.50');
   });
 });
 

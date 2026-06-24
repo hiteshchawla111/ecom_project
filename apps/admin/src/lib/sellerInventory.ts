@@ -3,6 +3,7 @@ import type { Paginated } from './products';
 import type {
   MovementView,
   CreateMovementInput,
+  InventoryReport,
 } from './inventory';
 
 /**
@@ -64,6 +65,11 @@ export function getSellerStockItem(
   productId: string,
 ): Promise<SellerStockItemView> {
   return apiClient.request<SellerStockItemView>(`/seller/inventory/${productId}`);
+}
+
+/** Fetch the acting seller's own inventory report (scoped server-side). */
+export function getSellerInventoryReport(): Promise<InventoryReport> {
+  return apiClient.request<InventoryReport>('/seller/inventory/reports');
 }
 
 /** Post a manual stock movement against the seller's own product. */

@@ -749,6 +749,96 @@ describe('InventoryService.getStockItem', () => {
   });
 });
 
+describe('InventoryService.report', () => {
+  // The valuation SUM(available * price) is a column-to-column product Prisma's
+  // aggregate API can't express, so it comes from a raw query returning a single
+  // row. The counts come from scoped count() calls (and a raw for low-stock,
+  // which is a column-to-column comparison). All reads share one transaction so
+  // the figures come from one consistent snapshot.
+  // total products + out-of-stock are Prisma-expressible counts (scoped via
+  // buildSellerScope). low-stock (available <= lowStockThreshold), the unit
+  // sums, and the valuation are column-to-column / money aggregates resolved
+  // by one raw query returning a single summary row.
+  const summaryRow = (over: Record<string, unknown> = {}) => [
+    { available: 40, reserved: 5, lowStock: 2, valuation: '1234.50', ...over },
+  ];
+
+  it('aggregates seller-scoped stock health and valuation', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.count
+      .mockResolvedValueOnce(3) // total products
+      .mockResolvedValueOnce(1); // out-of-stock (available = 0)
+    prisma.$queryRaw.mockResolvedValueOnce(summaryRow());
+
+    const res = await svc.report(INV_SELLER_A);
+
+    expect(res).toEqual({
+      totalProducts: 3,
+      totalAvailable: 40,
+      totalReserved: 5,
+      lowStockCount: 2,
+      outOfStockCount: 1,
+      valuation: '1234.50',
+    });
+    // every count is scoped to the acting seller
+    for (const call of prisma.inventoryItem.count.mock.calls as Array<
+      [{ where: { sellerId?: string } }]
+    >) {
+      expect(call[0].where.sellerId).toBe('seller-a');
+    }
+  });
+
+  it('does not scope counts for an ADMIN (cross-seller)', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.count
+      .mockResolvedValueOnce(10)
+      .mockResolvedValueOnce(0);
+    prisma.$queryRaw.mockResolvedValueOnce(
+      summaryRow({
+        available: 100,
+        reserved: 20,
+        lowStock: 0,
+        valuation: '99999.99',
+      }),
+    );
+
+    await svc.report(INV_ADMIN);
+
+    for (const call of prisma.inventoryItem.count.mock.calls as Array<
+      [{ where: { sellerId?: string } }]
+    >) {
+      expect(call[0].where.sellerId).toBeUndefined();
+    }
+  });
+
+  it('reports zeros and "0.00" valuation when there is no inventory', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.count
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0);
+    // empty inventory: SUM(...) is NULL in SQL
+    prisma.$queryRaw.mockResolvedValueOnce(
+      summaryRow({
+        available: null,
+        reserved: null,
+        lowStock: 0,
+        valuation: null,
+      }),
+    );
+
+    const res = await svc.report(INV_SELLER_A);
+
+    expect(res).toEqual({
+      totalProducts: 0,
+      totalAvailable: 0,
+      totalReserved: 0,
+      lowStockCount: 0,
+      outOfStockCount: 0,
+      valuation: '0.00',
+    });
+  });
+});
+
 describe('inventory ownership scoping', () => {
   it('listStock scopes a SELLER to their own stock', async () => {
     const { svc, prisma } = build();

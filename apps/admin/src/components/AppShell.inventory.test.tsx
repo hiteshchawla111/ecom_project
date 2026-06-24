@@ -42,10 +42,13 @@ describe('AppShell (INVENTORY_MANAGER)', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('shows Inventory (open to inventory managers) but hides ADMIN-only Orders', () => {
+  it('shows Inventory + its report (open to inventory managers) but hides ADMIN-only Orders', () => {
     renderShell();
     expect(
-      screen.getByRole('link', { name: /inventory/i }),
+      screen.getByRole('link', { name: 'Inventory' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Inventory report' }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: /orders/i }),

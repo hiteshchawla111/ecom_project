@@ -58,6 +58,20 @@ export interface ListStockQuery {
   lowStock?: boolean;
 }
 
+/**
+ * Aggregate inventory health (mirrors the API InventoryReport). `valuation` is
+ * money: a pre-formatted 2-dp string from the API — never compute or reformat
+ * it client-side.
+ */
+export interface InventoryReport {
+  totalProducts: number;
+  totalAvailable: number;
+  totalReserved: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  valuation: string;
+}
+
 /** Build a query string from defined/truthy params only. */
 function toQuery(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
@@ -80,6 +94,11 @@ export function listStock(
       lowStock: query.lowStock ? 'true' : undefined,
     })}`,
   );
+}
+
+/** Fetch the cross-seller inventory report (ADMIN / INVENTORY_MANAGER). */
+export function getInventoryReport(): Promise<InventoryReport> {
+  return apiClient.request<InventoryReport>('/inventory/reports');
 }
 
 /** Fetch a product's stock detail + recent movements (ADMIN / INVENTORY_MANAGER). */

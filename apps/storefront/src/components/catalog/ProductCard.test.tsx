@@ -14,6 +14,8 @@ const base: Product = {
   status: 'ACTIVE',
   categoryId: 'c1',
   images: [],
+  ratingAvg: null,
+  ratingCount: 0,
 };
 
 describe('ProductCard', () => {

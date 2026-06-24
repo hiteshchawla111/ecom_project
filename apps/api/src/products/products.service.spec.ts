@@ -368,6 +368,42 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('list with sellerId filter', () => {
+    it('adds sellerId to the where clause when the filter is provided', async () => {
+      const { svc, prisma } = build();
+      prisma.product.findMany.mockResolvedValue([]);
+      prisma.product.count.mockResolvedValue(0);
+
+      await svc.list({ status: ProductStatus.ACTIVE }, ADMIN, {
+        sellerId: 'seller-x',
+      });
+
+      const [findCall] = prisma.product.findMany.mock.calls as Array<
+        [{ where: Record<string, unknown> }]
+      >;
+      expect(findCall[0].where).toEqual(
+        expect.objectContaining({
+          sellerId: 'seller-x',
+          status: ProductStatus.ACTIVE,
+          deletedAt: null,
+        }),
+      );
+    });
+
+    it('does not add sellerId when no filter is provided (existing behavior)', async () => {
+      const { svc, prisma } = build();
+      prisma.product.findMany.mockResolvedValue([]);
+      prisma.product.count.mockResolvedValue(0);
+
+      await svc.list({}, ADMIN);
+
+      const [findCall] = prisma.product.findMany.mock.calls as Array<
+        [{ where: Record<string, unknown> }]
+      >;
+      expect(findCall[0].where).not.toHaveProperty('sellerId');
+    });
+  });
+
   describe('ownership scoping', () => {
     it('list scopes a SELLER to their own products', async () => {
       const { svc, prisma } = build();

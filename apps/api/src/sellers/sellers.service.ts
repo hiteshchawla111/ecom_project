@@ -15,6 +15,7 @@ import {
 } from '../audit/audit-actions';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
 import { toSellerView, SellerView } from './seller-mask';
+import { toPublicSellerView, PublicSellerView } from './public-seller-view';
 import {
   SELLER_REGISTERED,
   SELLER_KYC_APPROVED,
@@ -353,6 +354,37 @@ export class SellersService {
       bankAccountNo: decryptIfPresent(updated.bankAccountNo, this.cipher),
       bankIfsc: decryptIfPresent(updated.bankIfsc, this.cipher),
     });
+  }
+
+  // --------------------------------------------------------------------------
+  // Public read methods (unauthenticated — active sellers only)
+  // --------------------------------------------------------------------------
+
+  /**
+   * Public seller profile by slug. Only an ACTIVE, non-soft-deleted seller is
+   * publicly reachable; anything else → 404 (no existence leak). Returns the
+   * 5-field public view — never status/KYC/timestamps.
+   */
+  async getPublicBySlug(slug: string): Promise<PublicSellerView> {
+    const seller = await this.prisma.seller.findFirst({
+      where: { slug, status: SellerStatus.ACTIVE, deletedAt: null },
+    });
+    if (!seller) throw new NotFoundException('Seller not found');
+    return toPublicSellerView(seller);
+  }
+
+  /**
+   * Resolves a slug to its seller id under the same public visibility gate as
+   * getPublicBySlug, so the public products endpoint 404s consistently for a
+   * shop that isn't publicly visible.
+   */
+  async getActiveSellerIdBySlug(slug: string): Promise<string> {
+    const seller = await this.prisma.seller.findFirst({
+      where: { slug, status: SellerStatus.ACTIVE, deletedAt: null },
+      select: { id: true },
+    });
+    if (!seller) throw new NotFoundException('Seller not found');
+    return seller.id;
   }
 
   // --------------------------------------------------------------------------

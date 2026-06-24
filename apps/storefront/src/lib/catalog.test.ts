@@ -30,6 +30,7 @@ const sampleProduct: Product = {
   status: 'ACTIVE',
   categoryId: 'c1',
   images: [],
+  seller: { displayName: 'Aurora Store', slug: 'aurora-store' },
 };
 
 describe('listProducts', () => {
@@ -226,6 +227,19 @@ describe('getProduct', () => {
 
     expect(fetchMock.mock.calls[0][0]).toBe('http://api.test/products/p1');
     expect(res?.id).toBe('p1');
+  });
+
+  it('round-trips the seller field on the product detail response', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(200, sampleProduct));
+
+    const res = await getProduct('p1', { ...opts, fetch: fetchMock });
+
+    expect(res?.seller).toEqual({
+      displayName: 'Aurora Store',
+      slug: 'aurora-store',
+    });
   });
 
   it('returns null on a 404', async () => {

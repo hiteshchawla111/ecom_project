@@ -26,6 +26,11 @@ export interface ProductCategory {
   parentId: string | null;
 }
 
+export interface ProductSeller {
+  displayName: string;
+  slug: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -40,6 +45,9 @@ export interface Product {
   categoryId: string;
   category?: ProductCategory;
   images?: ProductImage[];
+  /** The owning seller (shop name + slug). Present on product detail; may be
+   *  absent on list responses. Public-safe fields only — never KYC/status. */
+  seller?: ProductSeller;
 }
 
 /** Paginated envelope mirroring the API's list response. */

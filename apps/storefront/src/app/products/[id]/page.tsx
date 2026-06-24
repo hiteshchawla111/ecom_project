@@ -4,6 +4,7 @@ import { getProductById, getRelatedProductsFor } from '@/lib/catalog';
 import { Price } from '@/components/catalog/Price';
 import { ProductGallery } from '@/components/catalog/ProductGallery';
 import { RelatedProducts } from '@/components/catalog/RelatedProducts';
+import { SellerLink } from '@/components/catalog/SellerLink';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 
 type Params = { id: string };
@@ -50,6 +51,8 @@ export default async function ProductDetailPage({
           <h1 className="text-3xl font-bold text-content">
             {product.name}
           </h1>
+
+          <SellerLink seller={product.seller} />
 
           <Price
             price={product.price}

@@ -14,14 +14,12 @@
  *  4. GET /sellers/:slug/products for unknown / non-ACTIVE slug → 404.
  *
  * Note on assertion 3 (only ACTIVE products listed): The e2e seeds one ACTIVE
- * product via the seller-scoped HTTP endpoint so it is visible in the public
- * catalog. The "INACTIVE/ARCHIVED product does NOT appear" assertion is covered
- * in the controller unit test (public-sellers.controller.spec.ts) because
- * directly seeding a non-ACTIVE product via the authenticated seller endpoint
- * is not straightforward in this harness (seller creates a PENDING_REVIEW
- * product by default; forcing INACTIVE requires an additional admin action or
- * direct DB write). The e2e stays focused on the 200/404 + field-shape
- * (security-critical) assertions.
+ * product directly via PrismaService so it is visible in the public catalog.
+ * The "INACTIVE/ARCHIVED product does NOT appear" assertion is covered in the
+ * controller unit test (public-sellers.controller.spec.ts), which proves the
+ * status filter is forced to ACTIVE server-side regardless of client input.
+ * The e2e stays focused on the 200/404 + field-shape (security-critical)
+ * assertions.
  *
  * Cleanup (FK order):
  *   Product (by sellerId) → Seller (by slug) → User (by email)

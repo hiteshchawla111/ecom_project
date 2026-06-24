@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { buildPrefixTsQuery } from './build-prefix-tsquery';
 import {
   ProductSearch,
   ProductSearchItem,
   ProductSearchResult,
+  ProductSuggestion,
   PRODUCT_SEARCH_INCLUDE,
 } from './product-search';
 
@@ -12,6 +14,15 @@ interface RankedRow {
   id: string;
   rank: number;
   total: bigint;
+}
+
+/** One scalar row from the autocomplete query. */
+interface RawSuggestRow {
+  id: string;
+  name: string;
+  price: string;
+  salePrice: string | null;
+  rank: number;
 }
 
 /**
@@ -82,5 +93,37 @@ export class PostgresProductSearch implements ProductSearch {
       total,
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
     };
+  }
+
+  async suggest(q: string, limit: number): Promise<ProductSuggestion[]> {
+    const tsquery = buildPrefixTsQuery(q);
+    if (tsquery === null) return [];
+
+    // The sanitized prefix tsquery (alphanumeric tokens only, so to_tsquery
+    // never throws) is bound twice — for ts_rank and the @@ filter — then the
+    // limit is the last param. The @@ expression matches the K2 GIN index.
+    // Scalars only — no relation hydrate needed for a dropdown row.
+    const rows = await this.prisma.$queryRaw<RawSuggestRow[]>`
+      SELECT p.id, p.name, p.price, p."salePrice",
+             ts_rank(
+               setweight(to_tsvector('english', p.name), 'A') ||
+               setweight(to_tsvector('english', coalesce(p.description, '')), 'B'),
+               to_tsquery('english', ${tsquery})
+             ) AS rank
+      FROM "Product" p
+      WHERE p."deletedAt" IS NULL
+        AND p.status = 'ACTIVE'
+        AND to_tsvector('english', p.name || ' ' || coalesce(p.description, ''))
+            @@ to_tsquery('english', ${tsquery})
+      ORDER BY rank DESC, p."createdAt" DESC
+      LIMIT ${limit}
+    `;
+
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      price: r.price,
+      salePrice: r.salePrice,
+    }));
   }
 }

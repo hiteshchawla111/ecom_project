@@ -29,7 +29,7 @@ export interface Paginated<T> {
 }
 
 /** Relations included when returning a single product. */
-const PRODUCT_INCLUDE = {
+export const PRODUCT_INCLUDE = {
   category: true,
   images: { orderBy: { position: 'asc' as const } },
   // The owning seller — public-safe fields only (shop name + slug; never KYC/PII).

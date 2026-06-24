@@ -69,4 +69,38 @@ r = json.load(sys.stdin)
 assert r["data"] == [] and r["total"] == 0, "blank q should be an empty page"
 print("blank OK")'
 
+echo "== suggest: prefix 'auro' returns Aurora products (lean shape) =="
+curl -s "$BASE/products/suggest?q=auro" | python3 -c '
+import sys, json
+r = json.load(sys.stdin)
+assert isinstance(r, list), "suggest returns a bare array"
+assert len(r) >= 1, "prefix auro should match Aurora products"
+names = [x["name"] for x in r]
+print("suggest auro:", names)
+for x in r:
+    assert set(x.keys()) == {"id", "name", "price", "salePrice"}, "lean shape only"
+assert all("Aurora" in n for n in names), "prefix match should hit Aurora"
+print("OK")'
+
+echo "== suggest: narrowing 'aurora sma' still matches =="
+curl -s --get "$BASE/products/suggest" --data-urlencode "q=aurora sma" | python3 -c '
+import sys, json
+r = json.load(sys.stdin)
+assert len(r) >= 1, "aurora sma should still match Aurora Smartphone"
+print("aurora sma ->", [x["name"] for x in r], "OK")'
+
+echo "== suggest: limit respected =="
+curl -s "$BASE/products/suggest?q=a&limit=1" | python3 -c '
+import sys, json
+r = json.load(sys.stdin)
+assert len(r) <= 1, "limit=1 caps the array"
+print("limit=1 len:", len(r), "OK")'
+
+echo "== suggest: blank q -> [] =="
+curl -s "$BASE/products/suggest?q=" | python3 -c '
+import sys, json
+r = json.load(sys.stdin)
+assert r == [], "blank q is an empty array"
+print("blank OK")'
+
 echo "ALL SMOKE CHECKS PASSED"

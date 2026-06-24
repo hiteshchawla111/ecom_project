@@ -18,6 +18,7 @@ import { CustomersModule } from './customers/customers.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SellersModule } from './sellers/sellers.module';
+import { SearchModule } from './search/search.module';
 
 /**
  * Parse an env var as a positive integer, falling back to `fallback` when the
@@ -48,6 +49,11 @@ const num = (v: string | undefined, fallback: number): number => {
     CryptoModule,
     AuditModule,
     AuthModule,
+    // SearchModule MUST be imported before ProductsModule: both mount under
+    // `/products`, and Express matches routes in registration order. Registering
+    // the static `GET /products/search` before ProductsController's `GET /products/:id`
+    // stops `:id` from swallowing `search`. (Verified by the search HTTP smoke.)
+    SearchModule,
     ProductsModule,
     CategoriesModule,
     CartModule,

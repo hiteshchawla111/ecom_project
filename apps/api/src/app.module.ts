@@ -49,8 +49,12 @@ const num = (v: string | undefined, fallback: number): number => {
     CryptoModule,
     AuditModule,
     AuthModule,
-    ProductsModule,
+    // SearchModule MUST be imported before ProductsModule: both mount under
+    // `/products`, and Express matches routes in registration order. Registering
+    // the static `GET /products/search` before ProductsController's `GET /products/:id`
+    // stops `:id` from swallowing `search`. (Verified by the search HTTP smoke.)
     SearchModule,
+    ProductsModule,
     CategoriesModule,
     CartModule,
     OrdersModule,

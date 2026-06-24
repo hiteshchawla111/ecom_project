@@ -1,14 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ProductSearch, ProductSearchResult } from './product-search';
-
-/** Relations included so a search hit renders identically to a catalog card. */
-const PRODUCT_INCLUDE = {
-  category: true,
-  images: { orderBy: { position: 'asc' as const } },
-  seller: { select: { displayName: true, slug: true } },
-} satisfies Prisma.ProductInclude;
+import {
+  ProductSearch,
+  ProductSearchItem,
+  ProductSearchResult,
+  PRODUCT_SEARCH_INCLUDE,
+} from './product-search';
 
 /** One ranked, paginated row from the FTS query. */
 interface RankedRow {
@@ -33,7 +30,7 @@ export class PostgresProductSearch implements ProductSearch {
     page: number,
     pageSize: number,
   ): Promise<ProductSearchResult> {
-    const term = (q ?? '').trim();
+    const term = q.trim();
     if (term === '') {
       return { data: [], page, pageSize, total: 0, totalPages: 1 };
     }
@@ -69,14 +66,14 @@ export class PostgresProductSearch implements ProductSearch {
 
     const products = await this.prisma.product.findMany({
       where: { id: { in: ids } },
-      include: PRODUCT_INCLUDE,
+      include: PRODUCT_SEARCH_INCLUDE,
     });
 
     // `IN (...)` does not preserve order — re-sort into the ranked id order.
     const byId = new Map(products.map((p) => [p.id, p]));
     const data = ids
       .map((id) => byId.get(id))
-      .filter((p) => p !== undefined) as ProductSearchResult['data'];
+      .filter((p): p is ProductSearchItem => p !== undefined);
 
     return {
       data,

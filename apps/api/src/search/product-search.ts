@@ -1,8 +1,20 @@
-import type { Product } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
-/** Paginated search envelope — same shape as the catalog list `Paginated<Product>`. */
+/** Relations included so a search hit renders identically to a catalog card. */
+export const PRODUCT_SEARCH_INCLUDE = {
+  category: true,
+  images: { orderBy: { position: 'asc' as const } },
+  seller: { select: { displayName: true, slug: true } },
+} satisfies Prisma.ProductInclude;
+
+/** A search result row: a Product plus the included relations. */
+export type ProductSearchItem = Prisma.ProductGetPayload<{
+  include: typeof PRODUCT_SEARCH_INCLUDE;
+}>;
+
+/** Paginated search envelope — a Product plus its catalog-card relations. */
 export interface ProductSearchResult {
-  data: Product[];
+  data: ProductSearchItem[];
   page: number;
   pageSize: number;
   total: number;
@@ -16,7 +28,11 @@ export interface ProductSearchResult {
  * paginated, ranked, ACTIVE-only result.
  */
 export interface ProductSearch {
-  search(q: string, page: number, pageSize: number): Promise<ProductSearchResult>;
+  search(
+    q: string,
+    page: number,
+    pageSize: number,
+  ): Promise<ProductSearchResult>;
 }
 
 /** DI token for `ProductSearch` (interfaces have no runtime identity in TS). */

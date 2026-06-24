@@ -17,24 +17,38 @@ describe('PostgresProductSearch', () => {
   it('short-circuits a blank query to an empty page with no DB calls', async () => {
     const { svc, prisma } = build([], []);
     const res = await svc.search('   ', 1, 20);
-    expect(res).toEqual({ data: [], page: 1, pageSize: 20, total: 0, totalPages: 1 });
+    expect(res).toEqual({
+      data: [],
+      page: 1,
+      pageSize: 20,
+      total: 0,
+      totalPages: 1,
+    });
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
     expect(prisma.product.findMany).not.toHaveBeenCalled();
   });
 
   it('runs the raw query then hydrates via findMany with id IN (...)', async () => {
-    const rows: RawRow[] = [{ id: 'b', rank: 0.9, total: 2n }, { id: 'a', rank: 0.3, total: 2n }];
+    const rows: RawRow[] = [
+      { id: 'b', rank: 0.9, total: 2n },
+      { id: 'a', rank: 0.3, total: 2n },
+    ];
     const { svc, prisma } = build(rows, [{ id: 'a' }, { id: 'b' }]);
     await svc.search('aurora', 1, 20);
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(prisma.product.findMany).toHaveBeenCalledTimes(1);
-    const arg = prisma.product.findMany.mock.calls[0][0];
-    expect(arg.where).toEqual({ id: { in: ['b', 'a'] } });
-    expect(arg.include).toBeDefined();
+    const [findArgs] = prisma.product.findMany.mock.calls as Array<
+      [{ where: unknown; include: unknown }]
+    >;
+    expect(findArgs[0].where).toEqual({ id: { in: ['b', 'a'] } });
+    expect(findArgs[0].include).toBeDefined();
   });
 
   it('re-sorts hydrated products into the rank order from the raw query', async () => {
-    const rows: RawRow[] = [{ id: 'b', rank: 0.9, total: 2n }, { id: 'a', rank: 0.3, total: 2n }];
+    const rows: RawRow[] = [
+      { id: 'b', rank: 0.9, total: 2n },
+      { id: 'a', rank: 0.3, total: 2n },
+    ];
     // findMany returns DB order [a, b]; result must follow rank order [b, a].
     const { svc } = build(rows, [{ id: 'a' }, { id: 'b' }]);
     const res = await svc.search('aurora', 1, 20);
@@ -46,7 +60,13 @@ describe('PostgresProductSearch', () => {
   it('returns an empty page (skipping findMany) when the raw query matches nothing', async () => {
     const { svc, prisma } = build([], []);
     const res = await svc.search('zzz', 1, 20);
-    expect(res).toEqual({ data: [], page: 1, pageSize: 20, total: 0, totalPages: 1 });
+    expect(res).toEqual({
+      data: [],
+      page: 1,
+      pageSize: 20,
+      total: 0,
+      totalPages: 1,
+    });
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(prisma.product.findMany).not.toHaveBeenCalled();
   });

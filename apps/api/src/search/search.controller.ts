@@ -3,6 +3,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import type { ProductSearch } from './product-search';
 import { PRODUCT_SEARCH } from './product-search';
 import { SearchProductsDto } from './dto/search-products.dto';
+import { SuggestProductsDto } from './dto/suggest-products.dto';
 
 /**
  * Public product search. `GET /products/search` — the static `search` segment
@@ -23,5 +24,11 @@ export class SearchController {
       query.page ?? 1,
       query.pageSize ?? 20,
     );
+  }
+
+  @Public()
+  @Get('suggest')
+  suggest(@Query() query: SuggestProductsDto) {
+    return this.productSearch.suggest(query.q ?? '', query.limit ?? 8);
   }
 }

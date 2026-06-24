@@ -28,4 +28,29 @@ describe('SearchController', () => {
     await ctrl.search({});
     expect(searchFn).toHaveBeenCalledWith('', 1, 20);
   });
+
+  describe('suggest', () => {
+    const makeSuggest = () => {
+      const suggestFn = jest.fn().mockResolvedValue([]);
+      // Cast to ProductSearch so the controller constructor receives the correct type.
+      return {
+        suggestFn,
+        stub: { suggest: suggestFn } as unknown as ProductSearch,
+      };
+    };
+
+    it('delegates to ProductSearch.suggest with DTO values', async () => {
+      const { suggestFn, stub } = makeSuggest();
+      const ctrl = new SearchController(stub);
+      await ctrl.suggest({ q: 'auro', limit: 5 });
+      expect(suggestFn).toHaveBeenCalledWith('auro', 5);
+    });
+
+    it('applies defaults when q/limit are omitted', async () => {
+      const { suggestFn, stub } = makeSuggest();
+      const ctrl = new SearchController(stub);
+      await ctrl.suggest({});
+      expect(suggestFn).toHaveBeenCalledWith('', 8);
+    });
+  });
 });

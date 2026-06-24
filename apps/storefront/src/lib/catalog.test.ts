@@ -4,10 +4,13 @@ import {
   getCategory,
   getProduct,
   getRelatedProducts,
+  getSeller,
   listCategories,
   listProducts,
+  listSellerProducts,
   type Category,
   type Product,
+  type Seller,
 } from './catalog';
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -316,5 +319,87 @@ describe('getRelatedProducts', () => {
     });
 
     expect(res).toEqual([]);
+  });
+});
+
+const sampleSeller: Seller = {
+  id: 's1',
+  displayName: 'Demo Shop',
+  slug: 'demo-shop',
+  description: 'We sell demo things',
+  logoUrl: null,
+};
+
+describe('getSeller', () => {
+  it('requests /sellers/:slug and returns the seller', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, sampleSeller));
+
+    const res = await getSeller('demo-shop', { ...opts, fetch: fetchMock });
+
+    expect(fetchMock.mock.calls[0][0]).toBe('http://api.test/sellers/demo-shop');
+    expect(res?.slug).toBe('demo-shop');
+    expect(res?.displayName).toBe('Demo Shop');
+  });
+
+  it('returns null on a 404', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(404, { message: 'Seller not found' }));
+
+    await expect(
+      getSeller('nope', { ...opts, fetch: fetchMock }),
+    ).resolves.toBeNull();
+  });
+
+  it('throws CatalogError on a non-404 error', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(500, { message: 'boom' }));
+
+    await expect(
+      getSeller('demo-shop', { ...opts, fetch: fetchMock }),
+    ).rejects.toBeInstanceOf(CatalogError);
+  });
+});
+
+describe('listSellerProducts', () => {
+  it('requests /sellers/:slug/products with pagination params and returns the envelope', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, {
+        data: [sampleProduct],
+        page: 2,
+        pageSize: 12,
+        total: 13,
+        totalPages: 2,
+      }),
+    );
+
+    const res = await listSellerProducts(
+      'demo-shop',
+      { page: 2, pageSize: 12 },
+      { ...opts, fetch: fetchMock },
+    );
+
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('http://api.test/sellers/demo-shop/products');
+    expect(url).toContain('page=2');
+    expect(url).toContain('pageSize=12');
+    expect(res.data).toHaveLength(1);
+    expect(res.total).toBe(13);
+  });
+
+  it('omits undefined pagination params', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, {
+        data: [],
+        page: 1,
+        pageSize: 12,
+        total: 0,
+        totalPages: 1,
+      }),
+    );
+
+    await listSellerProducts('demo-shop', {}, { ...opts, fetch: fetchMock });
+
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toBe('http://api.test/sellers/demo-shop/products');
   });
 });

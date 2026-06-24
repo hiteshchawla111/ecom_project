@@ -5,6 +5,7 @@ import { Price } from '@/components/catalog/Price';
 import { ProductGallery } from '@/components/catalog/ProductGallery';
 import { RelatedProducts } from '@/components/catalog/RelatedProducts';
 import { SellerLink } from '@/components/catalog/SellerLink';
+import { RatingStars } from '@/components/catalog/RatingStars';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
 
 type Params = { id: string };
@@ -53,6 +54,11 @@ export default async function ProductDetailPage({
           </h1>
 
           <SellerLink seller={product.seller} />
+
+          <RatingStars
+            ratingAvg={product.ratingAvg}
+            ratingCount={product.ratingCount}
+          />
 
           <Price
             price={product.price}

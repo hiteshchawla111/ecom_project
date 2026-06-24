@@ -24,4 +24,11 @@ describe('RatingStars', () => {
     const { container } = render(<RatingStars ratingAvg={null} ratingCount={5} />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('fills the rounded number of stars (4.40 → 4 filled)', () => {
+    const { container } = render(<RatingStars ratingAvg="4.40" ratingCount={8} />);
+    // filled stars carry text-accent-400; empties carry text-content-subtle
+    expect(container.querySelectorAll('.text-accent-400')).toHaveLength(4);
+    expect(container.querySelectorAll('.text-content-subtle')).toHaveLength(1);
+  });
 });

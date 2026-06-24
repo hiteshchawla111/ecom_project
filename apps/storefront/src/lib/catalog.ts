@@ -57,6 +57,10 @@ export interface Product {
   /** The owning seller (shop name + slug). Present on product detail; may be
    *  absent on list responses. Public-safe fields only — never KYC/status. */
   seller?: ProductSeller;
+  /** Average rating as a Decimal string, or null until the product has reviews. */
+  ratingAvg: string | null;
+  /** Number of published reviews; 0 until reviews exist. */
+  ratingCount: number;
 }
 
 /** Paginated envelope mirroring the API's list response. */

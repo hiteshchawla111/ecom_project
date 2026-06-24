@@ -34,6 +34,8 @@ const sampleProduct: Product = {
   categoryId: 'c1',
   images: [],
   seller: { displayName: 'Aurora Store', slug: 'aurora-store' },
+  ratingAvg: '4.50',
+  ratingCount: 12,
 };
 
 describe('listProducts', () => {
@@ -243,6 +245,15 @@ describe('getProduct', () => {
       displayName: 'Aurora Store',
       slug: 'aurora-store',
     });
+  });
+
+  it('round-trips the rating fields on the product detail response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, sampleProduct));
+
+    const res = await getProduct('p1', { ...opts, fetch: fetchMock });
+
+    expect(res?.ratingAvg).toBe('4.50');
+    expect(res?.ratingCount).toBe(12);
   });
 
   it('returns null on a 404', async () => {

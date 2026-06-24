@@ -99,9 +99,10 @@ export class PostgresProductSearch implements ProductSearch {
     const tsquery = buildPrefixTsQuery(q);
     if (tsquery === null) return [];
 
-    // $1 = sanitized prefix tsquery string (built from alphanumeric tokens only,
-    // so to_tsquery never throws); $2 = limit. The @@ expression matches the K2
-    // GIN index. Scalars only — no relation hydrate needed for a dropdown row.
+    // The sanitized prefix tsquery (alphanumeric tokens only, so to_tsquery
+    // never throws) is bound twice — for ts_rank and the @@ filter — then the
+    // limit is the last param. The @@ expression matches the K2 GIN index.
+    // Scalars only — no relation hydrate needed for a dropdown row.
     const rows = await this.prisma.$queryRaw<RawSuggestRow[]>`
       SELECT p.id, p.name, p.price, p."salePrice",
              ts_rank(

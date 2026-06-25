@@ -152,6 +152,12 @@ async function main(): Promise<void> {
     }
   }
 
+  // Default brand hue (coral, matches DESIGN.md primary-500). Idempotent.
+  await prisma.appSetting.upsert({
+    where: { key: 'brand.hue' },
+    update: {},
+    create: { key: 'brand.hue', value: '28' },
+  });
   // Demo seller — a self-serve SELLER account for the seller portal (M2 slice 6).
   const sellerUser = await prisma.user.upsert({
     where: { email: 'seller@example.com' },

@@ -88,6 +88,14 @@ export function AppShell() {
               </NavLink>
             </>
           )}
+          {isAdmin && (
+            <>
+              <p className={groupLabelClass}>System</p>
+              <NavLink to="/settings" className={navLinkClass}>
+                Settings
+              </NavLink>
+            </>
+          )}
         </nav>
       </aside>
 

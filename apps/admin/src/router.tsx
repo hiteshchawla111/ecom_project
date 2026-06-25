@@ -16,6 +16,7 @@ import { InventoryReportPage } from './pages/InventoryReportPage';
 import { InventoryItemPage } from './pages/InventoryItemPage';
 import { SellersPage } from './pages/SellersPage';
 import { SellerDetailPage } from './pages/SellerDetailPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { SellerProductsPage } from './pages/SellerProductsPage';
 import { SellerProductNewPage } from './pages/SellerProductNewPage';
 import { SellerProductEditPage } from './pages/SellerProductEditPage';
@@ -51,6 +52,7 @@ export const router = createBrowserRouter([
               { path: 'orders/:id', element: <OrderDetailPage /> },
               { path: 'sellers', element: <SellersPage /> },
               { path: 'sellers/:id', element: <SellerDetailPage /> },
+              { path: 'settings', element: <SettingsPage /> },
             ],
           },
           {

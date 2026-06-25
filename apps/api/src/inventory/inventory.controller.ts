@@ -35,6 +35,16 @@ export class InventoryController {
     return this.inventory.listStock(query, user);
   }
 
+  /**
+   * Aggregate inventory health across all sellers: product/unit totals,
+   * low/out-of-stock counts, and valuation. Declared before `:productId` so the
+   * literal route isn't captured as a product id.
+   */
+  @Get('reports')
+  report(@CurrentUser() user: AccessTokenPayload) {
+    return this.inventory.report(user);
+  }
+
   /** A product's stock detail plus its recent movement history. */
   @Get(':productId')
   getStockItem(

@@ -147,6 +147,9 @@ export function ProductsPage() {
                 <th scope="col" className="px-4 py-2.5 font-medium">
                   Status
                 </th>
+                <th scope="col" className="px-4 py-2.5 font-medium">
+                  Sold by
+                </th>
                 <th scope="col" className="px-4 py-2.5 text-right font-medium">
                   Actions
                 </th>
@@ -168,6 +171,9 @@ export function ProductsPage() {
                     </td>
                     <td className="px-4 py-2">
                       <StatusBadge status={product.status} />
+                    </td>
+                    <td className="px-4 py-2 text-content-muted">
+                      {product.seller?.displayName ?? '—'}
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex justify-end">

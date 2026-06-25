@@ -29,9 +29,11 @@ export interface Paginated<T> {
 }
 
 /** Relations included when returning a single product. */
-const PRODUCT_INCLUDE = {
+export const PRODUCT_INCLUDE = {
   category: true,
   images: { orderBy: { position: 'asc' as const } },
+  // The owning seller — public-safe fields only (shop name + slug; never KYC/PII).
+  seller: { select: { displayName: true, slug: true } },
 } satisfies Prisma.ProductInclude;
 
 @Injectable()
@@ -55,6 +57,17 @@ export class ProductsService {
           categoryId: dto.categoryId,
           status: dto.status,
           sellerId,
+          // Provision the stock ledger row atomically — a product is immediately
+          // manageable in inventory (zero stock until an ADDITION is posted).
+          // sellerId mirrors the product's owner (the inventory scope filters on it).
+          inventory: {
+            create: {
+              sellerId,
+              available: 0,
+              reserved: 0,
+              lowStockThreshold: 0,
+            },
+          },
         },
       });
     } catch (err) {
@@ -74,12 +87,13 @@ export class ProductsService {
   async list(
     query: ListProductsDto,
     actor: ScopeActor,
+    filter?: { sellerId?: string },
   ): Promise<Paginated<Product>> {
     const page = query.page ?? DEFAULT_PAGE;
     const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
     const skip = (page - 1) * pageSize;
 
-    const where = this.buildWhere(query, actor);
+    const where = this.buildWhere(query, actor, filter);
     const orderBy = this.buildOrderBy(query);
 
     const [data, total] = await Promise.all([
@@ -106,11 +120,16 @@ export class ProductsService {
   private buildWhere(
     query: ListProductsDto,
     actor: ScopeActor,
+    filter?: { sellerId?: string },
   ): Prisma.ProductWhereInput {
     const where: Prisma.ProductWhereInput = {
       deletedAt: null,
       ...buildSellerScope(actor),
     };
+
+    // Explicit, caller-supplied seller filter (e.g. a public seller storefront
+    // listing). Distinct from buildSellerScope, which confines the *actor*.
+    if (filter?.sellerId) where.sellerId = filter.sellerId;
 
     if (query.search) {
       const contains = { contains: query.search, mode: 'insensitive' as const };

@@ -12,6 +12,7 @@ const build = () => {
     listStock: jest.fn(),
     getStockItem: jest.fn(),
     adjust: jest.fn(),
+    report: jest.fn(),
   };
   const ctrl = new SellerInventoryController(inventory as never);
   return { ctrl, inventory };
@@ -35,6 +36,12 @@ describe('SellerInventoryController', () => {
       'p1',
       actorFor(SELLER_ID),
     );
+  });
+
+  it('report passes a seller-scoped actor', async () => {
+    const { ctrl, inventory } = build();
+    await ctrl.report(SELLER_ID);
+    expect(inventory.report).toHaveBeenCalledWith(actorFor(SELLER_ID));
   });
 
   it('createMovement passes a merged actor (user sub + guard sellerId), productId, and dto', async () => {

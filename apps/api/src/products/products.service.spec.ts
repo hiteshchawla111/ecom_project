@@ -87,6 +87,32 @@ describe('ProductsService', () => {
       );
       await expect(svc.create(baseCreate, ADMIN)).rejects.toThrow();
     });
+
+    it('provisions an InventoryItem (seller-owned, zero stock) atomically with the product', async () => {
+      const { svc, prisma } = build();
+      prisma.product.create.mockResolvedValue({ id: 'p1', ...baseCreate });
+
+      await svc.create(baseCreate, SELLER_A); // SELLER_A = { role: SELLER, sellerId: 'seller-a' }
+
+      const [createCall] = prisma.product.create.mock.calls as Array<
+        [
+          {
+            data: {
+              sellerId?: string;
+              inventory?: { create?: Record<string, unknown> };
+            };
+          },
+        ]
+      >;
+      const data = createCall[0].data;
+      expect(data.sellerId).toBe('seller-a');
+      expect(data.inventory?.create).toEqual({
+        sellerId: 'seller-a',
+        available: 0,
+        reserved: 0,
+        lowStockThreshold: 0,
+      });
+    });
   });
 
   describe('findOne', () => {
@@ -339,6 +365,42 @@ describe('ProductsService', () => {
         where: { id: 'p1' },
         data: { status: ProductStatus.INACTIVE },
       });
+    });
+  });
+
+  describe('list with sellerId filter', () => {
+    it('adds sellerId to the where clause when the filter is provided', async () => {
+      const { svc, prisma } = build();
+      prisma.product.findMany.mockResolvedValue([]);
+      prisma.product.count.mockResolvedValue(0);
+
+      await svc.list({ status: ProductStatus.ACTIVE }, ADMIN, {
+        sellerId: 'seller-x',
+      });
+
+      const [findCall] = prisma.product.findMany.mock.calls as Array<
+        [{ where: Record<string, unknown> }]
+      >;
+      expect(findCall[0].where).toEqual(
+        expect.objectContaining({
+          sellerId: 'seller-x',
+          status: ProductStatus.ACTIVE,
+          deletedAt: null,
+        }),
+      );
+    });
+
+    it('does not add sellerId when no filter is provided (existing behavior)', async () => {
+      const { svc, prisma } = build();
+      prisma.product.findMany.mockResolvedValue([]);
+      prisma.product.count.mockResolvedValue(0);
+
+      await svc.list({}, ADMIN);
+
+      const [findCall] = prisma.product.findMany.mock.calls as Array<
+        [{ where: Record<string, unknown> }]
+      >;
+      expect(findCall[0].where).not.toHaveProperty('sellerId');
     });
   });
 

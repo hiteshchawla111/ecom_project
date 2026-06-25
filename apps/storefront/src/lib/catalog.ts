@@ -26,6 +26,20 @@ export interface ProductCategory {
   parentId: string | null;
 }
 
+export interface ProductSeller {
+  displayName: string;
+  slug: string;
+}
+
+/** Public seller profile (storefront seller page). Mirrors GET /sellers/:slug. */
+export interface Seller {
+  id: string;
+  displayName: string;
+  slug: string;
+  description: string | null;
+  logoUrl: string | null;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -40,6 +54,13 @@ export interface Product {
   categoryId: string;
   category?: ProductCategory;
   images?: ProductImage[];
+  /** The owning seller (shop name + slug). Present on product detail; may be
+   *  absent on list responses. Public-safe fields only — never KYC/status. */
+  seller?: ProductSeller;
+  /** Average rating as a Decimal string, or null until the product has reviews. */
+  ratingAvg: string | null;
+  /** Number of published reviews; 0 until reviews exist. */
+  ratingCount: number;
 }
 
 /** Paginated envelope mirroring the API's list response. */
@@ -157,6 +178,22 @@ export async function getProduct(
   return body as Product;
 }
 
+/** List a seller's ACTIVE products (paginated). Mirrors GET /sellers/:slug/products. */
+export async function listSellerProducts(
+  slug: string,
+  query: { page?: number; pageSize?: number },
+  { baseUrl, fetch: fetchImpl = fetch }: CatalogOptions,
+): Promise<Paginated<Product>> {
+  const url = `${baseUrl}/sellers/${slug}/products${toQuery({
+    page: query.page,
+    pageSize: query.pageSize,
+  })}`;
+  const res = await fetchImpl(url, { cache: 'no-store' });
+  const body = (await res.json().catch(() => null)) as unknown;
+  if (!res.ok) throw new CatalogError(messageFrom(body, res.status), res.status);
+  return body as Paginated<Product>;
+}
+
 /** Max related products shown on a detail page. */
 const RELATED_LIMIT = 4;
 
@@ -207,6 +244,20 @@ export async function getCategory(
   return body as Category;
 }
 
+/** Fetch a public seller profile by slug; null on 404, throws on other errors. */
+export async function getSeller(
+  slug: string,
+  { baseUrl, fetch: fetchImpl = fetch }: CatalogOptions,
+): Promise<Seller | null> {
+  const res = await fetchImpl(`${baseUrl}/sellers/${slug}`, {
+    cache: 'no-store',
+  });
+  if (res.status === 404) return null;
+  const body = (await res.json().catch(() => null)) as unknown;
+  if (!res.ok) throw new CatalogError(messageFrom(body, res.status), res.status);
+  return body as Seller;
+}
+
 // --- Server-bound convenience wrappers (called from Server Components) -------
 // These bind the configured API base URL, mirroring session.ts/getCurrentUser.
 
@@ -242,4 +293,17 @@ export function getCategoryByIdOrSlug(
   idOrSlug: string,
 ): Promise<Category | null> {
   return getCategory(idOrSlug, { baseUrl: apiBaseUrl() });
+}
+
+/** Fetch a public seller profile against the configured API (null on 404). */
+export function getSellerBySlug(slug: string): Promise<Seller | null> {
+  return getSeller(slug, { baseUrl: apiBaseUrl() });
+}
+
+/** List a seller's products against the configured API. */
+export function getSellerProducts(
+  slug: string,
+  query: { page?: number; pageSize?: number } = {},
+): Promise<Paginated<Product>> {
+  return listSellerProducts(slug, query, { baseUrl: apiBaseUrl() });
 }

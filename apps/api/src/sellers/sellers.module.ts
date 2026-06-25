@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
+import { ProductsModule } from '../products/products.module';
 import { SellersController } from './sellers.controller';
 import { AdminSellersController } from './admin-sellers.controller';
+import { PublicSellersController } from './public-sellers.controller';
 import { SellersService } from './sellers.service';
 
 /**
@@ -14,8 +16,12 @@ import { SellersService } from './sellers.service';
  * EventEmitter2 is registered app-globally via EventEmitterModule.forRoot().
  */
 @Module({
-  imports: [PrismaModule],
-  controllers: [SellersController, AdminSellersController],
+  imports: [PrismaModule, ProductsModule],
+  controllers: [
+    SellersController,
+    AdminSellersController,
+    PublicSellersController,
+  ],
   providers: [SellersService],
   exports: [SellersService],
 })

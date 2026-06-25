@@ -56,6 +56,21 @@ export interface Paginated<T> {
   totalPages: number;
 }
 
+/**
+ * Aggregate inventory health for a scope (a single seller, or all sellers for
+ * admin). Valuation is money, so it stays a fixed-precision string — never a
+ * JS float.
+ */
+export interface InventoryReport {
+  totalProducts: number;
+  totalAvailable: number;
+  totalReserved: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  /** Σ(available × Product.price) over the scope, as a Decimal string. */
+  valuation: string;
+}
+
 /** How many recent movements `getStockItem` returns. */
 const MOVEMENT_HISTORY_LIMIT = 50;
 
@@ -431,6 +446,71 @@ export class InventoryService {
       throw new NotFoundException('No inventory item for this product');
     }
     return { ...this.toStockRow(item), movements: item.movements };
+  }
+
+  /**
+   * Aggregate inventory health for a scope: a single seller (SELLER actor) or
+   * all sellers (ADMIN / INVENTORY_MANAGER). Counts that Prisma's `where` can
+   * express (total products, out-of-stock) use scoped `count`; the unit sums,
+   * the low-stock count (a column-to-column `available <= lowStockThreshold`
+   * comparison), and the valuation (`Σ available × Product.price`, money math)
+   * come from one raw summary query. All reads run in one transaction so the
+   * figures come from a single consistent snapshot.
+   */
+  async report(actor: ScopeActor): Promise<InventoryReport> {
+    const scope = buildSellerScope(actor);
+    // Parameterized seller filter for the raw query (empty for admin). Prisma's
+    // tagged-template `$queryRaw` parameterizes interpolated values, so this is
+    // injection-safe even though it's string-composed.
+    const sellerFilter = scope.sellerId
+      ? Prisma.sql`WHERE i."sellerId" = ${scope.sellerId}`
+      : Prisma.empty;
+
+    const { totalProducts, outOfStockCount, summary } =
+      await this.prisma.$transaction(async (tx) => {
+        const [total, outOfStock, rows] = await Promise.all([
+          tx.inventoryItem.count({ where: { ...scope } }),
+          tx.inventoryItem.count({ where: { ...scope, available: 0 } }),
+          tx.$queryRaw<
+            {
+              available: bigint | number | null;
+              reserved: bigint | number | null;
+              lowStock: bigint | number | null;
+              valuation: string | null;
+            }[]
+          >`
+            SELECT
+              SUM(i."available")                              AS "available",
+              SUM(i."reserved")                               AS "reserved",
+              COUNT(*) FILTER (
+                WHERE i."available" <= i."lowStockThreshold"
+              )                                               AS "lowStock",
+              -- numeric(2dp) then ::text so it arrives as a literal 2-dp string;
+              -- a Prisma Decimal's toString() would drop the trailing zero
+              -- (11824.50 -> "11824.5"), breaking the money format.
+              SUM(i."available" * p."price")::numeric(38,2)::text AS "valuation"
+            FROM "InventoryItem" i
+            JOIN "Product" p ON p."id" = i."productId"
+            ${sellerFilter}
+          `,
+        ]);
+        return {
+          totalProducts: total,
+          outOfStockCount: outOfStock,
+          summary: rows[0],
+        };
+      });
+
+    return {
+      totalProducts,
+      totalAvailable: Number(summary?.available ?? 0),
+      totalReserved: Number(summary?.reserved ?? 0),
+      lowStockCount: Number(summary?.lowStock ?? 0),
+      outOfStockCount,
+      // Money: keep fixed precision; an empty scope's SUM is SQL NULL → "0.00".
+      valuation:
+        summary?.valuation == null ? '0.00' : String(summary.valuation),
+    };
   }
 
   /** Map an inventory row (+product) to the admin StockRow shape. */

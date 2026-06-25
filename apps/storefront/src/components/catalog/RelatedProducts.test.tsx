@@ -14,6 +14,8 @@ const make = (id: string, name: string): Product => ({
   status: 'ACTIVE',
   categoryId: 'c1',
   images: [],
+  ratingAvg: null,
+  ratingCount: 0,
 });
 
 describe('RelatedProducts', () => {

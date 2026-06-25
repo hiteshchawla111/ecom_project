@@ -158,6 +158,66 @@ async function main(): Promise<void> {
     update: {},
     create: { key: 'brand.hue', value: '28' },
   });
+  // Demo seller — a self-serve SELLER account for the seller portal (M2 slice 6).
+  const sellerUser = await prisma.user.upsert({
+    where: { email: 'seller@example.com' },
+    update: {},
+    create: {
+      email: 'seller@example.com',
+      name: 'Demo Seller',
+      role: Role.SELLER,
+      passwordHash,
+    },
+  });
+  const demoSeller = await prisma.seller.upsert({
+    where: { userId: sellerUser.id },
+    update: {},
+    create: {
+      userId: sellerUser.id,
+      displayName: 'Demo Shop',
+      slug: 'demo-shop',
+      status: SellerStatus.ACTIVE,
+    },
+  });
+
+  // A couple of products owned by the demo seller (idempotent: findFirst-guarded
+  // create scoped to this seller, mirroring the platform-seller product loop).
+  const demoProducts = [
+    { sku: 'DEMO-001', name: 'Demo Mug', description: 'A sturdy ceramic mug.', price: '12.00', available: 30, lowStockThreshold: 5 },
+    { sku: 'DEMO-002', name: 'Demo Notebook', description: 'A5 dotted notebook.', price: '8.50', available: 3, lowStockThreshold: 5 },
+  ];
+  for (const p of demoProducts) {
+    let product = await prisma.product.findFirst({
+      where: { sku: p.sku, sellerId: demoSeller.id },
+    });
+    if (!product) {
+      product = await prisma.product.create({
+        data: {
+          sku: p.sku,
+          name: p.name,
+          description: p.description,
+          price: p.price,
+          status: ProductStatus.ACTIVE,
+          categoryId: phones.id,
+          sellerId: demoSeller.id,
+        },
+      });
+    }
+    const invCount = await prisma.inventoryItem.count({
+      where: { productId: product.id },
+    });
+    if (invCount === 0) {
+      await prisma.inventoryItem.create({
+        data: {
+          productId: product.id,
+          available: p.available,
+          reserved: 0,
+          lowStockThreshold: p.lowStockThreshold,
+          sellerId: demoSeller.id,
+        },
+      });
+    }
+  }
 
   console.log('Seed complete.');
 }

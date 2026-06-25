@@ -196,4 +196,29 @@ describe('ProductsPage', () => {
       expect(listProducts).toHaveBeenLastCalledWith({ page: 1, pageSize: 20 }),
     );
   });
+
+  it('shows a "Sold by" column with the owning seller name', async () => {
+    listProducts.mockResolvedValue(
+      page([product({ seller: { displayName: 'Demo Shop', slug: 'demo-shop' } })]),
+    );
+    renderPage();
+
+    expect(
+      await screen.findByRole('columnheader', { name: /sold by/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Demo Shop')).toBeInTheDocument();
+  });
+
+  it('shows a dash for products without a seller', async () => {
+    listProducts.mockResolvedValue(page([product()])); // No seller
+    renderPage();
+
+    expect(await screen.findByText('Aurora Phone')).toBeInTheDocument();
+    // The cell should render a dash (—) when seller is absent
+    const row = screen.getByText('Aurora Phone').closest('tr')!;
+    const cells = within(row).getAllByRole('cell');
+    // Cells: Name, SKU, Price, Status, Sold by, Actions
+    // Sold by is at index 4 (0-indexed)
+    expect(cells[4]).toHaveTextContent('—');
+  });
 });

@@ -4,7 +4,8 @@ import type { Metadata } from 'next';
 import { getCurrentUser } from '@/lib/session';
 import { liveAuthedDeps } from '@/lib/api-authed';
 import { ApiAuthError } from '@/lib/api-auth';
-import { getSellerMe, type SellerView } from '@/lib/seller';
+import { getSellerMe } from '@/lib/seller-api';
+import type { SellerView } from '@/lib/seller';
 import { SellerStatusCard } from '@/components/seller/SellerStatusCard';
 import { SellerKycForm } from '@/components/seller/SellerKycForm';
 

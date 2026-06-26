@@ -12,7 +12,7 @@ import {
   getSellerMe,
   registerSeller,
   updateSellerMe,
-} from '@/lib/seller';
+} from '@/lib/seller-api';
 import type { SellerRouteDeps } from './handlers';
 
 /** Production wiring: API client bound to the caller's access token + cookies. */

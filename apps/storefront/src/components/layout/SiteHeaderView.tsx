@@ -3,6 +3,7 @@ import type { CurrentUser } from '@/lib/api-auth';
 import { MobileNav } from './MobileNav';
 import { ThemeToggle } from './ThemeToggle';
 import { CartCountBadge } from '@/components/cart/CartCountBadge';
+import { SearchAutocomplete } from '@/components/search/SearchAutocomplete';
 
 /** Primary navigation links, shared by the desktop bar and the mobile menu. */
 export const NAV_LINKS = [
@@ -44,6 +45,10 @@ export function SiteHeaderView({ user }: SiteHeaderViewProps) {
               </Link>
             ))}
           </nav>
+        </div>
+
+        <div className="hidden flex-1 justify-center px-4 md:flex">
+          <SearchAutocomplete />
         </div>
 
         <div className="flex items-center gap-2">

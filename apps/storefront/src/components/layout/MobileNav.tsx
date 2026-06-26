@@ -2,6 +2,7 @@
 
 import { useId, useState } from 'react';
 import Link from 'next/link';
+import { SearchAutocomplete } from '@/components/search/SearchAutocomplete';
 
 export interface MobileNavLink {
   href: string;
@@ -57,6 +58,9 @@ export function MobileNav({ links, isAuthenticated }: MobileNavProps) {
           id={panelId}
           className="absolute right-0 mt-2 w-56 rounded-lg border border-line bg-surface p-2 shadow-lg"
         >
+          <div className="mb-2 w-full">
+            <SearchAutocomplete />
+          </div>
           <nav aria-label="Mobile" className="flex flex-col gap-1">
             {links.map((link) => (
               <Link

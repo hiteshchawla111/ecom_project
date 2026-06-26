@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ProductSuggestion } from '@/lib/catalog';
+import { formatPrice } from '@/lib/money';
 
 const MIN_CHARS = 2;
 const DEBOUNCE_MS = 250;
@@ -144,7 +145,7 @@ export function SearchAutocomplete() {
               role="option"
               aria-selected={i === active}
               className={`flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-sm ${
-                i === active ? 'bg-primary-50 text-primary-700' : 'text-content hover:bg-neutral-50'
+                i === active ? 'bg-surface-muted font-semibold text-primary-700' : 'text-content hover:bg-surface-muted'
               }`}
               onMouseDown={(e) => {
                 e.preventDefault();
@@ -153,7 +154,7 @@ export function SearchAutocomplete() {
               onMouseEnter={() => setActive(i)}
             >
               <span className="truncate">{s.name}</span>
-              <span className="shrink-0 text-content-subtle">{displayPrice(s)}</span>
+              <span className="shrink-0 text-content-subtle">{formatPrice(displayPrice(s))}</span>
             </li>
           ))}
         </ul>

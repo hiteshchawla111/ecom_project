@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { guestRedirectFor, isAuthRoute, loginRedirectFor } from './route-protection';
+import { guestRedirectFor, isAuthRoute, isProtected, loginRedirectFor } from './route-protection';
 
 describe('loginRedirectFor', () => {
   it('redirects an unauthenticated request to a protected route', () => {
@@ -79,5 +79,11 @@ describe('guestRedirectFor', () => {
 
   it('redirects an authenticated user away from an auth sub-path', () => {
     expect(guestRedirectFor('/reset-password/confirm', true)).toBe('/');
+  });
+});
+
+describe('isProtected — /account/seller regression guard', () => {
+  it('treats /account/seller as protected', () => {
+    expect(isProtected('/account/seller')).toBe(true);
   });
 });

@@ -26,6 +26,9 @@ export function SiteFooter() {
           <Link href="/categories" className={linkClass}>
             Categories
           </Link>
+          <Link href="/sell" className={linkClass}>
+            Sell with us
+          </Link>
         </nav>
       </div>
       <div className="border-t border-line">

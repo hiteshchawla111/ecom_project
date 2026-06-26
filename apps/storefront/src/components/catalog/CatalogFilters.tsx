@@ -1,12 +1,15 @@
 import Link from 'next/link';
-import type { Category, ProductSortBy, SortDir } from '@/lib/catalog';
+import type { Category, ProductSortBy, SortDir, SearchFacets } from '@/lib/catalog';
 
 /** Current filter values used to preselect the controls. */
 export interface CatalogFilterValues {
   search?: string;
+  q?: string;
   categoryId?: string;
   minPrice?: number;
   maxPrice?: number;
+  brand?: string;
+  minRating?: number;
   sortBy?: ProductSortBy;
   sortDir?: SortDir;
 }
@@ -14,6 +17,7 @@ export interface CatalogFilterValues {
 interface CatalogFiltersProps {
   categories: Category[];
   current?: CatalogFilterValues;
+  facets?: SearchFacets;
 }
 
 interface SortOption {
@@ -40,13 +44,37 @@ function flattenCategories(
   ]);
 }
 
+/** Build a /products URL with one facet set or cleared, preserving other
+ *  params and resetting page. `value === null` removes the facet. */
+export function buildFacetHref(
+  current: CatalogFilterValues,
+  key: 'brand' | 'minRating',
+  value: string | number | null,
+): string {
+  const params = new URLSearchParams();
+  if (current.q) params.set('q', current.q);
+  if (current.categoryId) params.set('category', current.categoryId);
+  if (current.minPrice !== undefined) params.set('minPrice', String(current.minPrice));
+  if (current.maxPrice !== undefined) params.set('maxPrice', String(current.maxPrice));
+  // carry the OTHER facet (the one not being changed)
+  if (key !== 'brand' && current.brand) params.set('brand', current.brand);
+  if (key !== 'minRating' && current.minRating !== undefined) {
+    params.set('minRating', String(current.minRating));
+  }
+  if (value !== null) params.set(key === 'brand' ? 'brand' : 'minRating', String(value));
+  return `/products?${params.toString()}`;
+}
+
 /**
  * URL-driven catalog filters. A plain GET form that navigates to
  * /products?search=&category=&sort=… so every filtered view is a real,
  * shareable, server-rendered URL — no client-side data fetching. The page
  * parses these params and passes them to the API.
+ *
+ * When `facets` is provided (search mode), renders brand + rating facet
+ * buckets as navigating links and hides the sort control.
  */
-export function CatalogFilters({ categories, current }: CatalogFiltersProps) {
+export function CatalogFilters({ categories, current, facets }: CatalogFiltersProps) {
   const options = flattenCategories(categories);
   const currentSort =
     current?.sortBy && current?.sortDir
@@ -59,107 +87,176 @@ export function CatalogFilters({ categories, current }: CatalogFiltersProps) {
     'rounded-md border border-line bg-surface px-3 py-2 text-sm text-content focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
 
   return (
-    <form
-      method="get"
-      action="/products"
-      className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-4 shadow-sm sm:flex-row sm:flex-wrap sm:items-end"
-    >
-      <div className="flex min-w-48 flex-1 flex-col gap-1.5">
-        <label htmlFor="filter-search" className={labelClass}>
-          Search
-        </label>
-        <input
-          id="filter-search"
-          type="search"
-          name="search"
-          defaultValue={current?.search ?? ''}
-          placeholder="Search products"
-          className={fieldClass}
-        />
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="filter-category" className={labelClass}>
-          Category
-        </label>
-        <select
-          id="filter-category"
-          name="category"
-          defaultValue={current?.categoryId ?? ''}
-          className={fieldClass}
-        >
-          <option value="">All categories</option>
-          {options.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <fieldset className="flex flex-col gap-1.5">
-        <legend className={labelClass}>Price range</legend>
-        <div className="flex items-center gap-2">
+    <>
+      <form
+        method="get"
+        action="/products"
+        className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-4 shadow-sm sm:flex-row sm:flex-wrap sm:items-end"
+      >
+        <div className="flex min-w-48 flex-1 flex-col gap-1.5">
+          <label htmlFor="filter-search" className={labelClass}>
+            Search
+          </label>
           <input
-            id="filter-min"
-            type="number"
-            name="minPrice"
-            min={0}
-            step="0.01"
-            aria-label="Min price"
-            placeholder="Min"
-            defaultValue={current?.minPrice ?? ''}
-            className={`w-24 ${fieldClass}`}
-          />
-          <span aria-hidden="true" className="text-content-subtle">
-            –
-          </span>
-          <input
-            id="filter-max"
-            type="number"
-            name="maxPrice"
-            min={0}
-            step="0.01"
-            aria-label="Max price"
-            placeholder="Max"
-            defaultValue={current?.maxPrice ?? ''}
-            className={`w-24 ${fieldClass}`}
+            id="filter-search"
+            type="search"
+            name="search"
+            defaultValue={current?.q ?? current?.search ?? ''}
+            placeholder="Search products"
+            className={fieldClass}
           />
         </div>
-      </fieldset>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="filter-sort" className={labelClass}>
-          Sort
-        </label>
-        <select
-          id="filter-sort"
-          name="sort"
-          defaultValue={currentSort}
-          className={fieldClass}
-        >
-          {SORT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="filter-category" className={labelClass}>
+            Category
+          </label>
+          <select
+            id="filter-category"
+            name="category"
+            defaultValue={current?.categoryId ?? ''}
+            className={fieldClass}
+          >
+            <option value="">All categories</option>
+            {options.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-surface transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
-        >
-          Apply
-        </button>
-        <Link
-          href="/products"
-          className="text-sm font-medium text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
-        >
-          Clear
-        </Link>
-      </div>
-    </form>
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className={labelClass}>Price range</legend>
+          <div className="flex items-center gap-2">
+            <input
+              id="filter-min"
+              type="number"
+              name="minPrice"
+              min={0}
+              step="0.01"
+              aria-label="Min price"
+              placeholder="Min"
+              defaultValue={current?.minPrice ?? ''}
+              className={`w-24 ${fieldClass}`}
+            />
+            <span aria-hidden="true" className="text-content-subtle">
+              –
+            </span>
+            <input
+              id="filter-max"
+              type="number"
+              name="maxPrice"
+              min={0}
+              step="0.01"
+              aria-label="Max price"
+              placeholder="Max"
+              defaultValue={current?.maxPrice ?? ''}
+              className={`w-24 ${fieldClass}`}
+            />
+          </div>
+        </fieldset>
+
+        {!facets && (
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="filter-sort" className={labelClass}>
+              Sort
+            </label>
+            <select
+              id="filter-sort"
+              name="sort"
+              defaultValue={currentSort}
+              className={fieldClass}
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-surface transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+          >
+            Apply
+          </button>
+          <Link
+            href="/products"
+            className="text-sm font-medium text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+          >
+            Clear
+          </Link>
+        </div>
+      </form>
+
+      {facets && (
+        <div className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-4 shadow-sm">
+          {facets.brands.length > 0 && (
+            <fieldset className="flex flex-col gap-2">
+              <legend className={labelClass}>Brand</legend>
+              <ul className="flex flex-col gap-1">
+                {facets.brands.map((b) => {
+                  const active = current?.brand === b.value;
+                  return (
+                    <li key={b.value} className="flex items-center justify-between gap-2 text-sm">
+                      <Link
+                        href={buildFacetHref(current ?? {}, 'brand', active ? null : b.value)}
+                        aria-current={active || undefined}
+                        className={`hover:underline ${active ? 'font-semibold text-primary-700' : 'text-content'}`}
+                      >
+                        {b.value} ({b.count})
+                      </Link>
+                      {active && (
+                        <Link
+                          href={buildFacetHref(current ?? {}, 'brand', null)}
+                          aria-label={`Remove ${b.value} brand filter`}
+                          className="text-content-subtle hover:text-content"
+                        >
+                          ×
+                        </Link>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </fieldset>
+          )}
+          {facets.ratings.some((r) => r.count > 0) && (
+            <fieldset className="flex flex-col gap-2">
+              <legend className={labelClass}>Rating</legend>
+              <ul className="flex flex-col gap-1">
+                {facets.ratings.map((r) => {
+                  const active = current?.minRating === r.minRating;
+                  return (
+                    <li key={r.minRating} className="flex items-center justify-between gap-2 text-sm">
+                      <Link
+                        href={buildFacetHref(current ?? {}, 'minRating', active ? null : r.minRating)}
+                        aria-current={active || undefined}
+                        className={`hover:underline ${active ? 'font-semibold text-primary-700' : 'text-content'}`}
+                      >
+                        {r.minRating} ★ &amp; up ({r.count})
+                      </Link>
+                      {active && (
+                        <Link
+                          href={buildFacetHref(current ?? {}, 'minRating', null)}
+                          aria-label={`Remove ${r.minRating} star and up rating filter`}
+                          className="text-content-subtle hover:text-content"
+                        >
+                          ×
+                        </Link>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </fieldset>
+          )}
+        </div>
+      )}
+    </>
   );
 }

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { CatalogFilters } from './CatalogFilters';
-import type { Category } from '@/lib/catalog';
+import type { Category, SearchFacets } from '@/lib/catalog';
 
 const categories: Category[] = [
   {
@@ -70,5 +70,54 @@ describe('CatalogFilters', () => {
       'href',
       '/products',
     );
+  });
+});
+
+const facets: SearchFacets = {
+  brands: [
+    { value: 'Acme', count: 3 },
+    { value: 'Beta', count: 1 },
+  ],
+  categories: [{ categoryId: 'c1', name: 'Phones', count: 5 }],
+  price: { min: '100.00', max: '900.00' },
+  ratings: [
+    { minRating: 4, count: 2 },
+    { minRating: 3, count: 4 },
+  ],
+};
+
+describe('CatalogFilters facets', () => {
+  it('renders brand buckets with counts as links when facets are passed', () => {
+    render(<CatalogFilters categories={[]} current={{ q: 'phone' }} facets={facets} />);
+    const acme = screen.getByRole('link', { name: /Acme/ });
+    expect(acme).toHaveTextContent('3');
+    expect(acme.getAttribute('href')).toContain('brand=Acme');
+    expect(acme.getAttribute('href')).toContain('q=phone');
+  });
+
+  it('renders rating "& up" buckets with counts', () => {
+    render(<CatalogFilters categories={[]} current={{ q: 'phone' }} facets={facets} />);
+    const r4 = screen.getByRole('link', { name: /4.*up/i });
+    expect(r4.getAttribute('href')).toContain('minRating=4');
+  });
+
+  it('shows a remove link for the active brand facet', () => {
+    render(<CatalogFilters categories={[]} current={{ q: 'phone', brand: 'Acme' }} facets={facets} />);
+    const remove = screen.getByRole('link', { name: /remove .*Acme/i });
+    const href = remove.getAttribute('href') ?? '';
+    expect(href).not.toContain('brand=Acme');
+    // …but it must preserve the active query (not collapse to a blank /products).
+    expect(href).toContain('q=phone');
+  });
+
+  it('hides the sort control in search mode (facets present)', () => {
+    render(<CatalogFilters categories={[]} current={{ q: 'phone' }} facets={facets} />);
+    expect(screen.queryByLabelText('Sort')).toBeNull();
+  });
+
+  it('renders unchanged (with Sort) when no facets are passed', () => {
+    render(<CatalogFilters categories={[]} current={{}} />);
+    expect(screen.getByLabelText('Sort')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Acme/ })).toBeNull();
   });
 });

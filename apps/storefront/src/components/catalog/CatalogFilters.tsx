@@ -52,7 +52,7 @@ export function buildFacetHref(
   value: string | number | null,
 ): string {
   const params = new URLSearchParams();
-  if (current.q) params.set('q', current.q);
+  if (current.q) params.set('search', current.q);
   if (current.categoryId) params.set('category', current.categoryId);
   if (current.minPrice !== undefined) params.set('minPrice', String(current.minPrice));
   if (current.maxPrice !== undefined) params.set('maxPrice', String(current.maxPrice));

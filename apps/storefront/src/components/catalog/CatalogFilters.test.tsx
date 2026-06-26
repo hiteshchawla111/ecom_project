@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { CatalogFilters } from './CatalogFilters';
+import { CatalogFilters, buildFacetHref } from './CatalogFilters';
 import type { Category, SearchFacets } from '@/lib/catalog';
 
 const categories: Category[] = [
@@ -86,13 +86,22 @@ const facets: SearchFacets = {
   ],
 };
 
+describe('buildFacetHref', () => {
+  it('serializes current.q as search= (not q=) to round-trip with the page parser', () => {
+    const href = buildFacetHref({ q: 'phone' }, 'brand', 'Acme');
+    expect(href).toContain('search=phone');
+    expect(href).not.toContain('q=phone');
+    expect(href).toContain('brand=Acme');
+  });
+});
+
 describe('CatalogFilters facets', () => {
   it('renders brand buckets with counts as links when facets are passed', () => {
     render(<CatalogFilters categories={[]} current={{ q: 'phone' }} facets={facets} />);
     const acme = screen.getByRole('link', { name: /Acme/ });
     expect(acme).toHaveTextContent('3');
     expect(acme.getAttribute('href')).toContain('brand=Acme');
-    expect(acme.getAttribute('href')).toContain('q=phone');
+    expect(acme.getAttribute('href')).toContain('search=phone');
   });
 
   it('renders rating "& up" buckets with counts', () => {
@@ -107,7 +116,7 @@ describe('CatalogFilters facets', () => {
     const href = remove.getAttribute('href') ?? '';
     expect(href).not.toContain('brand=Acme');
     // …but it must preserve the active query (not collapse to a blank /products).
-    expect(href).toContain('q=phone');
+    expect(href).toContain('search=phone');
   });
 
   it('hides the sort control in search mode (facets present)', () => {

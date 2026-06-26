@@ -77,16 +77,15 @@ function parseSort(raw: string | string[] | undefined): {
 }
 
 /** Serialize active filters into a query string (for pagination links). */
-function filterQueryString(values: CatalogFilterValues, page: number): string {
+function filterQueryString(values: CatalogFilterValues, page: number, searchMode: boolean): string {
   const params = new URLSearchParams();
   if (values.q) params.set('search', values.q);
-  else if (values.search) params.set('search', values.search);
   if (values.categoryId) params.set('category', values.categoryId);
   if (values.minPrice !== undefined) params.set('minPrice', String(values.minPrice));
   if (values.maxPrice !== undefined) params.set('maxPrice', String(values.maxPrice));
   if (values.brand) params.set('brand', values.brand);
   if (values.minRating !== undefined) params.set('minRating', String(values.minRating));
-  if (!values.brand && !values.minRating && !values.q && !values.categoryId && values.sortBy && values.sortDir) {
+  if (!searchMode && values.sortBy && values.sortDir) {
     params.set('sort', `${values.sortBy}:${values.sortDir}`);
   }
   params.set('page', String(page));
@@ -161,7 +160,7 @@ export default async function ProductsPage({
         totalPages={totalPages}
         total={total}
         pageSize={PAGE_SIZE}
-        hrefForPage={(p) => `/products${filterQueryString(values, p)}`}
+        hrefForPage={(p) => `/products${filterQueryString(values, p, searchMode)}`}
       />
     </main>
   );

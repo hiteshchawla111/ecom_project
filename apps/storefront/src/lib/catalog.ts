@@ -92,6 +92,14 @@ export interface SearchFacets {
   ratings: { minRating: number; count: number }[];
 }
 
+/** A lean autocomplete suggestion (mirrors the API's ProductSuggestion). */
+export interface ProductSuggestion {
+  id: string;
+  name: string;
+  price: string;
+  salePrice: string | null;
+}
+
 /** Search response: a paginated product page plus facet buckets. */
 export interface SearchResult extends Paginated<Product> {
   facets: SearchFacets;
@@ -238,6 +246,18 @@ export async function searchProducts(
   const body = (await res.json().catch(() => null)) as unknown;
   if (!res.ok) throw new CatalogError(messageFrom(body, res.status), res.status);
   return body as SearchResult;
+}
+
+/** Lightweight product suggestions for autocomplete (GET /products/suggest). */
+export async function suggestProducts(
+  query: { q?: string; limit?: number },
+  { baseUrl, fetch: fetchImpl = fetch }: CatalogOptions,
+): Promise<ProductSuggestion[]> {
+  const url = `${baseUrl}/products/suggest${toQuery({ q: query.q, limit: query.limit })}`;
+  const res = await fetchImpl(url, { cache: 'no-store' });
+  const body = (await res.json().catch(() => null)) as unknown;
+  if (!res.ok) throw new CatalogError(messageFrom(body, res.status), res.status);
+  return body as ProductSuggestion[];
 }
 
 /** Max related products shown on a detail page. */

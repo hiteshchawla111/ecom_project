@@ -9,6 +9,7 @@ import {
   listProducts,
   listSellerProducts,
   searchProducts,
+  suggestProducts,
   type Category,
   type Product,
   type Seller,
@@ -477,6 +478,40 @@ describe('searchProducts', () => {
         { q: 'x' },
         { ...opts, fetch: fetchMock },
       ),
+    ).rejects.toBeInstanceOf(CatalogError);
+  });
+});
+
+describe('suggestProducts', () => {
+  const makeFetch = (body: unknown, ok = true, status = 200) =>
+    vi.fn().mockResolvedValue({
+      ok,
+      status,
+      json: () => Promise.resolve(body),
+    }) as unknown as typeof fetch;
+
+  const rows = [
+    { id: 'p1', name: 'Aurora Smartphone X', price: '799.00', salePrice: null },
+    { id: 'p2', name: 'Aurora Lite', price: '399.00', salePrice: '349.00' },
+  ];
+
+  it('builds the /products/suggest URL with q + limit', async () => {
+    const fetchImpl = makeFetch(rows);
+    await suggestProducts({ q: 'aur', limit: 8 }, { baseUrl: 'http://api.test', fetch: fetchImpl });
+    const url = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(url).toContain('http://api.test/products/suggest?');
+    expect(url).toContain('q=aur');
+    expect(url).toContain('limit=8');
+  });
+
+  it('returns the parsed suggestion array', async () => {
+    const result = await suggestProducts({ q: 'aur' }, { baseUrl: 'http://api.test', fetch: makeFetch(rows) });
+    expect(result).toEqual(rows);
+  });
+
+  it('throws CatalogError on a non-2xx response', async () => {
+    await expect(
+      suggestProducts({ q: 'x' }, { baseUrl: 'http://api.test', fetch: makeFetch({ message: 'bad' }, false, 400) }),
     ).rejects.toBeInstanceOf(CatalogError);
   });
 });

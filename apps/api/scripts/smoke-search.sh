@@ -103,4 +103,21 @@ r = json.load(sys.stdin)
 assert r == [], "blank q is an empty array"
 print("blank OK")'
 
+echo "== facets: search returns an always-present facets block =="
+curl -s "$BASE/products/search?q=phone" | python3 -c '
+import sys, json
+r = json.load(sys.stdin)
+f = r["facets"]
+for k in ("brands", "categories", "price", "ratings"):
+    assert k in f, f"missing facet {k}"
+assert isinstance(f["brands"], list) and isinstance(f["ratings"], list)
+print("facets keys OK; brands:", [b["value"] for b in f["brands"]])'
+
+echo "== facets: a rating filter still returns a facets block + total =="
+curl -s --get "$BASE/products/search" --data-urlencode "q=phone" --data-urlencode "minRating=4" | python3 -c '
+import sys, json
+r = json.load(sys.stdin)
+assert "facets" in r and "total" in r
+print("minRating=4 total:", r["total"], "OK")'
+
 echo "ALL SMOKE CHECKS PASSED"

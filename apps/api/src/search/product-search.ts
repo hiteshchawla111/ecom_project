@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { PRODUCT_INCLUDE } from '../products/products.service';
+import { SearchFilters } from './search-filters';
 
 /**
  * Search hits render identically to catalog cards — reuse the catalog's
@@ -12,6 +13,14 @@ export type ProductSearchItem = Prisma.ProductGetPayload<{
   include: typeof PRODUCT_SEARCH_INCLUDE;
 }>;
 
+/** Facet buckets returned alongside search results (disjunctive counts). */
+export interface SearchFacets {
+  brands: { value: string; count: number }[];
+  categories: { categoryId: string; name: string; count: number }[];
+  price: { min: string; max: string } | null;
+  ratings: { minRating: number; count: number }[];
+}
+
 /** Paginated search envelope — a Product plus its catalog-card relations. */
 export interface ProductSearchResult {
   data: ProductSearchItem[];
@@ -19,6 +28,7 @@ export interface ProductSearchResult {
   pageSize: number;
   total: number;
   totalPages: number;
+  facets: SearchFacets;
 }
 
 /** A lean autocomplete row — enough to render a dropdown entry and link by id. */
@@ -39,6 +49,7 @@ export interface ProductSearch {
     q: string,
     page: number,
     pageSize: number,
+    filters?: SearchFilters,
   ): Promise<ProductSearchResult>;
 
   /** Ranked, ACTIVE-only, prefix-matched autocomplete suggestions (capped at `limit`). */

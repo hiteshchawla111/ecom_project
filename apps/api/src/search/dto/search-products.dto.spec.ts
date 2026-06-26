@@ -29,4 +29,30 @@ describe('SearchProductsDto', () => {
     const errors = await validate(make({}));
     expect(errors).toHaveLength(0);
   });
+
+  it('accepts facet filters and coerces numerics', async () => {
+    const dto = make({
+      q: 'x',
+      brand: 'Acme',
+      categoryId: 'cat1',
+      minPrice: '100',
+      maxPrice: '500',
+      minRating: '4',
+    });
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
+    expect(dto.minPrice).toBe(100);
+    expect(dto.maxPrice).toBe(500);
+    expect(dto.minRating).toBe(4);
+  });
+
+  it('rejects minRating above 5', async () => {
+    const errors = await validate(make({ minRating: '6' }));
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it('rejects a non-positive minPrice', async () => {
+    const errors = await validate(make({ minPrice: '0' }));
+    expect(errors.length).toBeGreaterThan(0);
+  });
 });

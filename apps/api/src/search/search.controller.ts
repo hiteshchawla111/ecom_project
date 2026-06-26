@@ -23,6 +23,13 @@ export class SearchController {
       query.q ?? '',
       query.page ?? 1,
       query.pageSize ?? 20,
+      {
+        brand: query.brand,
+        categoryId: query.categoryId,
+        minPrice: query.minPrice,
+        maxPrice: query.maxPrice,
+        minRating: query.minRating,
+      },
     );
   }
 

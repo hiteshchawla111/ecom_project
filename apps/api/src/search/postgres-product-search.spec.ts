@@ -23,6 +23,7 @@ describe('PostgresProductSearch', () => {
       pageSize: 20,
       total: 0,
       totalPages: 1,
+      facets: { brands: [], categories: [], price: null, ratings: [] },
     });
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
     expect(prisma.product.findMany).not.toHaveBeenCalled();
@@ -35,7 +36,7 @@ describe('PostgresProductSearch', () => {
     ];
     const { svc, prisma } = build(rows, [{ id: 'a' }, { id: 'b' }]);
     await svc.search('aurora', 1, 20);
-    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(5); // results + 4 facet queries
     expect(prisma.product.findMany).toHaveBeenCalledTimes(1);
     const [findArgs] = prisma.product.findMany.mock.calls as Array<
       [{ where: unknown; include: unknown }]
@@ -66,8 +67,9 @@ describe('PostgresProductSearch', () => {
       pageSize: 20,
       total: 0,
       totalPages: 1,
+      facets: { brands: [], categories: [], price: null, ratings: [] },
     });
-    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(5); // results + 4 facet queries
     expect(prisma.product.findMany).not.toHaveBeenCalled();
   });
 
@@ -77,6 +79,96 @@ describe('PostgresProductSearch', () => {
     const res = await svc.search('aurora', 1, 10);
     expect(res.total).toBe(25);
     expect(res.totalPages).toBe(3);
+  });
+
+  describe('search with facets', () => {
+    // Mock issues results-rows first, then brand/category/price/rating facet rows in that order.
+    const buildFaceted = (opts: {
+      resultRows?: Array<{ id: string; rank: number; total: bigint }>;
+      products?: Array<{ id: string }>;
+      brands?: Array<{ value: string; count: bigint }>;
+      categories?: Array<{ categoryId: string; name: string; count: bigint }>;
+      price?: Array<{ min: string | null; max: string | null }>;
+      ratings?: Array<{ minRating: number; count: bigint }>;
+    }) => {
+      const $queryRaw = jest
+        .fn()
+        .mockResolvedValueOnce(opts.resultRows ?? [])
+        .mockResolvedValueOnce(opts.brands ?? [])
+        .mockResolvedValueOnce(opts.categories ?? [])
+        .mockResolvedValueOnce(opts.price ?? [{ min: null, max: null }])
+        .mockResolvedValueOnce(opts.ratings ?? []);
+      const prisma = {
+        $queryRaw,
+        product: { findMany: jest.fn().mockResolvedValue(opts.products ?? []) },
+      };
+      return { svc: new PostgresProductSearch(prisma as never), prisma };
+    };
+
+    it('blank q + no filters → empty page + empty facets, no DB call', async () => {
+      const { svc, prisma } = buildFaceted({});
+      const res = await svc.search('   ', 1, 20, {});
+      expect(res.data).toEqual([]);
+      expect(res.total).toBe(0);
+      expect(res.facets).toEqual({
+        brands: [],
+        categories: [],
+        price: null,
+        ratings: [],
+      });
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it('blank q WITH a filter runs (browse mode) and returns facets', async () => {
+      const { svc, prisma } = buildFaceted({
+        resultRows: [{ id: 'a', rank: 0, total: 1n }],
+        products: [{ id: 'a' }],
+        brands: [{ value: 'Acme', count: 1n }],
+      });
+      const res = await svc.search('', 1, 20, { categoryId: 'cat1' });
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(5); // results + 4 facets
+      expect(res.facets.brands).toEqual([{ value: 'Acme', count: 1 }]);
+    });
+
+    it('assembles all facet buckets and converts bigint counts to Number', async () => {
+      const { svc } = buildFaceted({
+        resultRows: [{ id: 'a', rank: 0.5, total: 2n }],
+        products: [{ id: 'a' }],
+        brands: [
+          { value: 'Acme', count: 2n },
+          { value: 'Beta', count: 3n },
+        ],
+        categories: [{ categoryId: 'c1', name: 'Phones', count: 5n }],
+        price: [{ min: '100.00', max: '900.00' }],
+        ratings: [
+          { minRating: 4, count: 1n },
+          { minRating: 3, count: 2n },
+        ],
+      });
+      const res = await svc.search('phone', 1, 20, {});
+      expect(res.facets.brands).toEqual([
+        { value: 'Acme', count: 2 },
+        { value: 'Beta', count: 3 },
+      ]);
+      expect(res.facets.categories).toEqual([
+        { categoryId: 'c1', name: 'Phones', count: 5 },
+      ]);
+      expect(res.facets.price).toEqual({ min: '100.00', max: '900.00' });
+      expect(res.facets.ratings).toEqual([
+        { minRating: 4, count: 1 },
+        { minRating: 3, count: 2 },
+      ]);
+    });
+
+    it('empty price aggregate (no rows match) → price: null', async () => {
+      const { svc } = buildFaceted({
+        resultRows: [{ id: 'a', rank: 0, total: 1n }],
+        products: [{ id: 'a' }],
+        price: [{ min: null, max: null }],
+      });
+      const res = await svc.search('phone', 1, 20, {});
+      expect(res.facets.price).toBeNull();
+    });
   });
 
   describe('suggest', () => {

@@ -4,10 +4,10 @@ import { useState } from 'react';
 import { FormError, SubmitButton, TextField } from './fields';
 import { useAuthSubmit } from './useAuthSubmit';
 
-export function LoginForm() {
+export function LoginForm({ next = '/' }: { next?: string }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { submit, error, pending } = useAuthSubmit('/api/auth/login');
+  const { submit, error, pending } = useAuthSubmit('/api/auth/login', next);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

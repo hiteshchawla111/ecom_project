@@ -24,7 +24,7 @@ beforeEach(() => {
   global.fetch = vi.fn() as unknown as typeof fetch;
 });
 afterEach(() => {
-  vi.runOnlyPendingTimers();
+  vi.clearAllTimers();
   vi.useRealTimers();
 });
 
@@ -39,6 +39,12 @@ describe('SearchAutocomplete', () => {
     type('a');
     await act(async () => { vi.advanceTimersByTime(300); });
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('has no aria-controls on the combobox when the dropdown is closed', () => {
+    render(<SearchAutocomplete />);
+    // Fresh render: no suggestions, dropdown closed — aria-controls must be absent.
+    expect(screen.getByRole('combobox')).not.toHaveAttribute('aria-controls');
   });
 
   it('debounces then fetches suggestions and renders them', async () => {

@@ -43,11 +43,7 @@ export function SearchAutocomplete() {
     }
     const id = ++reqId.current;
     const timer = setTimeout(() => {
-      const result = fetch(`/api/products/suggest?q=${encodeURIComponent(q)}&limit=8`);
-      // Guard: fetch must return a Promise (always true in production; protects
-      // against unmocked fetch in tests where the component unmounts mid-flight).
-      if (!result || typeof result.then !== 'function') return;
-      result
+      fetch(`/api/products/suggest?q=${encodeURIComponent(q)}&limit=8`)
         .then((r) => (r.ok ? r.json() : []))
         .then((data: ProductSuggestion[]) => {
           if (id !== reqId.current) return; // stale
@@ -122,7 +118,7 @@ export function SearchAutocomplete() {
           type="search"
           role="combobox"
           aria-expanded={open}
-          aria-controls={LISTBOX_ID}
+          aria-controls={open && suggestions.length > 0 ? LISTBOX_ID : undefined}
           aria-autocomplete="list"
           aria-activedescendant={active >= 0 ? `suggestion-${active}` : undefined}
           aria-label="Search products"

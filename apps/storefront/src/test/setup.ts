@@ -9,10 +9,11 @@ import { vi, afterEach } from 'vitest';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).jest = vi;
 
-// Ensure fake timers are restored to real timers BEFORE @testing-library/react's
-// cleanup afterEach runs. Cleanup uses React's scheduler (which calls setTimeout)
-// and needs real timers to unmount components properly when tests use vi.useFakeTimers().
-// This afterEach is registered before the test file's afterEach hooks, so it runs first.
+// Ensure real timers are active before @testing-library/react's cleanup runs.
+// RTL's cleanup uses React's scheduler (setTimeout) and needs real timers to
+// unmount components properly after tests that call vi.useFakeTimers().
+// (Vitest runs afterEach hooks LIFO — test-file hooks fire before this global one,
+// so the test file is responsible for discarding pending timers before this restores.)
 afterEach(() => {
   vi.useRealTimers();
 });

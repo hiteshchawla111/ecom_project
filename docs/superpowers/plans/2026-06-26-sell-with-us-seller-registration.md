@@ -936,8 +936,9 @@ git commit -m "feat(seller-ui): SellerRegisterForm (profile-only)"
 - Test: `src/components/seller/SellerKycForm.test.tsx`
 
 **Interfaces:**
-- Consumes: `SellerView`, `SellerStatus`, `validateKyc`, `UpdateSellerInput` from `@/lib/seller`; `TextField`/`FormError`/`SubmitButton` from `@/components/auth/fields`; `useAuthSubmit`.
-- Produces: `<SellerStatusCard seller={SellerView} />`; `<SellerKycForm seller={SellerView} />` (PATCHes `/api/seller/me`, on success `router.refresh()`).
+- Consumes: `SellerView`, `SellerStatus`, `validateKyc`, `UpdateSellerInput` from `@/lib/seller`; `TextField`/`FormError`/`SubmitButton` from `@/components/auth/fields`; `useRouter` from `next/navigation`.
+- Produces: `<SellerStatusCard seller={SellerView} />`; `<SellerKycForm seller={SellerView} />`.
+- **Do NOT reuse `useAuthSubmit`** — that hook hardcodes `method: 'POST'` and does `router.push(redirectTo)`. The KYC endpoint is **PATCH** and we want refresh-only on success. `SellerKycForm` uses its own small submit handler: `fetch('/api/seller/me', { method: 'PATCH', headers: {'content-type':'application/json'}, body: JSON.stringify(payload) })`; on `res.ok` call `router.refresh()`; on `!res.ok` read `{message}` and `setError`; manage `pending`/`error` with local `useState`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1076,17 +1077,22 @@ export function SellerStatusCard({ seller }: { seller: SellerView }) {
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { FormError, SubmitButton, TextField } from '@/components/auth/fields';
-import { useAuthSubmit } from '@/components/auth/useAuthSubmit';
 import { validateKyc, type SellerView, type UpdateSellerInput } from '@/lib/seller';
 
+interface ErrorBody {
+  message?: string;
+}
+
 export function SellerKycForm({ seller }: { seller: SellerView }) {
+  const router = useRouter();
   const [gstin, setGstin] = useState('');
   const [pan, setPan] = useState('');
   const [bankAccountNo, setBankAccountNo] = useState('');
   const [bankIfsc, setBankIfsc] = useState('');
-  // Refresh the page on success so SellerStatusCard reflects the new presence flags.
-  const { submit, error, pending, setError } = useAuthSubmit('/api/seller/me', '');
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1107,7 +1113,27 @@ export function SellerKycForm({ seller }: { seller: SellerView }) {
       setError('Enter at least one detail to save.');
       return;
     }
-    await submit(payload);
+
+    setError(null);
+    setPending(true);
+    try {
+      const res = await fetch('/api/seller/me', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as ErrorBody | null;
+        setError(data?.message ?? 'Could not save your details. Please try again.');
+        return;
+      }
+      // Refresh so SellerStatusCard reflects the new presence flags.
+      router.refresh();
+    } catch {
+      setError('Unable to reach the server. Please try again.');
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -1133,8 +1159,6 @@ export function SellerKycForm({ seller }: { seller: SellerView }) {
   );
 }
 ```
-
-Note: `useAuthSubmit` with `redirectTo = ''` calls `router.push('')` then `router.refresh()`. `router.push('')` is a no-op navigation to the current URL; the `refresh()` re-renders the server component. This matches the test asserting `refresh` is called. (If the existing hook treats `''` oddly during execution, switch to `router.refresh()`-only by passing the current pathname — adjust at execution time; the test asserts `refresh()`, which holds either way.)
 
 - [ ] **Step 5: Run the tests (pass)**
 

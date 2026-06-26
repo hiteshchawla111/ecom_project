@@ -64,4 +64,9 @@ describe('SiteHeaderView', () => {
       screen.queryByRole('link', { name: /sign up/i }),
     ).not.toBeInTheDocument();
   });
+
+  it('renders the product search box', () => {
+    render(<SiteHeaderView user={null} />);
+    expect(screen.getByRole('combobox', { name: /search products/i })).toBeInTheDocument();
+  });
 });

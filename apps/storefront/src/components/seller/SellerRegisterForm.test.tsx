@@ -32,6 +32,7 @@ describe('SellerRegisterForm', () => {
     fireEvent.change(screen.getByLabelText(/shop display name/i), { target: { value: 'My Shop' } });
     fireEvent.submit(screen.getByRole('button', { name: /submit application/i }).closest('form')!);
     await waitFor(() => expect(push).toHaveBeenCalledWith('/account/seller'));
+    expect(refresh).toHaveBeenCalled();
   });
 
   it('surfaces a server error message', async () => {
@@ -45,5 +46,19 @@ describe('SellerRegisterForm', () => {
     await waitFor(() =>
       expect(screen.getByText(/already have a seller account/i)).toBeInTheDocument(),
     );
+  });
+
+  it('redirects to /login?next=/account/seller when response body has reauth:true', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, reauth: true }),
+    } as Response);
+    render(<SellerRegisterForm />);
+    fireEvent.change(screen.getByLabelText(/shop display name/i), { target: { value: 'My Shop' } });
+    fireEvent.submit(screen.getByRole('button', { name: /submit application/i }).closest('form')!);
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith('/login?next=/account/seller'),
+    );
+    expect(refresh).not.toHaveBeenCalled();
   });
 });

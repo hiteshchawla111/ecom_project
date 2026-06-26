@@ -1,19 +1,24 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { FormError, SubmitButton, TextField } from '@/components/auth/fields';
-import { useAuthSubmit } from '@/components/auth/useAuthSubmit';
 
 const MAX_NAME = 120;
 
+interface RegisterResponseBody {
+  ok?: boolean;
+  reauth?: boolean;
+  message?: string;
+}
+
 export function SellerRegisterForm() {
+  const router = useRouter();
   const [displayName, setDisplayName] = useState('');
   const [description, setDescription] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
-  const { submit, error, pending, setError } = useAuthSubmit(
-    '/api/seller/register',
-    '/account/seller',
-  );
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,7 +31,32 @@ export function SellerRegisterForm() {
       setError(`Display name must be at most ${MAX_NAME} characters.`);
       return;
     }
-    await submit({ displayName: name, description, logoUrl });
+
+    setError(null);
+    setPending(true);
+    try {
+      const res = await fetch('/api/seller/register', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ displayName: name, description, logoUrl }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as RegisterResponseBody | null;
+        setError(data?.message ?? 'Something went wrong. Please try again.');
+        return;
+      }
+      const body = (await res.json().catch(() => ({}))) as RegisterResponseBody;
+      if (body.reauth === true) {
+        router.push('/login?next=/account/seller');
+      } else {
+        router.push('/account/seller');
+        router.refresh();
+      }
+    } catch {
+      setError('Unable to reach the server. Please try again.');
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

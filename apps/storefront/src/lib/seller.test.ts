@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   KYC_PATTERNS,
+  getSellerMe,
   registerSeller,
   updateSellerMe,
   validateKyc,
 } from './seller';
+import type { AuthedApiDeps } from './api-authed';
 
 describe('KYC_PATTERNS', () => {
   it('accepts a valid PAN and rejects a bad one', () => {
@@ -51,15 +53,37 @@ describe('registerSeller', () => {
   });
 });
 
+function makeAuthedDeps(fetchMock: ReturnType<typeof vi.fn>): AuthedApiDeps {
+  return {
+    baseUrl: 'http://api',
+    getAccessToken: () => 'tok',
+    getRefreshToken: () => 'ref',
+    onTokensRefreshed: () => {},
+    onSessionInvalid: () => {},
+    fetch: fetchMock as unknown as typeof fetch,
+  };
+}
+
+describe('getSellerMe', () => {
+  it('GETs /seller/me with bearer token and returns the view', async () => {
+    const view = { id: 's1', displayName: 'Shop', status: 'ACTIVE' };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => view });
+    const result = await getSellerMe(makeAuthedDeps(fetchMock));
+    expect(result).toEqual(view);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api/seller/me');
+    expect(init.method).toBe('GET');
+    expect((init.headers as Record<string, string>).authorization).toBe('Bearer tok');
+  });
+});
+
 describe('updateSellerMe', () => {
-  it('PATCHes /seller/me', async () => {
+  it('PATCHes /seller/me with bearer token', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 's1' }) });
-    await updateSellerMe(
-      { pan: 'ABCDE1234F' },
-      { baseUrl: 'http://api', accessToken: 'tok', fetch: fetchMock as unknown as typeof fetch },
-    );
+    await updateSellerMe({ pan: 'ABCDE1234F' }, makeAuthedDeps(fetchMock));
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('http://api/seller/me');
     expect(init.method).toBe('PATCH');
+    expect((init.headers as Record<string, string>).authorization).toBe('Bearer tok');
   });
 });

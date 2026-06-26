@@ -1,4 +1,5 @@
 import { ApiAuthError } from './api-auth';
+import { authedRequest, type AuthedApiDeps } from './api-authed';
 
 export type SellerStatus =
   | 'PENDING_REVIEW'
@@ -113,17 +114,17 @@ export function registerSeller(
   );
 }
 
-export function getSellerMe(opts: SellerApiOptions): Promise<SellerView> {
-  return sellerRequest<SellerView>('/seller/me', { method: 'GET' }, opts);
+export function getSellerMe(deps: AuthedApiDeps): Promise<SellerView> {
+  return authedRequest<SellerView>('/seller/me', { method: 'GET' }, deps);
 }
 
 export function updateSellerMe(
   input: UpdateSellerInput,
-  opts: SellerApiOptions,
+  deps: AuthedApiDeps,
 ): Promise<SellerView> {
-  return sellerRequest<SellerView>(
+  return authedRequest<SellerView>(
     '/seller/me',
     { method: 'PATCH', body: JSON.stringify(input) },
-    opts,
+    deps,
   );
 }

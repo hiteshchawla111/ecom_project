@@ -1,6 +1,7 @@
 import {
   IsInt,
   IsOptional,
+  IsPositive,
   IsString,
   Max,
   MaxLength,
@@ -32,4 +33,30 @@ export class SearchProductsDto {
   @Min(1)
   @Max(100)
   pageSize?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  brand?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  categoryId?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsPositive()
+  minPrice?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsPositive()
+  maxPrice?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @Min(1)
+  @Max(5)
+  minRating?: number;
 }

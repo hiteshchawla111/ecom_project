@@ -9,6 +9,7 @@ describe('safeNext', () => {
   it('falls back to / for missing or unsafe values', () => {
     expect(safeNext(undefined)).toBe('/');
     expect(safeNext('//evil.com')).toBe('/');
+    expect(safeNext('/\\evil.com')).toBe('/');
     expect(safeNext('https://evil.com')).toBe('/');
     expect(safeNext('sell')).toBe('/');
   });

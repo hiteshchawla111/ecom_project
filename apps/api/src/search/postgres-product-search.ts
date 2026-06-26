@@ -87,12 +87,9 @@ export class PostgresProductSearch implements ProductSearch {
     filters: SearchFilters = {},
   ): Promise<ProductSearchResult> {
     const term = q.trim();
-    const hasFilters =
-      filters.brand !== undefined ||
-      filters.categoryId !== undefined ||
-      filters.minPrice !== undefined ||
-      filters.maxPrice !== undefined ||
-      filters.minRating !== undefined;
+    // Any defined filter field counts — value-based so new SearchFilters keys
+    // are covered without updating this check.
+    const hasFilters = Object.values(filters).some((v) => v !== undefined);
 
     // Blank q with no filters preserves slice-1 behavior: empty, no DB hit.
     if (term === '' && !hasFilters) {

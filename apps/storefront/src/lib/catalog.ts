@@ -72,6 +72,31 @@ export interface Paginated<T> {
   totalPages: number;
 }
 
+/** Search query mirroring the API's /products/search facet surface. */
+export interface SearchQuery {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+  categoryId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  brand?: string;
+  minRating?: number;
+}
+
+/** Facet buckets mirroring the API's SearchFacets (counts + price min/max). */
+export interface SearchFacets {
+  brands: { value: string; count: number }[];
+  categories: { categoryId: string; name: string; count: number }[];
+  price: { min: string; max: string } | null;
+  ratings: { minRating: number; count: number }[];
+}
+
+/** Search response: a paginated product page plus facet buckets. */
+export interface SearchResult extends Paginated<Product> {
+  facets: SearchFacets;
+}
+
 /** A category with optional parent and (non-deleted) children, per the API. */
 export interface Category {
   id: string;
@@ -194,6 +219,27 @@ export async function listSellerProducts(
   return body as Paginated<Product>;
 }
 
+/** Faceted full-text search against /products/search. */
+export async function searchProducts(
+  query: SearchQuery,
+  { baseUrl, fetch: fetchImpl = fetch }: CatalogOptions,
+): Promise<SearchResult> {
+  const url = `${baseUrl}/products/search${toQuery({
+    q: query.q,
+    page: query.page,
+    pageSize: query.pageSize,
+    categoryId: query.categoryId,
+    minPrice: query.minPrice,
+    maxPrice: query.maxPrice,
+    brand: query.brand,
+    minRating: query.minRating,
+  })}`;
+  const res = await fetchImpl(url, { cache: 'no-store' });
+  const body = (await res.json().catch(() => null)) as unknown;
+  if (!res.ok) throw new CatalogError(messageFrom(body, res.status), res.status);
+  return body as SearchResult;
+}
+
 /** Max related products shown on a detail page. */
 const RELATED_LIMIT = 4;
 
@@ -306,4 +352,9 @@ export function getSellerProducts(
   query: { page?: number; pageSize?: number } = {},
 ): Promise<Paginated<Product>> {
   return listSellerProducts(slug, query, { baseUrl: apiBaseUrl() });
+}
+
+/** Faceted search against the configured API. */
+export function getSearchResults(query: SearchQuery = {}): Promise<SearchResult> {
+  return searchProducts(query, { baseUrl: apiBaseUrl() });
 }

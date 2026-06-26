@@ -8,6 +8,7 @@ import {
   listCategories,
   listProducts,
   listSellerProducts,
+  searchProducts,
   type Category,
   type Product,
   type Seller,
@@ -412,5 +413,70 @@ describe('listSellerProducts', () => {
 
     const url = fetchMock.mock.calls[0][0] as string;
     expect(url).toBe('http://api.test/sellers/demo-shop/products');
+  });
+});
+
+describe('searchProducts', () => {
+  const sampleResult = {
+    data: [],
+    page: 1,
+    pageSize: 12,
+    total: 0,
+    totalPages: 1,
+    facets: {
+      brands: [{ value: 'Acme', count: 3 }],
+      categories: [{ categoryId: 'c1', name: 'Phones', count: 5 }],
+      price: { min: '100.00', max: '900.00' },
+      ratings: [{ minRating: 4, count: 2 }],
+    },
+  };
+
+  it('builds the /products/search URL with q + facet params', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(200, sampleResult));
+
+    await searchProducts(
+      { q: 'phone', page: 2, pageSize: 12, brand: 'Acme', categoryId: 'c1', minPrice: 100, maxPrice: 900, minRating: 4 },
+      { ...opts, fetch: fetchMock },
+    );
+
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('http://api.test/products/search?');
+    expect(url).toContain('q=phone');
+    expect(url).toContain('brand=Acme');
+    expect(url).toContain('categoryId=c1');
+    expect(url).toContain('minPrice=100');
+    expect(url).toContain('maxPrice=900');
+    expect(url).toContain('minRating=4');
+    expect(url).toContain('page=2');
+  });
+
+  it('returns the parsed SearchResult including facets', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(200, sampleResult));
+
+    const result = await searchProducts(
+      { q: 'phone' },
+      { ...opts, fetch: fetchMock },
+    );
+
+    expect(result.facets.brands).toEqual([{ value: 'Acme', count: 3 }]);
+    expect(result.facets.price).toEqual({ min: '100.00', max: '900.00' });
+    expect(result.total).toBe(0);
+  });
+
+  it('throws CatalogError on a non-2xx response', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse(400, { message: 'bad' }));
+
+    await expect(
+      searchProducts(
+        { q: 'x' },
+        { ...opts, fetch: fetchMock },
+      ),
+    ).rejects.toBeInstanceOf(CatalogError);
   });
 });

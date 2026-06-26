@@ -54,6 +54,10 @@ export function SellerKycForm({ seller }: { seller: SellerView }) {
       }
       // Refresh so SellerStatusCard reflects the new presence flags.
       router.refresh();
+      setGstin('');
+      setPan('');
+      setBankAccountNo('');
+      setBankIfsc('');
     } catch {
       setError('Unable to reach the server. Please try again.');
     } finally {

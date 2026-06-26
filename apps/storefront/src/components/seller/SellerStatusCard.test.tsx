@@ -19,4 +19,12 @@ describe('SellerStatusCard', () => {
     expect(screen.getByText(/PAN on file/i)).toBeInTheDocument();
     expect(screen.getByText(/6789/)).toBeInTheDocument();
   });
+  it('shows Suspended label', () => {
+    render(<SellerStatusCard seller={{ ...base, status: 'SUSPENDED' }} />);
+    expect(screen.getByText(/suspended/i)).toBeInTheDocument();
+  });
+  it('shows Deactivated label', () => {
+    render(<SellerStatusCard seller={{ ...base, status: 'DEACTIVATED' }} />);
+    expect(screen.getByText(/deactivated/i)).toBeInTheDocument();
+  });
 });

@@ -9,9 +9,9 @@ const STATUS_LABEL: Record<SellerStatus, string> = {
 };
 
 const STATUS_CLASS: Record<SellerStatus, string> = {
-  PENDING_REVIEW: 'bg-warning-500/10 text-warning-600',
-  ACTIVE: 'bg-success-500/10 text-success-600',
-  SUSPENDED: 'bg-error-500/10 text-error-600',
+  PENDING_REVIEW: 'bg-warning-500/10 text-warning-500',
+  ACTIVE: 'bg-success-500/10 text-success-500',
+  SUSPENDED: 'bg-error-500/10 text-error-500',
   DEACTIVATED: 'bg-surface-muted text-content-subtle',
 };
 
@@ -30,16 +30,16 @@ export function SellerStatusCard({ seller }: { seller: SellerView }) {
           </span>
           <span className="text-lg font-semibold text-content">{seller.displayName}</span>
         </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[seller.status]}`}>
-          {STATUS_LABEL[seller.status]}
+        <span className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_CLASS[seller.status] ?? 'bg-surface-muted text-content-subtle'}`}>
+          {STATUS_LABEL[seller.status] ?? seller.status}
         </span>
       </div>
-      <dl className="grid grid-cols-1 gap-2 text-sm text-content-muted sm:grid-cols-2">
-        <dd>{kycLine('PAN', seller.panPresent)}</dd>
-        <dd>{kycLine('GSTIN', seller.gstinPresent)}</dd>
-        <dd>{kycLine('Bank account', Boolean(seller.bankAccountLast4), seller.bankAccountLast4)}</dd>
-        <dd>{kycLine('IFSC', seller.bankIfscPresent)}</dd>
-      </dl>
+      <ul className="grid grid-cols-1 gap-2 text-sm text-content-muted sm:grid-cols-2 list-none p-0 m-0">
+        <li>{kycLine('PAN', seller.panPresent)}</li>
+        <li>{kycLine('GSTIN', seller.gstinPresent)}</li>
+        <li>{kycLine('Bank account', Boolean(seller.bankAccountLast4), seller.bankAccountLast4)}</li>
+        <li>{kycLine('IFSC', seller.bankIfscPresent)}</li>
+      </ul>
       {seller.status === 'PENDING_REVIEW' ? (
         <p className="text-sm text-content-subtle">
           Your application is under review. You can add or update your tax and bank

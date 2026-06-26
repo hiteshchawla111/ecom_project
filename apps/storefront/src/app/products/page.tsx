@@ -2,8 +2,12 @@ import type { Metadata } from 'next';
 import {
   getCategoryTree,
   getProducts,
+  getSearchResults,
   type ListProductsQuery,
+  type Product,
   type ProductSortBy,
+  type SearchFacets,
+  type SearchQuery,
   type SortDir,
 } from '@/lib/catalog';
 import { ProductCard } from '@/components/catalog/ProductCard';
@@ -27,6 +31,8 @@ type RawParams = {
   minPrice?: string | string[];
   maxPrice?: string | string[];
   sort?: string | string[];
+  brand?: string | string[];
+  minRating?: string | string[];
 };
 
 function first(raw: string | string[] | undefined): string | undefined {
@@ -47,6 +53,14 @@ function parsePrice(raw: string | string[] | undefined): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
+/** Coerce a raw rating param to an integer 1..5, else undefined. */
+function parseRating(raw: string | string[] | undefined): number | undefined {
+  const v = first(raw);
+  if (v === undefined) return undefined;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 1 && n <= 5 ? n : undefined;
+}
+
 const SORT_COLUMNS: ProductSortBy[] = ['createdAt', 'price', 'name'];
 
 /** Split a "column:dir" sort param into validated sortBy/sortDir. */
@@ -62,35 +76,17 @@ function parseSort(raw: string | string[] | undefined): {
   };
 }
 
-/** Build the API/query model and the filter-bar values from raw params. */
-function buildQuery(raw: RawParams): {
-  query: ListProductsQuery;
-  values: CatalogFilterValues;
-} {
-  const search = first(raw.search);
-  const categoryId = first(raw.category);
-  const minPrice = parsePrice(raw.minPrice);
-  const maxPrice = parsePrice(raw.maxPrice);
-  const { sortBy, sortDir } = parseSort(raw.sort);
-  const values: CatalogFilterValues = {
-    search,
-    categoryId,
-    minPrice,
-    maxPrice,
-    sortBy,
-    sortDir,
-  };
-  return { query: { search, categoryId, minPrice, maxPrice, sortBy, sortDir }, values };
-}
-
 /** Serialize active filters into a query string (for pagination links). */
 function filterQueryString(values: CatalogFilterValues, page: number): string {
   const params = new URLSearchParams();
-  if (values.search) params.set('search', values.search);
+  if (values.q) params.set('search', values.q);
+  else if (values.search) params.set('search', values.search);
   if (values.categoryId) params.set('category', values.categoryId);
   if (values.minPrice !== undefined) params.set('minPrice', String(values.minPrice));
   if (values.maxPrice !== undefined) params.set('maxPrice', String(values.maxPrice));
-  if (values.sortBy && values.sortDir) {
+  if (values.brand) params.set('brand', values.brand);
+  if (values.minRating !== undefined) params.set('minRating', String(values.minRating));
+  if (!values.brand && !values.minRating && !values.q && !values.categoryId && values.sortBy && values.sortDir) {
     params.set('sort', `${values.sortBy}:${values.sortDir}`);
   }
   params.set('page', String(page));
@@ -104,12 +100,38 @@ export default async function ProductsPage({
 }) {
   const raw = await searchParams;
   const page = parsePage(raw.page);
-  const { query, values } = buildQuery(raw);
 
-  const [{ data, total, totalPages }, categories] = await Promise.all([
-    getProducts({ ...query, page, pageSize: PAGE_SIZE }),
-    getCategoryTree(),
-  ]);
+  const q = first(raw.search);
+  const categoryId = first(raw.category);
+  const minPrice = parsePrice(raw.minPrice);
+  const maxPrice = parsePrice(raw.maxPrice);
+  const brand = first(raw.brand);
+  const minRating = parseRating(raw.minRating);
+  const { sortBy, sortDir } = parseSort(raw.sort);
+
+  const searchMode = Boolean(
+    q || categoryId || minPrice !== undefined || maxPrice !== undefined || brand || minRating !== undefined,
+  );
+
+  const categoriesPromise = getCategoryTree();
+
+  let data: Product[];
+  let total: number;
+  let totalPages: number;
+  let facets: SearchFacets | undefined;
+
+  if (searchMode) {
+    const query: SearchQuery = { q, page, pageSize: PAGE_SIZE, categoryId, minPrice, maxPrice, brand, minRating };
+    const result = await getSearchResults(query);
+    ({ data, total, totalPages, facets } = result);
+  } else {
+    const browseQuery: ListProductsQuery = { search: q, categoryId, minPrice, maxPrice, sortBy, sortDir, page, pageSize: PAGE_SIZE };
+    const result = await getProducts(browseQuery);
+    ({ data, total, totalPages } = result);
+  }
+  const categories = await categoriesPromise;
+
+  const values: CatalogFilterValues = { search: q, q, categoryId, minPrice, maxPrice, brand, minRating, sortBy, sortDir };
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-4 py-10">
@@ -120,7 +142,7 @@ export default async function ProductsPage({
         </p>
       </header>
 
-      <CatalogFilters categories={categories} current={values} />
+      <CatalogFilters categories={categories} current={values} facets={facets} />
 
       {data.length === 0 ? (
         <p className="text-content-muted">No products match your filters.</p>

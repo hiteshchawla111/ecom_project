@@ -47,6 +47,15 @@ export function CartProvider({
           router.push('/login');
           return;
         }
+        // 403 = authenticated but not allowed (the cart is customer-only; a
+        // seller/admin account is forbidden from shopping). Give a clear reason
+        // instead of a generic failure so the click doesn't look like a no-op.
+        if (res.status === 403) {
+          setError(
+            'This account can’t add to cart. Sign in with a customer account to shop.',
+          );
+          return;
+        }
         const body = (await res.json().catch(() => null)) as CartView | ErrorBody | null;
         if (!res.ok) {
           setError((body as ErrorBody)?.message ?? 'Unable to update cart.');

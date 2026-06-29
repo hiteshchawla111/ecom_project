@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Select,
   SelectContent,
@@ -24,23 +25,27 @@ export interface FilterSelectProps {
   options: FilterSelectOption[];
   defaultValue: string;
   placeholder?: string;
-  /** Submit the closest form on change for an instant, app-like filter feel. */
+  /** Navigate immediately on change (instant filter feel) instead of waiting
+   *  for the Apply button. */
   submitOnChange?: boolean;
 }
 
-/**
- * A shadcn Select that participates in the catalog's GET filter form. The
- * chosen value is mirrored into a hidden input (so the form still submits the
- * right param and works as a normal query-string navigation), and — when
- * `submitOnChange` — selecting an option submits the form immediately.
- *
- * Presentational/behavioral wrapper only: it changes how the control looks and
- * feels, never what data is requested (the page still parses the same params).
- */
 /** Radix Select forbids an empty-string item value, so represent "no value"
  *  with a sentinel and translate back to "" for the submitted hidden input. */
 const EMPTY = '__all';
 
+/**
+ * A shadcn Select that participates in the catalog's GET filter form.
+ *
+ * - Default (Apply-button) mode: the value is mirrored into a hidden input so
+ *   submitting the form sends the right param.
+ * - `submitOnChange` mode: selecting an option navigates immediately by
+ *   updating the URL search params directly (deterministic — no reliance on
+ *   async state being flushed before a form submit). Page resets to 1.
+ *
+ * Presentational/behavioral wrapper only: it changes how the control looks and
+ * feels, never what data is requested.
+ */
 export function FilterSelect({
   name,
   id,
@@ -50,15 +55,22 @@ export function FilterSelect({
   placeholder,
   submitOnChange = false,
 }: FilterSelectProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [value, setValue] = useState(defaultValue === '' ? EMPTY : defaultValue);
 
   function handleChange(next: string) {
     setValue(next);
-    if (submitOnChange) {
-      (document.getElementById(id) as HTMLElement | null)
-        ?.closest('form')
-        ?.requestSubmit();
-    }
+    if (!submitOnChange) return;
+
+    // Navigate directly from `next` (not from async state) so the new value is
+    // always the one applied. Reset pagination on a filter change.
+    const params = new URLSearchParams(searchParams.toString());
+    const real = next === EMPTY ? '' : next;
+    if (real) params.set(name, real);
+    else params.delete(name);
+    params.delete('page');
+    router.push(`/products?${params.toString()}`);
   }
 
   return (

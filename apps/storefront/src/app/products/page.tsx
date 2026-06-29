@@ -109,9 +109,11 @@ export default async function ProductsPage({
   const minRating = parseRating(raw.minRating);
   const { sortBy, sortDir } = parseSort(raw.sort);
 
-  const searchMode = Boolean(
-    q || categoryId || minPrice !== undefined || maxPrice !== undefined || brand || minRating !== undefined,
-  );
+  // Facet/search mode is only for a text query or facet filters (brand/rating)
+  // — the search endpoint powers those but can't sort. Category and price
+  // alone stay in browse mode, which supports sorting, so the Sort control
+  // remains available when browsing a category.
+  const searchMode = Boolean(q || brand || minRating !== undefined);
 
   const categoriesPromise = getCategoryTree();
 

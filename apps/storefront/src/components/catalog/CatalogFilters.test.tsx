@@ -24,24 +24,20 @@ describe('CatalogFilters', () => {
   });
 
   it('renders search, sort, price and category controls', () => {
-    render(<CatalogFilters categories={categories} />);
+    const { container } = render(<CatalogFilters categories={categories} />);
     expect(screen.getByRole('searchbox', { name: /search/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/sort/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/category/i)).toBeInTheDocument();
+    // Sort + Category are shadcn Select triggers (buttons with aria-label),
+    // each backed by a hidden input carrying the submitted value.
+    expect(screen.getByRole('combobox', { name: /sort/i })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /category/i })).toBeInTheDocument();
+    expect(container.querySelector('input[name="sort"]')).toBeInTheDocument();
+    expect(container.querySelector('input[name="category"]')).toBeInTheDocument();
     expect(screen.getByLabelText(/min price/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/max price/i)).toBeInTheDocument();
   });
 
-  it('lists categories (including nested) as options', () => {
-    render(<CatalogFilters categories={categories} />);
-    expect(
-      screen.getByRole('option', { name: /electronics/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /phones/i })).toBeInTheDocument();
-  });
-
   it('preselects the current filter values', () => {
-    render(
+    const { container } = render(
       <CatalogFilters
         categories={categories}
         current={{
@@ -57,11 +53,13 @@ describe('CatalogFilters', () => {
     expect(screen.getByRole('searchbox', { name: /search/i })).toHaveValue(
       'phone',
     );
-    expect(screen.getByLabelText(/category/i)).toHaveValue('c2');
     expect(screen.getByLabelText(/min price/i)).toHaveValue(100);
     expect(screen.getByLabelText(/max price/i)).toHaveValue(900);
-    // Sort encodes column+direction in one select value.
-    expect(screen.getByLabelText(/sort/i)).toHaveValue('price:asc');
+    // The hidden inputs carry the submitted category + sort values.
+    expect(container.querySelector('input[name="category"]')).toHaveValue('c2');
+    expect(container.querySelector('input[name="sort"]')).toHaveValue(
+      'price:asc',
+    );
   });
 
   it('offers a way to clear filters', () => {

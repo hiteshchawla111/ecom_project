@@ -16,6 +16,7 @@ import {
   CatalogFilters,
   type CatalogFilterValues,
 } from '@/components/catalog/CatalogFilters';
+import { StickyAside } from '@/components/catalog/StickyAside';
 
 export const metadata: Metadata = {
   title: 'Shop all products',
@@ -149,7 +150,7 @@ export default async function ProductsPage({
       </header>
 
       <div className="grid gap-10 lg:grid-cols-[260px_1fr] lg:gap-12">
-        <aside className="lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:self-start">
+        <StickyAside>
           <h2 className="mb-6 font-heading text-lg font-medium text-content">
             Refine
           </h2>
@@ -158,7 +159,7 @@ export default async function ProductsPage({
             current={values}
             facets={facets}
           />
-        </aside>
+        </StickyAside>
 
         <div className="flex flex-col gap-10">
           {data.length === 0 ? (

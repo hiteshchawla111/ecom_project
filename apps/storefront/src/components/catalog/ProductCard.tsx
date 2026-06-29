@@ -85,15 +85,15 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
   return (
     <Link
       href={`/products/${product.id}`}
-      className="group flex h-full flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary-300 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+      className="group flex h-full flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-4 focus-visible:ring-offset-surface-sunk"
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-surface-muted">
+      <div className="relative aspect-[4/5] w-full overflow-hidden border border-line bg-surface-muted">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
           alt={alt}
           loading="lazy"
-          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+          className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
         />
         {onSale && (
           <span
@@ -106,28 +106,24 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
         {/* Quick affordance on hover — invites the click without changing it. */}
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-3 bottom-3 translate-y-2 bg-surface/95 py-2.5 text-center text-[0.7rem] font-medium uppercase tracking-[0.12em] text-content opacity-0 backdrop-blur transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100"
+          className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-content/90 py-3 text-center text-[0.7rem] font-medium uppercase tracking-[0.18em] text-surface backdrop-blur transition-transform duration-300 group-hover:translate-y-0"
         >
           View product
         </span>
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-4">
+      <div className="flex flex-1 flex-col gap-1.5 pt-4">
         {product.brand ? (
-          <span className="text-xs font-medium uppercase tracking-wide text-content-subtle">
+          <span className="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-content-subtle">
             {product.brand}
           </span>
         ) : (
           <span className="h-4" aria-hidden="true" />
         )}
-        <h3 className="line-clamp-2 min-h-11 text-base font-semibold leading-snug text-content transition-colors group-hover:text-primary-700">
+        <h3 className="font-heading text-lg font-medium leading-snug text-content decoration-1 underline-offset-4 transition-all group-hover:underline">
           {product.name}
         </h3>
-        <div className="mt-auto pt-2">
-          <Price
-            price={product.price}
-            salePrice={product.salePrice}
-            className="font-heading"
-          />
+        <div className="mt-auto pt-1">
+          <Price price={product.price} salePrice={product.salePrice} />
         </div>
       </div>
     </Link>

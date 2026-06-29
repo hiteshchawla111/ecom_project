@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Category, ProductSortBy, SortDir, SearchFacets } from '@/lib/catalog';
+import { FilterSelect } from './FilterSelect';
 
 /** Current filter values used to preselect the controls. */
 export interface CatalogFilterValues {
@@ -85,20 +86,10 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
     'text-xs font-medium uppercase tracking-[0.18em] text-content-subtle';
   const fieldClass =
     'w-full border border-line bg-surface px-3.5 py-2.5 text-sm text-content transition-colors focus:border-content focus:outline-none focus:ring-1 focus:ring-content';
-  const selectClass = `${fieldClass} cursor-pointer appearance-none bg-[image:var(--chevron)] bg-[length:1rem] bg-[right_0.75rem_center] bg-no-repeat pr-9`;
 
   return (
     <>
-      <form
-        method="get"
-        action="/products"
-        className="flex flex-col gap-7"
-        // Inline chevron data-URI (currentColor) for the custom select arrow.
-        style={{
-          ['--chevron' as string]:
-            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2357534e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
-        }}
-      >
+      <form method="get" action="/products" className="flex flex-col gap-7">
         <div className="flex flex-col gap-2">
           <label htmlFor="filter-search" className={labelClass}>
             Search
@@ -117,19 +108,16 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
           <label htmlFor="filter-category" className={labelClass}>
             Category
           </label>
-          <select
+          <FilterSelect
             id="filter-category"
             name="category"
+            ariaLabel="Category"
             defaultValue={current?.categoryId ?? ''}
-            className={selectClass}
-          >
-            <option value="">All categories</option>
-            {options.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: 'All categories' },
+              ...options.map((o) => ({ value: o.id, label: o.label })),
+            ]}
+          />
         </div>
 
         <fieldset className="flex flex-col gap-2">
@@ -168,18 +156,14 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
             <label htmlFor="filter-sort" className={labelClass}>
               Sort
             </label>
-            <select
+            <FilterSelect
               id="filter-sort"
               name="sort"
+              ariaLabel="Sort"
               defaultValue={currentSort}
-              className={selectClass}
-            >
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              options={SORT_OPTIONS}
+              submitOnChange
+            />
           </div>
         )}
 

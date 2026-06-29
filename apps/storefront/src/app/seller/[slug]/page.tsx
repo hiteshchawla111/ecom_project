@@ -47,31 +47,47 @@ export default async function SellerPage({
   });
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-4 py-10">
-      <header className="flex flex-col gap-2">
-        {seller.logoUrl && (
+    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-10 px-4 pb-24 pt-12">
+      <header className="flex flex-col items-center gap-5 border-b border-line pb-10 text-center">
+        {seller.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={seller.logoUrl}
             alt={`${seller.displayName} logo`}
-            className="h-16 w-16 rounded-lg object-cover"
+            className="size-20 rounded-full border border-line object-cover"
           />
+        ) : (
+          <span className="flex size-20 items-center justify-center rounded-full border border-line bg-surface-muted font-heading text-3xl font-medium text-content">
+            {seller.displayName.charAt(0).toUpperCase()}
+          </span>
         )}
-        <h1 className="text-2xl font-semibold text-content">
+        <span className="text-xs font-medium uppercase tracking-[0.28em] text-content-subtle">
+          Shop
+        </span>
+        <h1 className="font-heading text-4xl font-medium tracking-[-0.01em] text-content sm:text-5xl">
           {seller.displayName}
         </h1>
         {seller.description && (
-          <p className="text-sm text-content-muted">{seller.description}</p>
+          <p className="max-w-xl text-base leading-relaxed text-content-muted">
+            {seller.description}
+          </p>
         )}
-        <p className="text-sm text-content-muted">
+        <p className="text-xs font-medium uppercase tracking-[0.14em] text-content-subtle">
           {total} {total === 1 ? 'product' : 'products'}
         </p>
       </header>
 
       {data.length === 0 ? (
-        <p className="text-content-muted">No products from this seller yet.</p>
+        <div className="flex flex-col items-center gap-3 border border-line bg-surface py-20 text-center">
+          <p className="font-heading text-2xl font-medium text-content">
+            No products yet.
+          </p>
+          <p className="text-sm text-content-muted">
+            This shop hasn’t listed anything for sale.
+          </p>
+        </div>
       ) : (
-        <ul className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
           {data.map((product) => (
             <li key={product.id} className="flex">
               <ProductCard product={product} />

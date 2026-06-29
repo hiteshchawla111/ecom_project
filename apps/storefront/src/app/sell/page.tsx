@@ -12,12 +12,17 @@ export default async function SellPage() {
   if (user.role === 'SELLER') redirect('/account/seller');
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-12">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-content">Sell with us</h1>
-        <p className="text-sm text-content-muted">
-          Apply to open a shop. We&apos;ll review your application and let you know
-          when you can start listing products. You can add tax and bank details after
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 pb-24 pt-12">
+      <header className="flex flex-col gap-2 border-b border-line pb-8">
+        <span className="text-xs font-medium uppercase tracking-[0.28em] text-content-subtle">
+          Become a seller
+        </span>
+        <h1 className="font-heading text-4xl font-medium tracking-[-0.01em] text-content sm:text-5xl">
+          Open your shop
+        </h1>
+        <p className="max-w-lg text-sm leading-relaxed text-content-muted">
+          Apply to open a shop. We’ll review your application and let you know when
+          you can start listing products — you can add tax and bank details after
           you apply.
         </p>
       </header>

@@ -37,7 +37,8 @@ describe('AddToCartButton', () => {
     // Click but do not await resolution — button should be disabled mid-flight.
     act(() => { screen.getByRole('button', { name: /add to cart/i }).click(); });
 
-    expect(screen.getByRole('button', { name: /add to cart/i })).toBeDisabled();
+    // While in flight the label reads "Adding…" and the control is disabled.
+    expect(screen.getByRole('button', { name: /adding/i })).toBeDisabled();
 
     // Resolve the fetch so timers / state settle before the test ends.
     await act(async () => { resolveAdd(); });

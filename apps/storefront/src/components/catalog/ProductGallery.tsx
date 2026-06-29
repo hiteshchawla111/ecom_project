@@ -20,9 +20,9 @@ export function ProductGallery({ images, fallbackAlt }: ProductGalleryProps) {
 
   if (images.length === 0) {
     return (
-      <div className="aspect-square w-full overflow-hidden rounded-lg border border-line bg-surface-muted">
+      <div className="aspect-[4/5] w-full overflow-hidden border border-line bg-surface-muted">
         <div
-          className="flex h-full w-full items-center justify-center text-content-subtle"
+          className="flex h-full w-full items-center justify-center text-xs font-medium uppercase tracking-[0.18em] text-content-subtle"
           aria-hidden="true"
         >
           No image
@@ -34,8 +34,8 @@ export function ProductGallery({ images, fallbackAlt }: ProductGalleryProps) {
   const active = images[activeIndex] ?? images[0];
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="aspect-square w-full overflow-hidden rounded-lg border border-line bg-surface-muted">
+    <div className="flex flex-col gap-4 sm:flex-row-reverse sm:items-start">
+      <div className="aspect-[4/5] w-full overflow-hidden border border-line bg-surface-muted">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           data-testid="gallery-main"
@@ -46,7 +46,7 @@ export function ProductGallery({ images, fallbackAlt }: ProductGalleryProps) {
       </div>
 
       {images.length > 1 && (
-        <ul className="grid grid-cols-5 gap-2">
+        <ul className="grid grid-cols-5 gap-2 sm:flex sm:w-20 sm:flex-shrink-0 sm:flex-col">
           {images.map((image, index) => {
             const isActive = index === activeIndex;
             return (
@@ -56,10 +56,10 @@ export function ProductGallery({ images, fallbackAlt }: ProductGalleryProps) {
                   aria-label={`View image ${index + 1}`}
                   aria-current={isActive ? 'true' : undefined}
                   onClick={() => setActiveIndex(index)}
-                  className={`aspect-square w-full overflow-hidden rounded-md border bg-surface-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 ${
+                  className={`aspect-square w-full overflow-hidden border bg-surface-muted transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 ${
                     isActive
-                      ? 'border-primary-500 ring-1 ring-primary-500'
-                      : 'border-line hover:border-primary-300'
+                      ? 'border-content opacity-100'
+                      : 'border-line opacity-60 hover:opacity-100'
                   }`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}

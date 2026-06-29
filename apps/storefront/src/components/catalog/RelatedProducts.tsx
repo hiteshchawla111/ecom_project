@@ -14,14 +14,19 @@ export function RelatedProducts({ products }: RelatedProductsProps) {
   if (products.length === 0) return null;
 
   return (
-    <section className="flex flex-col gap-4" aria-labelledby="related-heading">
-      <h2
-        id="related-heading"
-        className="text-xl font-semibold text-content"
-      >
-        Related products
-      </h2>
-      <ul className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+    <section className="flex flex-col gap-8" aria-labelledby="related-heading">
+      <div className="flex flex-col gap-1.5 border-b border-line pb-5">
+        <span className="text-xs font-medium uppercase tracking-[0.28em] text-content-subtle">
+          You may also like
+        </span>
+        <h2
+          id="related-heading"
+          className="font-heading text-3xl font-medium tracking-[-0.01em] text-content sm:text-4xl"
+        >
+          Related products
+        </h2>
+      </div>
+      <ul className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
         {products.map((product) => (
           <li key={product.id} className="flex">
             <ProductCard product={product} />

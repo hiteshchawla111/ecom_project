@@ -2,11 +2,15 @@
 
 import { useState } from 'react';
 import type { ProductImage } from '@/lib/catalog';
+import { placeholderImage } from './product-image';
 
 export interface ProductGalleryProps {
   images: ProductImage[];
   /** Alt text used when an image has none (typically the product name). */
   fallbackAlt: string;
+  /** Product id — seeds a deterministic placeholder when there are no images,
+   *  so the gallery shows a real photo instead of an empty frame. */
+  productId: string;
 }
 
 /**
@@ -15,18 +19,25 @@ export interface ProductGalleryProps {
  * images and hides thumbnails when there is only one. Plain <img> (catalog
  * image domains are unconfigured for next/image — a later optimization).
  */
-export function ProductGallery({ images, fallbackAlt }: ProductGalleryProps) {
+export function ProductGallery({
+  images,
+  fallbackAlt,
+  productId,
+}: ProductGalleryProps) {
   const [activeIndex, setActiveIndex] = useState(0);
 
+  // No real images → show a deterministic placeholder photo (same seed as the
+  // catalog card) so the gallery never renders an empty grey frame.
   if (images.length === 0) {
     return (
       <div className="aspect-[4/5] w-full overflow-hidden border border-line bg-surface-muted">
-        <div
-          className="flex h-full w-full items-center justify-center text-xs font-medium uppercase tracking-[0.18em] text-content-subtle"
-          aria-hidden="true"
-        >
-          No image
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          data-testid="gallery-main"
+          src={placeholderImage(productId)}
+          alt={fallbackAlt}
+          className="h-full w-full object-cover"
+        />
       </div>
     );
   }

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getProductById, getRelatedProductsFor } from '@/lib/catalog';
+import { discountPercent } from '@/lib/money';
 import { Price } from '@/components/catalog/Price';
 import { ProductGallery } from '@/components/catalog/ProductGallery';
 import { RelatedProducts } from '@/components/catalog/RelatedProducts';
@@ -32,6 +33,7 @@ export default async function ProductDetailPage({
   if (!product) notFound();
 
   const available = product.status === 'ACTIVE';
+  const off = discountPercent(product.price, product.salePrice);
   const related = await getRelatedProductsFor(product.categoryId, product.id);
 
   return (
@@ -63,6 +65,7 @@ export default async function ProductDetailPage({
           <ProductGallery
             images={product.images ?? []}
             fallbackAlt={product.name}
+            productId={product.id}
           />
         </div>
 
@@ -81,11 +84,18 @@ export default async function ProductDetailPage({
             ratingCount={product.ratingCount}
           />
 
-          <Price
-            price={product.price}
-            salePrice={product.salePrice}
-            className="text-2xl"
-          />
+          <div className="flex items-center gap-3">
+            <Price
+              price={product.price}
+              salePrice={product.salePrice}
+              className="text-2xl"
+            />
+            {off !== null && (
+              <span className="bg-accent-600 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-surface">
+                −{off}%
+              </span>
+            )}
+          </div>
 
           <div className="flex items-center gap-2.5 text-sm">
             <span
@@ -102,6 +112,21 @@ export default async function ProductDetailPage({
             <SellerLink seller={product.seller} />
           </div>
 
+          {/* Reassurance block — quiet trust signals beside the buy action. */}
+          <ul className="grid grid-cols-1 gap-px overflow-hidden border border-line bg-line sm:grid-cols-3">
+            {PDP_ASSURANCES.map((a) => (
+              <li
+                key={a.label}
+                className="flex flex-col gap-1.5 bg-surface p-4 text-center"
+              >
+                <span className="mx-auto text-content-muted">{a.icon}</span>
+                <span className="text-[0.7rem] font-medium uppercase tracking-[0.1em] text-content">
+                  {a.label}
+                </span>
+              </li>
+            ))}
+          </ul>
+
           <div className="border-t border-line pt-6">
             <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-content-subtle">
               Description
@@ -110,6 +135,29 @@ export default async function ProductDetailPage({
               {product.description}
             </p>
           </div>
+
+          <dl className="divide-y divide-line border-t border-line text-sm">
+            {product.brand && (
+              <div className="flex justify-between gap-4 py-3">
+                <dt className="text-content-muted">Brand</dt>
+                <dd className="font-medium text-content">{product.brand}</dd>
+              </div>
+            )}
+            <div className="flex justify-between gap-4 py-3">
+              <dt className="text-content-muted">SKU</dt>
+              <dd className="font-medium tabular-nums text-content">
+                {product.sku}
+              </dd>
+            </div>
+            {product.category && (
+              <div className="flex justify-between gap-4 py-3">
+                <dt className="text-content-muted">Category</dt>
+                <dd className="font-medium text-content">
+                  {product.category.name}
+                </dd>
+              </div>
+            )}
+          </dl>
         </div>
       </div>
 
@@ -117,3 +165,31 @@ export default async function ProductDetailPage({
     </main>
   );
 }
+
+/** Static reassurance items shown beside the buy action. */
+const PDP_ASSURANCES = [
+  {
+    label: 'Free shipping over $50',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="size-5" aria-hidden="true">
+        <path d="M1 3h15v13H1zM16 8h4l3 3v5h-7zM5.5 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18.5 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
+      </svg>
+    ),
+  },
+  {
+    label: '30-day returns',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="size-5" aria-hidden="true">
+        <path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Secure checkout',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="size-5" aria-hidden="true">
+        <path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5z" />
+      </svg>
+    ),
+  },
+] as const;

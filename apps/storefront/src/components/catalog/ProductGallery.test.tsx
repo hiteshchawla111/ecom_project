@@ -9,28 +9,29 @@ const images: ProductImage[] = [
 ];
 
 describe('ProductGallery', () => {
-  it('renders a placeholder when there are no images', () => {
-    render(<ProductGallery images={[]} fallbackAlt="Aurora Phone" />);
-    expect(screen.getByText(/no image/i)).toBeInTheDocument();
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  it('renders a deterministic placeholder image when there are no images', () => {
+    render(<ProductGallery images={[]} fallbackAlt="Aurora Phone" productId="p1" />);
+    const main = screen.getByTestId('gallery-main');
+    expect(main).toHaveAttribute('src', expect.stringContaining('picsum.photos'));
+    expect(main).toHaveAttribute('alt', 'Aurora Phone');
   });
 
   it('shows the first image as the main image initially', () => {
-    render(<ProductGallery images={images} fallbackAlt="Aurora Phone" />);
+    render(<ProductGallery images={images} fallbackAlt="Aurora Phone" productId="p1" />);
     const main = screen.getByTestId('gallery-main');
     expect(main).toHaveAttribute('src', 'https://x/a.jpg');
     expect(main).toHaveAttribute('alt', 'Front');
   });
 
   it('does not render thumbnails for a single image', () => {
-    render(<ProductGallery images={[images[0]]} fallbackAlt="Aurora Phone" />);
+    render(<ProductGallery images={[images[0]]} fallbackAlt="Aurora Phone" productId="p1" />);
     expect(
       screen.queryByRole('button', { name: /view image/i }),
     ).not.toBeInTheDocument();
   });
 
   it('renders a thumbnail button per image and swaps the main image on click', () => {
-    render(<ProductGallery images={images} fallbackAlt="Aurora Phone" />);
+    render(<ProductGallery images={images} fallbackAlt="Aurora Phone" productId="p1" />);
     const thumbs = screen.getAllByRole('button', { name: /view image/i });
     expect(thumbs).toHaveLength(2);
 
@@ -44,8 +45,7 @@ describe('ProductGallery', () => {
     render(
       <ProductGallery
         images={[{ id: 'i1', url: 'https://x/a.jpg', alt: null, position: 0 }]}
-        fallbackAlt="Aurora Phone"
-      />,
+        fallbackAlt="Aurora Phone" productId="p1" />,
     );
     expect(screen.getByTestId('gallery-main')).toHaveAttribute(
       'alt',

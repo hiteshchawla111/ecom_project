@@ -29,22 +29,22 @@ export function StatCard({ label, value, hint, icon, trend }: StatCardProps) {
   const isUp = trend?.direction === 'up';
 
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-line bg-surface p-4 shadow-sm transition-shadow hover:shadow-md">
+    <div className="flex flex-col gap-2 border border-line bg-surface p-5 transition-colors hover:border-content/30">
       <div className="flex items-start justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wide text-content-subtle">
+        <span className="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-content-subtle">
           {label}
         </span>
         {icon && (
           <span
             aria-hidden="true"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-600"
+            className="flex size-8 shrink-0 items-center justify-center border border-line text-content-muted"
           >
             {icon}
           </span>
         )}
       </div>
 
-      <span className="font-heading text-2xl font-semibold text-content">
+      <span className="font-heading text-3xl font-bold tracking-tight tabular-nums text-content">
         {value}
       </span>
 

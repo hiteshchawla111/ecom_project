@@ -1,6 +1,31 @@
 @import "tailwindcss";
 @import "../../../packages/design-tokens/theme.css";
 
+/* Bridge shadcn/ui semantic color names to our quiet-luxury tokens so the
+   shadcn primitives (Select, AlertDialog, DropdownMenu, Button) share ONE
+   palette and flip with dark mode. Primary is near-black (content) to match
+   the storefront's quiet-luxury CTAs rather than the coral brand. */
+@theme {
+  --color-background: var(--color-surface);
+  --color-foreground: var(--color-content);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-content);
+  --color-popover: var(--color-surface-raised);
+  --color-popover-foreground: var(--color-content);
+  --color-primary: var(--color-content);
+  --color-primary-foreground: var(--color-surface);
+  --color-secondary: var(--color-surface-muted);
+  --color-secondary-foreground: var(--color-content);
+  --color-muted: var(--color-surface-muted);
+  --color-muted-foreground: var(--color-content-muted);
+  --color-accent: var(--color-surface-muted);
+  --color-accent-foreground: var(--color-content);
+  --color-input: var(--color-line);
+  --color-ring: var(--color-content);
+  --color-destructive: var(--color-error-500);
+  --color-destructive-foreground: #ffffff;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);

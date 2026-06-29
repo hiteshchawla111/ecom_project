@@ -6,14 +6,14 @@ import { ThemeToggle } from './ui/ThemeToggle';
 // Active state is conveyed by a left accent border + tint + weight (not color
 // alone); the transparent border on inactive links keeps the width stable.
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center rounded-md border-l-2 px-3 py-2 transition-colors ${
+  `flex items-center border-l-2 px-3 py-2 text-sm transition-colors duration-200 ${
     isActive
-      ? 'border-primary-500 bg-primary-500/10 font-medium text-primary-700'
+      ? 'border-content bg-surface-muted font-medium text-content'
       : 'border-transparent text-content-muted hover:bg-surface-muted hover:text-content'
   }`;
 
 const groupLabelClass =
-  'px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-content-subtle';
+  'px-3 pb-1.5 pt-5 text-[0.7rem] font-medium uppercase tracking-[0.16em] text-content-subtle';
 
 export function AppShell() {
   const { user } = useAuth();
@@ -23,19 +23,16 @@ export function AppShell() {
   return (
     <div className="flex min-h-screen">
       <aside className="flex w-60 shrink-0 flex-col border-r border-line bg-surface p-4">
-        <div className="flex items-center gap-2.5 px-1">
-          <span
-            aria-hidden="true"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 font-heading text-base font-bold text-white shadow-sm"
-          >
-            {isSeller ? 'S' : 'A'}
+        <div className="flex flex-col gap-0.5 px-2 pt-1">
+          <span className="font-heading text-lg font-bold tracking-tight text-content">
+            Coral&nbsp;Market
           </span>
-          <h1 className="font-heading text-lg font-semibold tracking-tight text-content">
-            {isSeller ? 'Seller' : 'Admin'}
-          </h1>
+          <span className="text-[0.7rem] font-medium uppercase tracking-[0.18em] text-content-subtle">
+            {isSeller ? 'Seller portal' : 'Admin'}
+          </span>
         </div>
 
-        <nav aria-label="Sidebar" className="mt-6 flex flex-col gap-1 text-sm">
+        <nav aria-label="Sidebar" className="mt-6 flex flex-col gap-0.5 text-sm">
           <NavLink to="/" end className={navLinkClass}>
             Dashboard
           </NavLink>

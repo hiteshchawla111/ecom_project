@@ -16,11 +16,11 @@ export interface PaginationProps {
 type PageToken = number | 'ellipsis';
 
 const numberClass =
-  'inline-flex h-9 min-w-9 items-center justify-center rounded-md border border-line px-3 text-xs font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
+  'inline-flex h-9 min-w-9 items-center justify-center border border-line px-3 text-xs font-medium tabular-nums text-content transition-colors hover:border-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
 const currentClass =
-  'inline-flex h-9 min-w-9 items-center justify-center rounded-md bg-primary-500 px-3 text-xs font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
+  'inline-flex h-9 min-w-9 items-center justify-center bg-content px-3 text-xs font-medium tabular-nums text-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
 const stepClass =
-  'inline-flex h-9 items-center justify-center rounded-md border border-line px-3 text-xs font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50 disabled:hover:bg-transparent';
+  'inline-flex h-9 items-center justify-center border border-line px-3 text-[0.7rem] font-medium uppercase tracking-[0.1em] text-content transition-colors hover:border-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-40 disabled:hover:border-line';
 
 /**
  * Build the list of page tokens with ellipses. Always includes page 1 and the

@@ -33,6 +33,7 @@ Rules that govern how work is carried out in this repository. These apply to all
 
 - A feature is not "done" until it compiles, lint passes, and tests pass (where applicable).
 - **Smoke-run the real thing before claiming a slice done.** Unit tests mock dependencies (e.g. Prisma) and cannot prove the app actually boots and serves. Before marking a backend slice complete, start the API against the real dev DB (`ecom_dev`) and exercise the new endpoints over HTTP; for a frontend slice, run the app and verify the change in the browser. Tests + compile + lint are necessary, not sufficient.
+- **For UI slices, verify in BOTH light and dark themes (screenshot each).** Theme-inverting tokens hide contrast/visibility bugs that pass in light only. New UI must also match the Quiet-Luxury system in `DESIGN.md`.
 - Report outcomes honestly — if something is skipped or failing, say so.
 
 ## 6. Phase Completion — Handoff Prompt

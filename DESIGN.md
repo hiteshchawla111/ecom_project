@@ -146,6 +146,49 @@ Reuse semantic tokens so status colors stay consistent across storefront and adm
 
 ---
 
-## Dark Mode (future)
+## Dark Mode (implemented)
 
-Not required by the PRD. When added: invert neutrals (`neutral-900` ⇄ `neutral-0`), keep `primary-500` as the action color but lift it toward `primary-400` for contrast on dark surfaces. Reserve tokens now; don't build until requested.
+Dark mode is **live** — opt-in via `data-theme="dark"` on `<html>`, with a semantic
+surface/content token layer (`--color-surface`, `--color-content`, …) that flips under
+the dark override. Both storefront and admin support it. **Every UI change must be
+verified in BOTH themes** (screenshot light and dark) — the inverting tokens hide
+contrast bugs that pass in light only.
+
+---
+
+## Applied UI System — "Quiet-Luxury" (current execution)
+
+The shipped UI layers an editorial "quiet-luxury" execution on top of the tokens above
+(same palette — coral/teal kept as a restrained accent). **Match this on all new/edited
+UI so the storefront and admin stay consistent.**
+
+**Typography**
+- Display/page/section headings: **serif** — storefront uses Playfair Display
+  (`font-heading`/`font-serif`); admin uses serif for page titles + KPI values, sans
+  (Inter / Plus Jakarta) for dense data. Weight `font-medium`, tight tracking.
+- Eyebrows / labels / table headers / nav: **uppercase, letterspaced**
+  (`text-[0.7rem] font-medium uppercase tracking-[0.14em]–[0.18em] text-content-subtle`).
+- Numbers, prices, counts, IDs: `tabular-nums`.
+
+**Shape & material**
+- **Squared radii** — cards, inputs, buttons, badges, menus are square (`rounded-none`
+  or the small `--radius` only). No `rounded-full` pills or `rounded-lg/xl/2xl`.
+- Cards: `border border-line bg-surface` (flat or soft layered shadow); avoid heavy shadows.
+- Dividers: hairline `border-line`. Page headers: eyebrow + serif title + `border-b pb-6`.
+
+**Buttons (theme-safe — important)**
+- **Filled/primary buttons use the BRAND color with literal white text**:
+  `bg-primary-600 text-white hover:bg-primary-700`. **Never** `bg-content`/`text-surface`
+  on a filled button — those tokens invert per theme and wash out to cream-on-cream in
+  dark mode. Destructive: `bg-error-500 text-white`. Secondary: `border border-line`,
+  uppercase. (Overriding a shadcn Button's cva variant needs `!important`.)
+
+**Components**
+- Use **shadcn/ui** for dropdowns/selects/dialogs/tables (initialized in both apps;
+  semantic tokens bridged to our quiet-luxury tokens in each app's entry CSS). Replace
+  native `window.confirm()` with the shared AlertDialog confirm (`useConfirm`).
+- Storefront uses **GSAP** for tasteful motion (reveals, parallax, tilt, magnetic) —
+  reduced-motion-safe; see the motion components under `apps/storefront/src/components/motion`.
+
+**Status colors** stay semantic (success/warning/error per the order-status mapping
+above) but rendered as **squared uppercase badges**, never color-only.

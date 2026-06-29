@@ -66,5 +66,7 @@ Payment gateways (checkout creates an order but does **not** process payment), p
 - Strict TypeScript; avoid `any`. Types live close to their domain.
 - Functional React components + hooks; extract reusable hooks; avoid prop drilling.
 - Consume `DESIGN.md` tokens via Tailwind theme — never hardcode hex values.
+- **UI follows the "Quiet-Luxury" system in `DESIGN.md`** (serif headings, squared radii, uppercase letterspaced labels, brand-color filled buttons, shadcn primitives, GSAP motion). Read that section before any UI work and match it so storefront + admin stay consistent.
+- **Filled buttons use `bg-primary-600 text-white`, never `bg-content`/`text-surface`** — the latter invert per theme and wash out in dark mode.
 - Follow patterns established in each app once code exists; don't refactor unrelated code.
-- Small, focused commits; never commit secrets. Verify before claiming done (compile + lint + tests).
+- Small, focused commits; never commit secrets. Verify before claiming done (compile + lint + tests). **For UI, also screenshot both light and dark themes.**

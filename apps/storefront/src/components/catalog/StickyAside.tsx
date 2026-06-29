@@ -4,7 +4,6 @@ import { useRef, type ReactNode } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
-import { prefersReducedMotion } from '@/components/motion/prefers-reduced-motion';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -13,10 +12,13 @@ gsap.registerPlugin(useGSAP, ScrollTrigger);
  *
  * Native `position: sticky` doesn't work inside ScrollSmoother (it transforms
  * the scroll content, removing the scroll context sticky needs), so we pin via
- * ScrollTrigger, which is ScrollSmoother-aware. Only pins on large screens
- * where the rail sits beside the grid; on mobile (stacked) and under
- * reduced-motion it stays in normal flow. The pin end is the parent row, so the
- * rail un-pins exactly when the grid column ends.
+ * ScrollTrigger, which is ScrollSmoother-aware. Pins on large screens only,
+ * where the rail sits beside the grid; on mobile (stacked) it stays in normal
+ * flow.
+ *
+ * Pinning is layout, not decorative motion, so it is NOT gated on
+ * prefers-reduced-motion — a reduced-motion user still wants a sticky rail
+ * (the pin itself involves no animation).
  */
 export function StickyAside({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLElement>(null);
@@ -24,18 +26,22 @@ export function StickyAside({ children }: { children: ReactNode }) {
   useGSAP(
     () => {
       const el = ref.current;
-      if (!el || prefersReducedMotion()) return;
+      const row = el?.parentElement;
+      if (!el || !row) return;
 
       const mm = gsap.matchMedia();
       mm.add('(min-width: 1024px)', () => {
         const st = ScrollTrigger.create({
           trigger: el,
           start: 'top top+=96', // clear the fixed header
-          endTrigger: el.parentElement ?? el,
-          end: 'bottom bottom',
+          endTrigger: row, // hold until the grid column (the taller sibling) ends
+          end: 'bottom top+=96',
           pin: el,
           pinSpacing: false,
+          invalidateOnRefresh: true,
         });
+        // Recalculate once images/layout settle so start/end are correct.
+        ScrollTrigger.refresh();
         return () => st.kill();
       });
 

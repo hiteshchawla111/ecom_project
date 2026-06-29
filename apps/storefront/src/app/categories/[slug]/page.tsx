@@ -49,20 +49,22 @@ export default async function CategoryPage({
   });
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-4 py-10">
-      <header className="flex flex-col gap-2">
+    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-10 px-4 pb-24 pt-12">
+      <header className="flex flex-col gap-3 border-b border-line pb-8">
         <Link
           href="/categories"
-          className="w-fit text-sm font-medium text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+          className="w-fit text-xs font-medium uppercase tracking-[0.16em] text-content-muted transition-colors duration-300 hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
         >
           ← All categories
         </Link>
-        <h1 className="text-2xl font-semibold text-content">
-          {category.name}
-        </h1>
-        <p className="text-sm text-content-muted">
-          {total} {total === 1 ? 'product' : 'products'}
-        </p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h1 className="font-heading text-4xl font-medium tracking-[-0.01em] text-content sm:text-5xl">
+            {category.name}
+          </h1>
+          <p className="text-sm tabular-nums text-content-muted">
+            {total} {total === 1 ? 'product' : 'products'}
+          </p>
+        </div>
       </header>
 
       {category.children && category.children.length > 0 && (
@@ -71,7 +73,7 @@ export default async function CategoryPage({
             <Link
               key={child.id}
               href={`/categories/${child.slug}`}
-              className="rounded-full border border-line px-3 py-1 text-sm text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+              className="border border-line px-3.5 py-1.5 text-xs font-medium uppercase tracking-[0.1em] text-content-muted transition-colors duration-200 hover:border-content hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
             >
               {child.name}
             </Link>
@@ -80,9 +82,16 @@ export default async function CategoryPage({
       )}
 
       {data.length === 0 ? (
-        <p className="text-content-muted">No products in this category yet.</p>
+        <div className="flex flex-col items-center gap-3 border border-line bg-surface py-20 text-center">
+          <p className="font-heading text-2xl font-medium text-content">
+            Nothing here yet.
+          </p>
+          <p className="text-sm text-content-muted">
+            This category has no products at the moment.
+          </p>
+        </div>
       ) : (
-        <ul className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
           {data.map((product) => (
             <li key={product.id} className="flex">
               <ProductCard product={product} />

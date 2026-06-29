@@ -18,13 +18,13 @@ export interface PaginationProps {
 type PageToken = number | 'ellipsis';
 
 const numberLinkClass =
-  'inline-flex h-9 min-w-9 items-center justify-center rounded-md border border-line px-3 text-sm font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
+  'inline-flex h-10 min-w-10 items-center justify-center border border-line px-3 text-sm tabular-nums text-content transition-colors duration-200 hover:border-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
 const currentClass =
-  'inline-flex h-9 min-w-9 items-center justify-center rounded-md bg-primary-500 px-3 text-sm font-semibold text-surface';
+  'inline-flex h-10 min-w-10 items-center justify-center bg-content px-3 text-sm font-medium tabular-nums text-surface';
 const stepLinkClass =
-  'inline-flex h-9 items-center justify-center rounded-md border border-line px-3 text-sm font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
+  'inline-flex h-10 items-center justify-center border border-line px-4 text-xs font-medium uppercase tracking-[0.12em] text-content transition-colors duration-200 hover:border-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
 const stepDisabledClass =
-  'inline-flex h-9 items-center justify-center rounded-md border border-line px-3 text-sm text-content-subtle';
+  'inline-flex h-10 items-center justify-center border border-line px-4 text-xs font-medium uppercase tracking-[0.12em] text-content-subtle';
 
 /**
  * Build the list of page tokens with ellipses. Always includes page 1 and the

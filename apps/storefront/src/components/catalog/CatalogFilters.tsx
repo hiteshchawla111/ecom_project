@@ -82,16 +82,16 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
       : 'createdAt:desc';
 
   const labelClass =
-    'text-xs font-semibold uppercase tracking-wide text-content-subtle';
+    'text-xs font-medium uppercase tracking-[0.16em] text-content-subtle';
   const fieldClass =
-    'rounded-md border border-line bg-surface px-3 py-2 text-sm text-content focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
+    'border border-line bg-surface px-3.5 py-2.5 text-sm text-content transition-colors focus:border-content focus:outline-none focus:ring-1 focus:ring-content';
 
   return (
     <>
       <form
         method="get"
         action="/products"
-        className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-4 shadow-sm sm:flex-row sm:flex-wrap sm:items-end"
+        className="flex flex-col gap-4 border border-line bg-surface p-5 sm:flex-row sm:flex-wrap sm:items-end"
       >
         <div className="flex min-w-48 flex-1 flex-col gap-1.5">
           <label htmlFor="filter-search" className={labelClass}>
@@ -177,16 +177,16 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
           </div>
         )}
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <button
             type="submit"
-            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-surface transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+            className="bg-content px-6 py-2.5 text-xs font-medium uppercase tracking-[0.12em] text-surface transition-colors duration-300 hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
           >
             Apply
           </button>
           <Link
             href="/products"
-            className="text-sm font-medium text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+            className="text-xs font-medium uppercase tracking-[0.12em] text-content-muted transition-colors duration-300 hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
           >
             Clear
           </Link>
@@ -194,7 +194,7 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
       </form>
 
       {facets && (
-        <div className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-4 shadow-sm">
+        <div className="flex flex-col gap-5 border border-line bg-surface p-5">
           {facets.brands.length > 0 && (
             <fieldset className="flex flex-col gap-2">
               <legend className={labelClass}>Brand</legend>
@@ -206,7 +206,7 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
                       <Link
                         href={buildFacetHref(current ?? {}, 'brand', active ? null : b.value)}
                         aria-current={active || undefined}
-                        className={`hover:underline ${active ? 'font-semibold text-primary-700' : 'text-content'}`}
+                        className={`hover:underline ${active ? "font-medium text-content underline underline-offset-4" : "text-content-muted"}`}
                       >
                         {b.value} ({b.count})
                       </Link>
@@ -236,7 +236,7 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
                       <Link
                         href={buildFacetHref(current ?? {}, 'minRating', active ? null : r.minRating)}
                         aria-current={active || undefined}
-                        className={`hover:underline ${active ? 'font-semibold text-primary-700' : 'text-content'}`}
+                        className={`hover:underline ${active ? "font-medium text-content underline underline-offset-4" : "text-content-muted"}`}
                       >
                         {r.minRating} ★ &amp; up ({r.count})
                       </Link>

@@ -13,7 +13,7 @@ export const NAV_LINKS = [
 ] as const;
 
 const linkClass =
-  'rounded-md px-2 py-1 text-sm font-medium text-content-muted transition-colors hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
+  'text-xs font-medium uppercase tracking-[0.14em] text-content-muted transition-colors duration-300 hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700';
 
 export interface SiteHeaderViewProps {
   user: CurrentUser | null;
@@ -28,17 +28,17 @@ export function SiteHeaderView({ user }: SiteHeaderViewProps) {
   return (
     <header className="fixed inset-x-0 top-0 z-50 h-[var(--header-h)] border-b border-line bg-surface/90 backdrop-blur-md">
       <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between gap-4 px-4">
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-8">
           <Link
             href="/"
             aria-label="Home"
-            className="font-heading text-xl font-bold tracking-tight text-primary-500 transition-colors hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+            className="font-heading text-2xl font-medium tracking-tight text-content transition-colors duration-300 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
           >
             Coral&nbsp;Market
           </Link>
           <nav
             aria-label="Primary"
-            className="hidden items-center gap-1 md:flex"
+            className="hidden items-center gap-7 md:flex"
           >
             {NAV_LINKS.map((link) => (
               <Link key={link.href} href={link.href} className={linkClass}>
@@ -66,21 +66,21 @@ export function SiteHeaderView({ user }: SiteHeaderViewProps) {
           {user ? (
             <Link
               href="/account"
-              className="hidden rounded-md px-3 py-1.5 text-sm font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 sm:inline-block"
+              className="hidden text-xs font-medium uppercase tracking-[0.14em] text-content transition-colors duration-300 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 sm:inline-block"
             >
               My account
             </Link>
           ) : (
-            <div className="hidden items-center gap-2 sm:flex">
+            <div className="hidden items-center gap-5 sm:flex">
               <Link
                 href="/login"
-                className="rounded-md px-3 py-1.5 text-sm font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                className="text-xs font-medium uppercase tracking-[0.14em] text-content transition-colors duration-300 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
               >
                 Log in
               </Link>
               <Link
                 href="/register"
-                className="rounded-md bg-primary-500 px-3 py-1.5 text-sm font-medium text-surface transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                className="bg-content px-5 py-2.5 text-xs font-medium uppercase tracking-[0.14em] text-surface transition-colors duration-300 hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
               >
                 Sign up
               </Link>

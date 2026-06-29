@@ -59,6 +59,16 @@
   --shadow-md: 0 4px 12px rgba(28, 25, 23, 0.08);
   --shadow-lg: 0 12px 32px rgba(28, 25, 23, 0.12);
 
+  /* Motion — one rhythm shared by CSS transitions and GSAP tweens so the whole
+     UI moves with the same cadence. Durations follow the UX rule (150–300ms
+     micro, ≤400ms complex). Exits run faster than enters. All motion is gated
+     on prefers-reduced-motion at the component level. */
+  --motion-fast: 150ms;
+  --motion-base: 250ms;
+  --motion-slow: 400ms;
+  --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* enter — soft overshoot-free */
+  --motion-ease-in: cubic-bezier(0.4, 0, 1, 1); /* exit */
+
   /* Semantic surface/text tokens — the theme-aware layer. Components consume
      these (bg-surface, text-content, border-line, …) instead of raw neutrals,
      so the whole UI flips by overriding them under [data-theme="dark"] below.

@@ -5,34 +5,66 @@ export interface CategoryShortcutsProps {
   categories: Category[];
 }
 
+/** Deterministic, stable cover image per category (seeded by slug). */
+function categoryCover(slug: string): string {
+  return `https://picsum.photos/seed/cat-${encodeURIComponent(slug)}/500/400`;
+}
+
 /**
- * Quick-access chips/cards for top-level categories on the home page. Renders
- * nothing when there are no categories (graceful empty state).
+ * Image-backed category cards for the home page. Each tile pairs a category
+ * cover with a dark scrim so the label stays legible, and lifts on hover.
+ * Renders nothing when there are no categories (graceful empty state).
  */
 export function CategoryShortcuts({ categories }: CategoryShortcutsProps) {
   if (categories.length === 0) return null;
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-xl font-semibold text-content">
+    <section className="flex flex-col gap-8">
+      <div className="flex items-end justify-between gap-4 border-b border-line pb-5">
+        <h2 className="font-heading text-3xl font-extrabold tracking-tight text-content sm:text-4xl">
           Shop by category
         </h2>
         <Link
           href="/categories"
-          className="text-sm font-medium text-primary-700 transition-colors hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+          className="group inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-content transition-colors hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
         >
           View all
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5"
+          >
+            <path d="M5 12h14M13 5l7 7-7 7" />
+          </svg>
         </Link>
       </div>
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {categories.map((category) => (
           <li key={category.id}>
             <Link
               href={`/categories/${category.slug}`}
-              className="flex items-center justify-center rounded-lg border border-line bg-surface px-4 py-5 text-center text-sm font-medium text-content shadow-sm transition-colors hover:border-primary-300 hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+              className="group relative flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-2xl border border-line shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
             >
-              {category.name}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={categoryCover(category.slug)}
+                alt=""
+                aria-hidden="true"
+                loading="lazy"
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+              />
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 bg-gradient-to-t from-neutral-900/85 via-neutral-900/25 to-transparent transition-opacity duration-300 group-hover:from-neutral-900/90"
+              />
+              <span className="relative p-3 text-sm font-bold leading-tight text-white">
+                {category.name}
+              </span>
             </Link>
           </li>
         ))}

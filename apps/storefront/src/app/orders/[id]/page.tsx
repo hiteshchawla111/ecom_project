@@ -28,11 +28,22 @@ export default async function OrderConfirmationPage({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-10">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-content">Order placed</h1>
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-4 pb-24 pt-12">
+      <header className="flex flex-col items-start gap-3 border-b border-line pb-8">
+        <span className="flex size-12 items-center justify-center rounded-full bg-success-500/10 text-success-500">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-6" aria-hidden="true">
+            <path d="m5 13 4 4L19 7" />
+          </svg>
+        </span>
+        <h1 className="font-heading text-4xl font-medium tracking-[-0.01em] text-content sm:text-5xl">
+          Order placed
+        </h1>
         <p className="text-sm text-content-muted">
-          Thank you — your order <span className="font-medium text-content">{order.id}</span> has been received.
+          Thank you — order{' '}
+          <span className="font-medium tabular-nums text-content">
+            {order.id.slice(-8).toUpperCase()}
+          </span>{' '}
+          has been received. A confirmation is on its way.
         </p>
       </header>
       <OrderSummary order={order} />

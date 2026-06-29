@@ -89,4 +89,28 @@ describe('RegisterForm', () => {
     );
     expect(pushMock).not.toHaveBeenCalled();
   });
+
+  it('Sell intent registers then chains the seller application', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(jsonResponse(201, { ok: true }));
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    // Switch to the Sell intent — shop fields appear.
+    await user.click(screen.getByRole('radio', { name: /sell/i }));
+    await user.type(screen.getByLabelText(/^name$/i), 'Ann');
+    await user.type(screen.getByLabelText(/email/i), 'a@test.com');
+    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.type(screen.getByLabelText(/shop name/i), 'Ann’s Shop');
+    await user.click(screen.getByRole('button', { name: /open shop/i }));
+
+    // Two calls in order: account, then seller application.
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+    expect(fetchSpy.mock.calls[0][0]).toBe('/api/auth/register');
+    expect(fetchSpy.mock.calls[1][0]).toBe('/api/seller/register');
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith('/account/seller'),
+    );
+  });
 });

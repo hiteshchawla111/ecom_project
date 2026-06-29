@@ -14,24 +14,29 @@ export default async function LoginPage({
   const target = safeNext(next);
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-content">Sign in</h1>
+      <header className="flex flex-col gap-2">
+        <span className="text-xs font-medium uppercase tracking-[0.24em] text-content-subtle">
+          Welcome back
+        </span>
+        <h1 className="font-heading text-3xl font-medium tracking-[-0.01em] text-content">
+          Sign in
+        </h1>
         <p className="text-sm text-content-muted">
-          Welcome back. Enter your details to continue.
+          Enter your details to continue.
         </p>
       </header>
       <LoginForm next={target} />
-      <p className="text-sm text-content-muted">
-        <Link href="/forgot-password" className="font-medium text-primary-600 hover:text-primary-700">
+      <div className="flex flex-col gap-3 text-sm text-content-muted">
+        <Link href="/forgot-password" className="font-medium text-content underline underline-offset-4 hover:text-primary-700">
           Forgot password?
         </Link>
-      </p>
-      <p className="text-sm text-content-muted">
-        New here?{' '}
-        <Link href="/register" className="font-medium text-primary-600 hover:text-primary-700">
-          Create an account
-        </Link>
-      </p>
+        <span>
+          New here?{' '}
+          <Link href="/register" className="font-medium text-content underline underline-offset-4 hover:text-primary-700">
+            Create an account
+          </Link>
+        </span>
+      </div>
     </div>
   );
 }

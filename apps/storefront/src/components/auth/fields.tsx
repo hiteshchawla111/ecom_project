@@ -27,8 +27,11 @@ export function TextField({
   const id = useId();
   const hintId = hint ? `${id}-hint` : undefined;
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-content">
+    <div className="flex flex-col gap-2">
+      <label
+        htmlFor={id}
+        className="text-xs font-medium uppercase tracking-[0.14em] text-content-subtle"
+      >
         {label}
       </label>
       <input
@@ -40,7 +43,7 @@ export function TextField({
         autoComplete={autoComplete}
         aria-describedby={hintId}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-line bg-surface px-3 py-2 text-content outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+        className="border border-line bg-surface px-3.5 py-3 text-sm text-content outline-none transition-colors focus:border-content focus:ring-1 focus:ring-content"
       />
       {hint ? (
         <p id={hintId} className="text-xs text-content-subtle">
@@ -76,7 +79,7 @@ export function SubmitButton({
     <button
       type="submit"
       disabled={pending}
-      className="mt-1 rounded-md bg-primary-500 px-4 py-2.5 font-medium text-surface transition-colors hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-300 disabled:cursor-not-allowed disabled:opacity-60"
+      className="mt-1 w-full bg-content py-3.5 text-xs font-medium uppercase tracking-[0.16em] text-surface transition-colors duration-300 hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50"
     >
       {pending ? 'Please wait…' : children}
     </button>

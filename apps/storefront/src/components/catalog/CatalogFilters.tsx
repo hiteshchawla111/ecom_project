@@ -82,18 +82,24 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
       : 'createdAt:desc';
 
   const labelClass =
-    'text-xs font-medium uppercase tracking-[0.16em] text-content-subtle';
+    'text-xs font-medium uppercase tracking-[0.18em] text-content-subtle';
   const fieldClass =
-    'border border-line bg-surface px-3.5 py-2.5 text-sm text-content transition-colors focus:border-content focus:outline-none focus:ring-1 focus:ring-content';
+    'w-full border border-line bg-surface px-3.5 py-2.5 text-sm text-content transition-colors focus:border-content focus:outline-none focus:ring-1 focus:ring-content';
+  const selectClass = `${fieldClass} cursor-pointer appearance-none bg-[image:var(--chevron)] bg-[length:1rem] bg-[right_0.75rem_center] bg-no-repeat pr-9`;
 
   return (
     <>
       <form
         method="get"
         action="/products"
-        className="flex flex-col gap-4 border border-line bg-surface p-5 sm:flex-row sm:flex-wrap sm:items-end"
+        className="flex flex-col gap-7"
+        // Inline chevron data-URI (currentColor) for the custom select arrow.
+        style={{
+          ['--chevron' as string]:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2357534e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
+        }}
       >
-        <div className="flex min-w-48 flex-1 flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           <label htmlFor="filter-search" className={labelClass}>
             Search
           </label>
@@ -107,7 +113,7 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
           />
         </div>
 
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           <label htmlFor="filter-category" className={labelClass}>
             Category
           </label>
@@ -115,7 +121,7 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
             id="filter-category"
             name="category"
             defaultValue={current?.categoryId ?? ''}
-            className={fieldClass}
+            className={selectClass}
           >
             <option value="">All categories</option>
             {options.map((o) => (
@@ -126,7 +132,7 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
           </select>
         </div>
 
-        <fieldset className="flex flex-col gap-1.5">
+        <fieldset className="flex flex-col gap-2">
           <legend className={labelClass}>Price range</legend>
           <div className="flex items-center gap-2">
             <input
@@ -138,7 +144,7 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
               aria-label="Min price"
               placeholder="Min"
               defaultValue={current?.minPrice ?? ''}
-              className={`w-24 ${fieldClass}`}
+              className={fieldClass}
             />
             <span aria-hidden="true" className="text-content-subtle">
               –
@@ -152,13 +158,13 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
               aria-label="Max price"
               placeholder="Max"
               defaultValue={current?.maxPrice ?? ''}
-              className={`w-24 ${fieldClass}`}
+              className={fieldClass}
             />
           </div>
         </fieldset>
 
         {!facets && (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <label htmlFor="filter-sort" className={labelClass}>
               Sort
             </label>
@@ -166,7 +172,7 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
               id="filter-sort"
               name="sort"
               defaultValue={currentSort}
-              className={fieldClass}
+              className={selectClass}
             >
               {SORT_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -177,24 +183,24 @@ export function CatalogFilters({ categories, current, facets }: CatalogFiltersPr
           </div>
         )}
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3 border-t border-line pt-6">
           <button
             type="submit"
-            className="bg-content px-6 py-2.5 text-xs font-medium uppercase tracking-[0.12em] text-surface transition-colors duration-300 hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+            className="w-full bg-content py-3 text-xs font-medium uppercase tracking-[0.14em] text-surface transition-colors duration-300 hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
           >
-            Apply
+            Apply filters
           </button>
           <Link
             href="/products"
-            className="text-xs font-medium uppercase tracking-[0.12em] text-content-muted transition-colors duration-300 hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+            className="text-center text-xs font-medium uppercase tracking-[0.12em] text-content-muted transition-colors duration-300 hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
           >
-            Clear
+            Clear all
           </Link>
         </div>
       </form>
 
       {facets && (
-        <div className="flex flex-col gap-5 border border-line bg-surface p-5">
+        <div className="flex flex-col gap-6 border-t border-line pt-7">
           {facets.brands.length > 0 && (
             <fieldset className="flex flex-col gap-2">
               <legend className={labelClass}>Brand</legend>

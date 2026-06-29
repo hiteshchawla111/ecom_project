@@ -148,34 +148,49 @@ export default async function ProductsPage({
         </div>
       </header>
 
-      <CatalogFilters categories={categories} current={values} facets={facets} />
+      <div className="grid gap-10 lg:grid-cols-[260px_1fr] lg:gap-12">
+        <aside className="lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:self-start">
+          <h2 className="mb-6 font-heading text-lg font-medium text-content">
+            Refine
+          </h2>
+          <CatalogFilters
+            categories={categories}
+            current={values}
+            facets={facets}
+          />
+        </aside>
 
-      {data.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 border border-line bg-surface py-20 text-center">
-          <p className="font-heading text-2xl font-medium text-content">
-            Nothing matches those filters.
-          </p>
-          <p className="text-sm text-content-muted">
-            Try widening your search or clearing a filter.
-          </p>
+        <div className="flex flex-col gap-10">
+          {data.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 border border-line bg-surface py-20 text-center">
+              <p className="font-heading text-2xl font-medium text-content">
+                Nothing matches those filters.
+              </p>
+              <p className="text-sm text-content-muted">
+                Try widening your search or clearing a filter.
+              </p>
+            </div>
+          ) : (
+            <ul className="grid grid-cols-2 gap-x-5 gap-y-10 lg:grid-cols-3">
+              {data.map((product) => (
+                <li key={product.id} className="flex">
+                  <ProductCard product={product} />
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            pageSize={PAGE_SIZE}
+            hrefForPage={(p) =>
+              `/products${filterQueryString(values, p, searchMode)}`
+            }
+          />
         </div>
-      ) : (
-        <ul className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
-          {data.map((product) => (
-            <li key={product.id} className="flex">
-              <ProductCard product={product} />
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <Pagination
-        page={page}
-        totalPages={totalPages}
-        total={total}
-        pageSize={PAGE_SIZE}
-        hrefForPage={(p) => `/products${filterQueryString(values, p, searchMode)}`}
-      />
+      </div>
     </main>
   );
 }

@@ -7,6 +7,19 @@
   --font-sans: var(--font-inter), Inter, system-ui, sans-serif;
   /* Editorial serif for display headings (premium/luxury direction). */
   --font-heading: var(--font-playfair), "Playfair Display", Georgia, serif;
+
+  /* Bridge shadcn/ui's semantic color names to our existing quiet-luxury
+     token system so shadcn primitives (Select, etc.) share ONE palette and
+     flip with dark mode automatically — no parallel color system. */
+  --color-popover: var(--color-surface-raised);
+  --color-popover-foreground: var(--color-content);
+  --color-input: var(--color-line);
+  --color-ring: var(--color-content);
+  --color-accent: var(--color-surface-muted);
+  --color-accent-foreground: var(--color-content);
+  --color-muted: var(--color-surface-muted);
+  --color-muted-foreground: var(--color-content-muted);
+  --color-destructive: var(--color-error-500);
 }
 
 :root {

@@ -159,14 +159,14 @@ export function Hero({
                   src={item.imageUrl}
                   alt=""
                   loading="eager"
-                  className="h-full w-full rounded-2xl border border-line object-cover shadow-lg"
+                  className="h-full w-full rounded-lg border border-line object-cover shadow-lg"
                 />
               </div>
             ))}
             {/* Floating "new" chip on the lead tile */}
             <span
               data-hero="chip"
-              className="absolute right-4 top-4 z-10 rounded-full bg-surface/95 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-primary-700 shadow-md backdrop-blur"
+              className="absolute right-4 top-4 z-10 bg-surface/95 px-3 py-1.5 text-[0.65rem] font-medium uppercase tracking-[0.14em] text-content backdrop-blur"
             >
               Just in
             </span>

@@ -48,7 +48,7 @@ export function CategoryShortcuts({ categories }: CategoryShortcutsProps) {
           <li key={category.id}>
             <Link
               href={`/categories/${category.slug}`}
-              className="group relative flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-2xl border border-line shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+              className="group relative flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-lg border border-line shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img

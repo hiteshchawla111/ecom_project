@@ -37,7 +37,7 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
     return (
       <Link
         href={`/products/${product.id}`}
-        className="group relative flex h-full min-h-[20rem] flex-col justify-end overflow-hidden rounded-2xl border border-line bg-surface-muted shadow-sm transition-all duration-300 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+        className="group relative flex h-full min-h-[20rem] flex-col justify-end overflow-hidden rounded-lg border border-line bg-surface-muted shadow-sm transition-all duration-300 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -51,13 +51,13 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
           className="absolute inset-0 bg-gradient-to-t from-neutral-900/80 via-neutral-900/20 to-transparent"
         />
         <div className="absolute left-4 top-4 flex gap-2">
-          <span className="rounded-full bg-surface/95 px-3 py-1 text-xs font-bold uppercase tracking-wide text-content shadow-sm backdrop-blur">
+          <span className="bg-surface/95 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-content backdrop-blur">
             Featured
           </span>
           {onSale && (
             <span
               data-testid="sale-ribbon"
-              className="rounded-full bg-accent-600 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-surface shadow-sm"
+              className="bg-accent-600 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-surface"
             >
               Sale
             </span>
@@ -69,7 +69,7 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
               {product.brand}
             </span>
           )}
-          <h3 className="font-heading text-xl font-bold leading-tight text-white sm:text-2xl">
+          <h3 className="font-heading text-2xl font-medium leading-tight text-white sm:text-3xl">
             {product.name}
           </h3>
           <Price
@@ -85,7 +85,7 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
   return (
     <Link
       href={`/products/${product.id}`}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary-300 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+      className="group flex h-full flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary-300 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
     >
       <div className="relative aspect-square w-full overflow-hidden bg-surface-muted">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -98,7 +98,7 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
         {onSale && (
           <span
             data-testid="sale-ribbon"
-            className="absolute left-3 top-3 rounded-full bg-accent-600 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-surface shadow-sm"
+            className="absolute left-3 top-3 bg-accent-600 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-surface"
           >
             Sale
           </span>
@@ -106,7 +106,7 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
         {/* Quick affordance on hover — invites the click without changing it. */}
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-3 bottom-3 translate-y-2 rounded-full bg-surface/95 py-2 text-center text-xs font-semibold text-content opacity-0 shadow-md backdrop-blur transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100"
+          className="pointer-events-none absolute inset-x-3 bottom-3 translate-y-2 bg-surface/95 py-2.5 text-center text-[0.7rem] font-medium uppercase tracking-[0.12em] text-content opacity-0 backdrop-blur transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100"
         >
           View product
         </span>

@@ -9,7 +9,7 @@ import Link from 'next/link';
 /** Full-width brand-tinted promo band with a single CTA. */
 export function PromoBanner() {
   return (
-    <section className="relative isolate overflow-hidden rounded-2xl bg-neutral-900 px-8 py-16 text-white sm:px-16 sm:py-20">
+    <section className="relative isolate overflow-hidden rounded-lg bg-neutral-900 px-8 py-16 text-white sm:px-16 sm:py-20">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary-500/20 blur-3xl"
@@ -53,9 +53,9 @@ export function ValueProps() {
         {VALUE_PROPS.map((vp) => (
           <li
             key={vp.title}
-            className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-6 shadow-sm transition-shadow duration-200 hover:shadow-md"
+            className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-7 shadow-sm transition-shadow duration-200 hover:shadow-md"
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-700">
+            <span className="flex h-12 w-12 items-center justify-center border border-line text-content">
               {vp.icon}
             </span>
             <h3 className="font-heading text-xl font-medium text-content">
@@ -72,7 +72,7 @@ export function ValueProps() {
 /** Email-capture band. Visual only — wiring a backend is out of scope here. */
 export function NewsletterBand() {
   return (
-    <section className="relative isolate overflow-hidden rounded-3xl border border-line bg-surface-muted px-6 py-12 sm:px-12 sm:py-14">
+    <section className="relative isolate overflow-hidden rounded-lg border border-line bg-surface-muted px-6 py-12 sm:px-12 sm:py-14">
       <div className="relative flex flex-col items-center gap-5 text-center">
         <h2 className="font-heading text-3xl font-medium tracking-[-0.01em] text-content sm:text-4xl">
           Get first look at new arrivals.
@@ -95,11 +95,11 @@ export function NewsletterBand() {
             name="email"
             autoComplete="email"
             placeholder="you@example.com"
-            className="h-12 flex-1 rounded-full border border-line bg-surface px-5 text-sm text-content placeholder:text-content-subtle focus:border-primary-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+            className="flex-1 border border-line bg-surface px-5 py-3.5 text-sm text-content placeholder:text-content-subtle focus:border-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
           />
           <button
             type="submit"
-            className="h-12 shrink-0 rounded-full bg-primary-500 px-7 text-sm font-semibold text-surface shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:bg-primary-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-muted"
+            className="shrink-0 bg-content px-8 py-3.5 text-xs font-medium uppercase tracking-[0.12em] text-surface transition-colors duration-300 hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-muted"
           >
             Notify me
           </button>

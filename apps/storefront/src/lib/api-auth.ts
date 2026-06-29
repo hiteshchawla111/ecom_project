@@ -6,7 +6,7 @@
  */
 
 /** Customer roles, mirrors the Prisma `Role` enum used by the API. */
-export type Role = 'CUSTOMER' | 'ADMIN' | 'INVENTORY_MANAGER';
+export type Role = 'CUSTOMER' | 'ADMIN' | 'INVENTORY_MANAGER' | 'SELLER';
 
 /** Pair returned by register/login/refresh — mirrors API `TokenPair`. */
 export interface TokenPair {

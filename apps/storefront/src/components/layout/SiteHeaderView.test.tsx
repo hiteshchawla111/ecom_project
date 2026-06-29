@@ -28,6 +28,13 @@ describe('SiteHeaderView', () => {
     );
   });
 
+  it('renders the "Sell with us" nav link pointing to /sell', () => {
+    render(<SiteHeaderView user={null} />);
+    expect(
+      screen.getByRole('link', { name: /^sell with us$/i }),
+    ).toHaveAttribute('href', '/sell');
+  });
+
   it('renders a cart link', () => {
     render(<SiteHeaderView user={null} />);
     expect(screen.getByRole('link', { name: /cart/i })).toHaveAttribute(

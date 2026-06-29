@@ -71,6 +71,20 @@ describe('LoginForm', () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
+  it('redirects to a provided next path on success', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse(200, { ok: true }),
+    );
+    const user = userEvent.setup();
+    render(<LoginForm next="/sell" />);
+
+    await user.type(screen.getByLabelText(/email/i), 'a@test.com');
+    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/sell'));
+  });
+
   it('disables the submit button while the request is in flight', async () => {
     let resolve!: (r: Response) => void;
     vi.spyOn(globalThis, 'fetch').mockReturnValue(

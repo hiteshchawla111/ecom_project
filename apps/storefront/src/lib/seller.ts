@@ -1,0 +1,63 @@
+export type SellerStatus =
+  | 'PENDING_REVIEW'
+  | 'ACTIVE'
+  | 'SUSPENDED'
+  | 'DEACTIVATED';
+
+export interface SellerView {
+  id: string;
+  displayName: string;
+  slug: string;
+  description: string | null;
+  logoUrl: string | null;
+  status: SellerStatus;
+  kycVerifiedAt: string | null;
+  bankAccountLast4: string | null;
+  gstinPresent: boolean;
+  panPresent: boolean;
+  bankIfscPresent: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RegisterSellerInput {
+  displayName: string;
+  description?: string;
+  logoUrl?: string;
+}
+
+export interface UpdateSellerInput {
+  displayName?: string;
+  description?: string;
+  logoUrl?: string;
+  gstin?: string;
+  pan?: string;
+  bankAccountNo?: string;
+  bankIfsc?: string;
+}
+
+export const KYC_PATTERNS = {
+  gstin: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
+  pan: /^[A-Z]{5}[0-9]{4}[A-Z]$/,
+  bankAccountNo: /^[0-9]{9,18}$/,
+  bankIfsc: /^[A-Z]{4}0[A-Z0-9]{6}$/,
+} as const;
+
+const KYC_MESSAGES: Record<keyof typeof KYC_PATTERNS, string> = {
+  gstin: 'Enter a valid 15-character GSTIN.',
+  pan: 'Enter a valid 10-character PAN.',
+  bankAccountNo: 'Account number must be 9–18 digits.',
+  bankIfsc: 'Enter a valid 11-character IFSC.',
+};
+
+/** Validate only the KYC fields that are present and non-empty. */
+export function validateKyc(input: UpdateSellerInput): Record<string, string> {
+  const errors: Record<string, string> = {};
+  (Object.keys(KYC_PATTERNS) as (keyof typeof KYC_PATTERNS)[]).forEach((key) => {
+    const value = input[key];
+    if (typeof value === 'string' && value.length > 0 && !KYC_PATTERNS[key].test(value)) {
+      errors[key] = KYC_MESSAGES[key];
+    }
+  });
+  return errors;
+}

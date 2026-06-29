@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getCurrentUser } from '@/lib/session';
@@ -28,6 +29,28 @@ export default async function AccountPage() {
           <dd className="text-content">{user.email}</dd>
         </div>
       </dl>
+
+      {user.role === 'SELLER' ? (
+        <Link
+          href="/account/seller"
+          className="inline-flex w-fit rounded-md bg-primary-500 px-4 py-2.5 text-sm font-medium text-surface transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+        >
+          Manage your shop
+        </Link>
+      ) : (
+        <div className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-6">
+          <h2 className="text-lg font-semibold text-content">Start selling</h2>
+          <p className="text-sm text-content-muted">
+            Open a shop and reach customers across the marketplace.
+          </p>
+          <Link
+            href="/sell"
+            className="mt-2 inline-flex w-fit rounded-md bg-primary-500 px-4 py-2.5 text-sm font-medium text-surface transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+          >
+            Become a seller
+          </Link>
+        </div>
+      )}
 
       <div>
         <LogoutButton />

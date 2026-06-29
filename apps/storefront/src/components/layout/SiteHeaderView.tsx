@@ -9,6 +9,7 @@ import { SearchAutocomplete } from '@/components/search/SearchAutocomplete';
 export const NAV_LINKS = [
   { href: '/products', label: 'Products' },
   { href: '/categories', label: 'Categories' },
+  { href: '/sell', label: 'Sell with us' },
 ] as const;
 
 const linkClass =

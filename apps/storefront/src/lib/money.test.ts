@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatPrice, isOnSale } from './money';
+import { formatPrice, isOnSale, discountPercent } from './money';
 
 describe('formatPrice', () => {
   it('formats a whole-number string as USD currency', () => {
@@ -27,5 +27,21 @@ describe('isOnSale', () => {
   it('is false when the sale price is not below the regular price', () => {
     expect(isOnSale('799', '799')).toBe(false);
     expect(isOnSale('799', '900')).toBe(false);
+  });
+});
+
+describe('discountPercent', () => {
+  it('rounds the percentage off when on sale', () => {
+    expect(discountPercent('100', '75')).toBe(25);
+    expect(discountPercent('150', '140')).toBe(7); // 6.67 → 7
+  });
+
+  it('returns null when not on sale', () => {
+    expect(discountPercent('100', null)).toBeNull();
+    expect(discountPercent('100', '100')).toBeNull();
+  });
+
+  it('returns null when the regular price is zero', () => {
+    expect(discountPercent('0', '0')).toBeNull();
   });
 });

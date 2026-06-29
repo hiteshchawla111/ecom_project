@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import type { Product } from '@/lib/catalog';
-import { isOnSale } from '@/lib/money';
+import { isOnSale, discountPercent } from '@/lib/money';
 import { Price } from './Price';
+import { RatingStars } from './RatingStars';
+import { WishlistButton } from './WishlistButton';
 import { productImageUrl } from './product-image';
 
 interface ProductCardProps {
@@ -32,6 +34,9 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
   const src = productImageUrl(product);
   const alt = image?.alt ?? product.name;
   const onSale = isOnSale(product.price, product.salePrice);
+  const off = discountPercent(product.price, product.salePrice);
+  // A second image (if any) cross-fades in on hover — the premium catalog feel.
+  const hoverSrc = product.images?.[1]?.url ?? null;
 
   if (featured) {
     return (
@@ -83,49 +88,77 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
   }
 
   return (
-    <Link
-      href={`/products/${product.id}`}
-      className="group flex h-full flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-4 focus-visible:ring-offset-surface-sunk"
-    >
-      <div className="relative aspect-[4/5] w-full overflow-hidden border border-line bg-surface-muted">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt={alt}
-          loading="lazy"
-          className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-        />
-        {onSale && (
+    <div className="group relative flex h-full flex-col">
+      {/* Wishlist sits outside the <Link> so it never triggers navigation. */}
+      <div className="absolute right-3 top-3 z-10 translate-y-1 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+        <WishlistButton productName={product.name} />
+      </div>
+
+      <Link
+        href={`/products/${product.id}`}
+        className="flex h-full flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-4 focus-visible:ring-offset-surface-sunk"
+      >
+        <div className="relative aspect-[4/5] w-full overflow-hidden border border-line bg-surface-muted">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={src}
+            alt={alt}
+            loading="lazy"
+            className={`h-full w-full object-cover transition-all duration-700 ease-out group-hover:scale-105 ${
+              hoverSrc ? 'group-hover:opacity-0' : ''
+            }`}
+          />
+          {hoverSrc && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={hoverSrc}
+              alt=""
+              aria-hidden="true"
+              loading="lazy"
+              className="absolute inset-0 h-full w-full scale-105 object-cover opacity-0 transition-opacity duration-700 ease-out group-hover:opacity-100"
+            />
+          )}
+
+          <div className="absolute left-3 top-3 flex flex-col items-start gap-1.5">
+            {off !== null && (
+              <span
+                data-testid="sale-ribbon"
+                className="bg-accent-600 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-surface"
+              >
+                −{off}%
+              </span>
+            )}
+          </div>
+
+          {/* Quick affordance on hover — invites the click without changing it. */}
           <span
-            data-testid="sale-ribbon"
-            className="absolute left-3 top-3 bg-accent-600 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-surface"
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-content/90 py-3 text-center text-[0.7rem] font-medium uppercase tracking-[0.18em] text-surface backdrop-blur transition-transform duration-300 group-hover:translate-y-0"
           >
-            Sale
+            View product
           </span>
-        )}
-        {/* Quick affordance on hover — invites the click without changing it. */}
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-content/90 py-3 text-center text-[0.7rem] font-medium uppercase tracking-[0.18em] text-surface backdrop-blur transition-transform duration-300 group-hover:translate-y-0"
-        >
-          View product
-        </span>
-      </div>
-      <div className="flex flex-1 flex-col gap-1.5 pt-4">
-        {product.brand ? (
-          <span className="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-content-subtle">
-            {product.brand}
-          </span>
-        ) : (
-          <span className="h-4" aria-hidden="true" />
-        )}
-        <h3 className="font-heading text-lg font-medium leading-snug text-content decoration-1 underline-offset-4 transition-all group-hover:underline">
-          {product.name}
-        </h3>
-        <div className="mt-auto pt-1">
-          <Price price={product.price} salePrice={product.salePrice} />
         </div>
-      </div>
-    </Link>
+
+        <div className="flex flex-1 flex-col gap-1.5 pt-4">
+          {product.brand ? (
+            <span className="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-content-subtle">
+              {product.brand}
+            </span>
+          ) : (
+            <span className="h-4" aria-hidden="true" />
+          )}
+          <h3 className="font-heading text-lg font-medium leading-snug text-content decoration-1 underline-offset-4 transition-all group-hover:underline">
+            {product.name}
+          </h3>
+          <RatingStars
+            ratingAvg={product.ratingAvg}
+            ratingCount={product.ratingCount}
+          />
+          <div className="mt-auto pt-1">
+            <Price price={product.price} salePrice={product.salePrice} />
+          </div>
+        </div>
+      </Link>
+    </div>
   );
 }

@@ -20,3 +20,19 @@ export function isOnSale(price: string, salePrice: string | null): boolean {
   if (salePrice === null) return false;
   return Number(salePrice) < Number(price);
 }
+
+/**
+ * Display-only discount badge percent (rounded), derived from the two prices
+ * the API already produced — like {@link isOnSale}, this compares values for
+ * presentation; it does not compute any payable amount. Returns null when not
+ * on sale or the regular price is zero.
+ */
+export function discountPercent(
+  price: string,
+  salePrice: string | null,
+): number | null {
+  if (!isOnSale(price, salePrice)) return null;
+  const regular = Number(price);
+  if (!(regular > 0)) return null;
+  return Math.round((1 - Number(salePrice) / regular) * 100);
+}

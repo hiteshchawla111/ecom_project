@@ -8,6 +8,7 @@ import {
 } from '../lib/sellers';
 import { nextStatuses } from '../lib/sellerTransitions';
 import { SellerStatusBadge } from '../components/sellers/SellerStatusBadge';
+import { useConfirm } from '../components/ui/confirm';
 import { ApiError } from '../lib/types';
 
 const dateFmt = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
@@ -54,6 +55,7 @@ const ACTION: Record<
 };
 
 export function SellerDetailPage() {
+  const confirm = useConfirm();
   const { id } = useParams<{ id: string }>();
   const [seller, setSeller] = useState<SellerView | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,7 +93,13 @@ export function SellerDetailPage() {
 
   async function onTransition(next: SellerStatus) {
     if (!seller) return;
-    if (!window.confirm(ACTION[next].confirm)) return;
+    const ok = await confirm({
+      title: ACTION[next].label ?? 'Update seller',
+      description: ACTION[next].confirm,
+      confirmLabel: 'Confirm',
+      destructive: next === 'SUSPENDED' || next === 'DEACTIVATED',
+    });
+    if (!ok) return;
     const reason =
       ACTION[next].promptReason
         ? (window.prompt('Reason (optional):') ?? undefined) || undefined
@@ -120,7 +128,7 @@ export function SellerDetailPage() {
     return (
       <section className="flex flex-col gap-4">
         <p className="text-content-muted">Seller not found.</p>
-        <Link to="/sellers" className="text-sm text-primary-700 hover:underline">
+        <Link to="/sellers" className="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-content-muted transition-colors hover:text-content">
           ← Back to sellers
         </Link>
       </section>
@@ -152,16 +160,16 @@ export function SellerDetailPage() {
   const transitions = nextStatuses(seller.status);
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex flex-col gap-8">
       <div>
-        <Link to="/sellers" className="text-sm text-primary-700 hover:underline">
+        <Link to="/sellers" className="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-content-muted transition-colors hover:text-content">
           ← Back to sellers
         </Link>
       </div>
 
-      <header className="flex flex-wrap items-center justify-between gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-6">
         <div className="flex items-center gap-3">
-          <h2 className="font-heading text-2xl font-semibold text-content">
+          <h2 className="font-serif text-3xl font-medium tracking-tight text-content">
             {seller.displayName}
           </h2>
           <SellerStatusBadge status={seller.status} />
@@ -192,8 +200,8 @@ export function SellerDetailPage() {
                 onClick={() => void onTransition(next)}
                 className={
                   destructive
-                    ? 'rounded-md border border-error-500 px-4 py-2 text-sm font-medium text-error-500 transition-colors hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50'
-                    : 'rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50'
+                    ? 'border border-error-500 px-6 py-2.5 text-xs font-medium uppercase tracking-[0.12em] text-error-600 transition-colors duration-300 hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50'
+                    : 'bg-primary-600 px-6 py-2.5 text-xs font-medium uppercase tracking-[0.12em] text-white transition-colors duration-300 hover:bg-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50'
                 }
               >
                 {label}
@@ -206,8 +214,8 @@ export function SellerDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Profile */}
         <div className="lg:col-span-2 flex flex-col gap-4">
-          <div className="rounded-lg border border-line p-4">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-content-subtle">
+          <div className="border border-line bg-surface p-6">
+            <h3 className="mb-4 text-[0.7rem] font-medium uppercase tracking-[0.16em] text-content-subtle">
               Profile
             </h3>
             <dl className="grid gap-y-2 text-sm">
@@ -247,8 +255,8 @@ export function SellerDetailPage() {
 
         {/* KYC panel — masked only, no raw values */}
         <aside>
-          <div className="rounded-lg border border-line p-4">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-content-subtle">
+          <div className="border border-line bg-surface p-6">
+            <h3 className="mb-4 text-[0.7rem] font-medium uppercase tracking-[0.16em] text-content-subtle">
               KYC documents
             </h3>
             <dl className="flex flex-col gap-y-3 text-sm">

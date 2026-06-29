@@ -10,9 +10,9 @@ export function InventoryReportPage() {
   const { report, loading, error } = useInventoryReport(getInventoryReport);
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
-        <h2 className="font-heading text-2xl font-semibold text-content">
+        <h2 className="font-serif text-3xl font-medium tracking-tight text-content">
           Inventory report
         </h2>
         <p className="text-content-muted">

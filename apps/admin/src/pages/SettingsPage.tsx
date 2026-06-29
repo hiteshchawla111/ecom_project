@@ -58,17 +58,20 @@ export function SettingsPage() {
   }
 
   return (
-    <section className="flex max-w-xl flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h2 className="font-heading text-2xl font-semibold text-content">
+    <section className="flex max-w-xl flex-col gap-8">
+      <header className="flex flex-col gap-1.5 border-b border-line pb-6">
+        <span className="text-[0.7rem] font-medium uppercase tracking-[0.22em] text-content-subtle">
+          System
+        </span>
+        <h2 className="font-serif text-3xl font-medium tracking-tight text-content">
           Settings
         </h2>
-        <p className="text-content-muted">
+        <p className="text-sm text-content-muted">
           Brand color — applies to the storefront and admin.
         </p>
       </header>
 
-      <div className="flex flex-col gap-5 rounded-lg border border-line bg-surface p-6 shadow-sm">
+      <div className="flex flex-col gap-5 border border-line bg-surface p-6">
         <div className="flex items-center gap-3">
           <span
             aria-hidden="true"
@@ -120,7 +123,7 @@ export function SettingsPage() {
             type="button"
             onClick={() => void onSave()}
             disabled={save === 'saving'}
-            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50"
+            className="bg-primary-600 px-6 py-2.5 text-xs font-medium uppercase tracking-[0.12em] text-white transition-colors duration-300 hover:bg-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50"
           >
             {save === 'saving' ? 'Saving…' : 'Save'}
           </button>

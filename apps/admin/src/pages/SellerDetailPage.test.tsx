@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import type { SellerView, SellerStatus } from '../lib/sellers';
@@ -17,6 +17,7 @@ vi.mock('../lib/sellers', async (importOriginal) => {
 });
 
 import { SellerDetailPage } from './SellerDetailPage';
+import { ConfirmProvider } from '../components/ui/confirm';
 
 const sellerFixture = (over: Partial<SellerView> = {}): SellerView => ({
   id: 's1',
@@ -37,12 +38,14 @@ const sellerFixture = (over: Partial<SellerView> = {}): SellerView => ({
 
 const renderAt = (id = 's1') =>
   render(
-    <MemoryRouter initialEntries={[`/sellers/${id}`]}>
-      <Routes>
-        <Route path="/sellers/:id" element={<SellerDetailPage />} />
-        <Route path="/sellers" element={<div>sellers list</div>} />
-      </Routes>
-    </MemoryRouter>,
+    <ConfirmProvider>
+      <MemoryRouter initialEntries={[`/sellers/${id}`]}>
+        <Routes>
+          <Route path="/sellers/:id" element={<SellerDetailPage />} />
+          <Route path="/sellers" element={<div>sellers list</div>} />
+        </Routes>
+      </MemoryRouter>
+    </ConfirmProvider>,
   );
 
 beforeEach(() => {
@@ -113,18 +116,21 @@ describe('SellerDetailPage', () => {
     updateSellerStatus.mockResolvedValue(
       sellerFixture({ status: 'ACTIVE' }),
     );
+    const promptSpy = vi.spyOn(window, 'prompt');
     renderAt();
     await screen.findByText('Acme Store');
 
     await userEvent.click(screen.getByRole('button', { name: /approve/i }));
+    // Confirm in the AlertDialog (replaces the old window.confirm).
+    const dialog = await screen.findByRole('alertdialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^confirm$/i }));
 
     await waitFor(() =>
       expect(updateSellerStatus).toHaveBeenCalledWith('s1', 'ACTIVE', undefined),
     );
     expect(await screen.findByText('Active')).toBeInTheDocument();
-    // confirm was called; prompt was NOT called for Approve
-    expect(window.confirm).toHaveBeenCalledOnce();
-    expect(window.prompt).not.toHaveBeenCalled();
+    // No reason prompt for Approve.
+    expect(promptSpy).not.toHaveBeenCalled();
   });
 
   it('clicking Suspend/Reject prompts for a reason and calls updateSellerStatus with the reason', async () => {
@@ -139,6 +145,9 @@ describe('SellerDetailPage', () => {
     await userEvent.click(
       screen.getByRole('button', { name: /suspend \/ reject/i }),
     );
+    // Confirm the destructive action in the dialog; the reason prompt follows.
+    const dialog = await screen.findByRole('alertdialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^confirm$/i }));
 
     await waitFor(() =>
       expect(updateSellerStatus).toHaveBeenCalledWith('s1', 'SUSPENDED', 'bad docs'),

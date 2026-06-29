@@ -6,6 +6,9 @@
    palette and flip with dark mode. Primary is near-black (content) to match
    the storefront's quiet-luxury CTAs rather than the coral brand. */
 @theme {
+  /* Editorial serif for luxe accents (page titles, KPI values, wordmark). */
+  --font-serif: "Playfair Display", Georgia, serif;
+
   --color-background: var(--color-surface);
   --color-foreground: var(--color-content);
   --color-card: var(--color-surface);

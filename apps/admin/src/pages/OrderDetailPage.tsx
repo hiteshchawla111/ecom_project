@@ -8,6 +8,7 @@ import {
 } from '../lib/orders';
 import { nextStatuses } from '../lib/orderTransitions';
 import { OrderStatusBadge } from '../components/orders/OrderStatusBadge';
+import { useConfirm } from '../components/ui/confirm';
 import { ApiError } from '../lib/types';
 
 const usd = new Intl.NumberFormat('en-US', {
@@ -45,6 +46,7 @@ const ACTION: Record<OrderStatus, { label: string; confirm: string }> = {
 const money = (v: string) => usd.format(Number(v));
 
 export function OrderDetailPage() {
+  const confirm = useConfirm();
   const { id } = useParams<{ id: string }>();
   const [order, setOrder] = useState<AdminOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,7 +84,12 @@ export function OrderDetailPage() {
 
   async function onTransition(next: OrderStatus) {
     if (!order) return;
-    if (!window.confirm(ACTION[next].confirm)) return;
+    const ok = await confirm({
+      title: ACTION[next].label ?? 'Update order',
+      description: ACTION[next].confirm,
+      confirmLabel: 'Confirm',
+    });
+    if (!ok) return;
     setBusy(true);
     setError(null);
     try {
@@ -107,7 +114,7 @@ export function OrderDetailPage() {
     return (
       <section className="flex flex-col gap-4">
         <p className="text-content-muted">Order not found.</p>
-        <Link to="/orders" className="text-sm text-primary-700 hover:underline">
+        <Link to="/orders" className="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-content-muted transition-colors hover:text-content">
           ← Back to orders
         </Link>
       </section>
@@ -117,7 +124,7 @@ export function OrderDetailPage() {
   if (error && !order) {
     return (
       <section className="flex flex-col gap-4">
-        <div role="alert" className="rounded-md bg-error-500/10 px-4 py-3 text-sm text-error-500">
+        <div role="alert" className="bg-error-500/10 px-4 py-3 text-sm text-error-500">
           {error}
         </div>
         <button
@@ -136,16 +143,16 @@ export function OrderDetailPage() {
   const transitions = nextStatuses(order.status);
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex flex-col gap-8">
       <div>
-        <Link to="/orders" className="text-sm text-primary-700 hover:underline">
+        <Link to="/orders" className="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-content-muted transition-colors hover:text-content">
           ← Back to orders
         </Link>
       </div>
 
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h2 className="font-heading text-2xl font-semibold text-content">
+          <h2 className="font-serif text-3xl font-medium tracking-tight text-content">
             Order
           </h2>
           <OrderStatusBadge status={order.status} />
@@ -156,7 +163,7 @@ export function OrderDetailPage() {
       </header>
 
       {error && (
-        <div role="alert" className="rounded-md bg-error-500/10 px-4 py-3 text-sm text-error-500">
+        <div role="alert" className="bg-error-500/10 px-4 py-3 text-sm text-error-500">
           {error}
         </div>
       )}
@@ -173,8 +180,8 @@ export function OrderDetailPage() {
                 onClick={() => void onTransition(next)}
                 className={
                   destructive
-                    ? 'rounded-md border border-error-500 px-4 py-2 text-sm font-medium text-error-500 transition-colors hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50'
-                    : 'rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50'
+                    ? 'border border-error-500 px-6 py-2.5 text-xs font-medium uppercase tracking-[0.12em] text-error-600 transition-colors duration-300 hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50'
+                    : 'bg-primary-600 px-6 py-2.5 text-xs font-medium uppercase tracking-[0.12em] text-white transition-colors duration-300 hover:bg-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50'
                 }
               >
                 {ACTION[next].label}
@@ -186,23 +193,23 @@ export function OrderDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Items + totals */}
-        <div className="lg:col-span-2 overflow-x-auto rounded-lg border border-line">
+        <div className="lg:col-span-2 overflow-x-auto border border-line bg-surface">
           <table className="w-full text-left text-sm">
-            <thead className="bg-surface-muted text-content-muted">
+            <thead className="border-b border-line text-content-subtle">
               <tr>
-                <th scope="col" className="px-4 py-2.5 font-medium">Product</th>
-                <th scope="col" className="px-4 py-2.5 text-right font-medium">Unit</th>
-                <th scope="col" className="px-4 py-2.5 text-right font-medium">Qty</th>
-                <th scope="col" className="px-4 py-2.5 text-right font-medium">Line</th>
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">Product</th>
+                <th scope="col" className="px-5 py-3 text-right text-[0.7rem] font-medium uppercase tracking-[0.1em]">Unit</th>
+                <th scope="col" className="px-5 py-3 text-right text-[0.7rem] font-medium uppercase tracking-[0.1em]">Qty</th>
+                <th scope="col" className="px-5 py-3 text-right text-[0.7rem] font-medium uppercase tracking-[0.1em]">Line</th>
               </tr>
             </thead>
             <tbody>
               {order.items.map((item) => (
                 <tr key={item.productId} className="border-t border-line text-content">
-                  <td className="px-4 py-2 font-medium">{item.productName}</td>
-                  <td className="px-4 py-2 text-right">{money(item.unitPrice)}</td>
-                  <td className="px-4 py-2 text-right">{item.quantity}</td>
-                  <td className="px-4 py-2 text-right">{money(item.lineTotal)}</td>
+                  <td className="px-5 py-3.5 font-medium">{item.productName}</td>
+                  <td className="px-5 py-3.5 text-right">{money(item.unitPrice)}</td>
+                  <td className="px-5 py-3.5 text-right">{item.quantity}</td>
+                  <td className="px-5 py-3.5 text-right">{money(item.lineTotal)}</td>
                 </tr>
               ))}
             </tbody>
@@ -226,8 +233,8 @@ export function OrderDetailPage() {
                 <td className="px-4 py-1.5 text-right">{money(order.shippingTotal)}</td>
               </tr>
               <tr className="font-semibold">
-                <td colSpan={3} className="px-4 py-2 text-right">Total</td>
-                <td className="px-4 py-2 text-right">{money(order.grandTotal)}</td>
+                <td colSpan={3} className="px-5 py-3.5 text-right">Total</td>
+                <td className="px-5 py-3.5 text-right">{money(order.grandTotal)}</td>
               </tr>
             </tfoot>
           </table>
@@ -235,15 +242,15 @@ export function OrderDetailPage() {
 
         {/* Customer + shipping */}
         <aside className="flex flex-col gap-4">
-          <div className="rounded-lg border border-line p-4">
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-content-subtle">
+          <div className="border border-line bg-surface p-6">
+            <h3 className="mb-3 text-[0.7rem] font-medium uppercase tracking-[0.16em] text-content-subtle">
               Customer
             </h3>
             <p className="font-medium text-content">{order.customerName}</p>
             <p className="text-sm text-content-muted">{order.customerEmail}</p>
           </div>
-          <div className="rounded-lg border border-line p-4">
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-content-subtle">
+          <div className="border border-line bg-surface p-6">
+            <h3 className="mb-3 text-[0.7rem] font-medium uppercase tracking-[0.16em] text-content-subtle">
               Shipping
             </h3>
             <address className="text-sm not-italic text-content">

@@ -12,7 +12,7 @@ export function AccessDeniedPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
-      <h1 className="font-heading text-2xl font-semibold text-content">Access denied</h1>
+      <h1 className="font-serif text-3xl font-medium tracking-tight text-content">Access denied</h1>
       <p className="max-w-md text-content-muted">
         Your account doesn't have permission to use the admin panel.
       </p>

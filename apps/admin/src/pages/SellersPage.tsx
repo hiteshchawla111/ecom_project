@@ -73,9 +73,9 @@ export function SellersPage() {
   }
 
   return (
-    <section className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-2xl font-semibold text-content">
+    <section className="flex flex-col gap-8">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-6">
+        <h1 className="font-serif text-3xl font-medium tracking-tight text-content">
           Sellers
         </h1>
         <label className="flex items-center gap-2 text-sm text-content-muted">
@@ -85,7 +85,7 @@ export function SellersPage() {
             onChange={(e) =>
               onStatusChange(e.target.value as SellerStatus | '')
             }
-            className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+            className="border border-line bg-surface px-3 py-2 text-sm text-content focus:border-content focus:outline-none focus:ring-1 focus:ring-content"
           >
             <option value="">All</option>
             {STATUSES.map((s) => (
@@ -120,23 +120,23 @@ export function SellersPage() {
       ) : error ? null : sellers.length === 0 ? (
         <p className="text-content-muted">No sellers found.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-line">
+        <div className="overflow-x-auto border border-line bg-surface">
           <table className="w-full text-left text-sm">
-            <thead className="bg-surface-muted text-content-muted">
+            <thead className="border-b border-line text-content-subtle">
               <tr>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Seller
                 </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Slug
                 </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   KYC
                 </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Status
                 </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Created
                 </th>
               </tr>
@@ -145,9 +145,9 @@ export function SellersPage() {
               {sellers.map((s) => (
                 <tr
                   key={s.id}
-                  className="border-t border-line text-content transition-colors hover:bg-surface-sunk"
+                  className="border-t border-line text-content transition-colors hover:bg-surface-muted/50"
                 >
-                  <td className="px-4 py-2">
+                  <td className="px-5 py-3.5">
                     <Link
                       to={`/sellers/${s.id}`}
                       className="font-medium text-primary-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
@@ -155,14 +155,14 @@ export function SellersPage() {
                       {s.displayName}
                     </Link>
                   </td>
-                  <td className="px-4 py-2 text-content-muted">{s.slug}</td>
-                  <td className="px-4 py-2 text-content-muted">
+                  <td className="px-5 py-3.5 text-content-muted">{s.slug}</td>
+                  <td className="px-5 py-3.5 text-content-muted">
                     {s.kycPresent ? 'Provided' : '—'}
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-5 py-3.5">
                     <SellerStatusBadge status={s.status} />
                   </td>
-                  <td className="px-4 py-2 text-content-muted">
+                  <td className="px-5 py-3.5 text-content-muted">
                     {dateFmt.format(new Date(s.createdAt))}
                   </td>
                 </tr>

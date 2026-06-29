@@ -9,12 +9,14 @@ import {
 import { StatusBadge } from '../components/products/StatusBadge';
 import { Pagination } from '../components/ui/Pagination';
 import { RowActionsMenu } from '../components/ui/RowActionsMenu';
+import { useConfirm } from '../components/ui/confirm';
+import { PageHeader, primaryBtn } from '../components/ui/PageHeader';
 
 // Shared menu-item styling so every row action reads consistently.
 const menuItemClass =
-  'rounded px-3 py-1.5 text-left text-sm text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50';
+  'px-3 py-2 text-left text-sm text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50';
 const menuItemDangerClass =
-  'rounded px-3 py-1.5 text-left text-sm text-error-500 transition-colors hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50';
+  'px-3 py-2 text-left text-sm text-error-600 transition-colors hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50';
 
 const PAGE_SIZE = 20;
 const usd = new Intl.NumberFormat('en-US', {
@@ -23,6 +25,7 @@ const usd = new Intl.NumberFormat('en-US', {
 });
 
 export function ProductsPage() {
+  const confirm = useConfirm();
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -81,10 +84,13 @@ export function ProductsPage() {
     }
   }
 
-  function onArchive(product: Product) {
-    const ok = window.confirm(
-      `Archive “${product.name}”? It will no longer be visible in the storefront.`,
-    );
+  async function onArchive(product: Product) {
+    const ok = await confirm({
+      title: 'Archive product',
+      description: `Archive “${product.name}”? It will no longer be visible in the storefront.`,
+      confirmLabel: 'Archive',
+      destructive: true,
+    });
     if (!ok) return;
     void runAction(product.id, () => archiveProduct(product.id));
   }
@@ -95,18 +101,16 @@ export function ProductsPage() {
   }
 
   return (
-    <section className="flex flex-col gap-6">
-      <header className="flex items-center justify-between">
-        <h2 className="font-heading text-2xl font-semibold text-content">
-          Products
-        </h2>
-        <Link
-          to="/products/new"
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
-        >
-          Add product
-        </Link>
-      </header>
+    <section className="flex flex-col gap-8">
+      <PageHeader
+        eyebrow="Catalog"
+        title="Products"
+        actions={
+          <Link to="/products/new" className={primaryBtn}>
+            Add product
+          </Link>
+        }
+      />
 
       {error && (
         <div
@@ -131,26 +135,26 @@ export function ProductsPage() {
       ) : error ? null : products.length === 0 ? (
         <p className="text-content-muted">No products yet.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-line">
+        <div className="overflow-x-auto border border-line bg-surface">
           <table className="w-full text-left text-sm">
-            <thead className="bg-surface-muted text-content-muted">
+            <thead className="border-b border-line text-content-subtle">
               <tr>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Name
                 </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   SKU
                 </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Price
                 </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Status
                 </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Sold by
                 </th>
-                <th scope="col" className="px-4 py-2.5 text-right font-medium">
+                <th scope="col" className="px-5 py-3 text-right text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Actions
                 </th>
               </tr>
@@ -162,20 +166,20 @@ export function ProductsPage() {
                 return (
                   <tr
                     key={product.id}
-                    className="border-t border-line text-content transition-colors hover:bg-surface-sunk"
+                    className="border-t border-line text-content transition-colors hover:bg-surface-muted/50"
                   >
-                    <td className="px-4 py-2 font-medium">{product.name}</td>
-                    <td className="px-4 py-2 text-content-muted">{product.sku}</td>
-                    <td className="px-4 py-2">
+                    <td className="px-5 py-3.5 font-medium">{product.name}</td>
+                    <td className="px-5 py-3.5 text-content-muted">{product.sku}</td>
+                    <td className="px-5 py-3.5 tabular-nums">
                       {usd.format(Number(product.price))}
                     </td>
-                    <td className="px-4 py-2">
+                    <td className="px-5 py-3.5">
                       <StatusBadge status={product.status} />
                     </td>
-                    <td className="px-4 py-2 text-content-muted">
+                    <td className="px-5 py-3.5 text-content-muted">
                       {product.seller?.displayName ?? '—'}
                     </td>
-                    <td className="px-4 py-2">
+                    <td className="px-5 py-3.5">
                       <div className="flex justify-end">
                         {isArchived ? (
                           <span className="text-xs text-content-subtle">

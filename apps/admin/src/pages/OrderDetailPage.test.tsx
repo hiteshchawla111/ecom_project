@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import type { AdminOrderDetail, OrderStatus } from '../lib/orders';
@@ -17,6 +17,7 @@ vi.mock('../lib/orders', async (importOriginal) => {
 });
 
 import { OrderDetailPage } from './OrderDetailPage';
+import { ConfirmProvider } from '../components/ui/confirm';
 
 const detail = (over: Partial<AdminOrderDetail> = {}): AdminOrderDetail => ({
   id: 'o1',
@@ -50,12 +51,14 @@ const detail = (over: Partial<AdminOrderDetail> = {}): AdminOrderDetail => ({
 
 const renderAt = (id = 'o1') =>
   render(
-    <MemoryRouter initialEntries={[`/orders/${id}`]}>
-      <Routes>
-        <Route path="/orders/:id" element={<OrderDetailPage />} />
-        <Route path="/orders" element={<div>orders list</div>} />
-      </Routes>
-    </MemoryRouter>,
+    <ConfirmProvider>
+      <MemoryRouter initialEntries={[`/orders/${id}`]}>
+        <Routes>
+          <Route path="/orders/:id" element={<OrderDetailPage />} />
+          <Route path="/orders" element={<div>orders list</div>} />
+        </Routes>
+      </MemoryRouter>
+    </ConfirmProvider>,
   );
 
 beforeEach(() => {
@@ -99,7 +102,10 @@ describe('OrderDetailPage', () => {
     renderAt();
     await screen.findByText('Mouse');
 
-    await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
+    // The action button opens a confirm dialog; confirm inside it.
+    await userEvent.click(screen.getByRole('button', { name: /confirm order/i }));
+    const dialog = await screen.findByRole('alertdialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^confirm$/i }));
 
     await waitFor(() =>
       expect(updateOrderStatus).toHaveBeenCalledWith('o1', 'CONFIRMED'),

@@ -15,12 +15,15 @@ vi.mock('../lib/sellerProducts', () => ({
 }));
 
 import { SellerProductsPage } from './SellerProductsPage';
+import { ConfirmProvider } from '../components/ui/confirm';
 
 const renderPage = () =>
   render(
-    <MemoryRouter>
-      <SellerProductsPage />
-    </MemoryRouter>,
+    <ConfirmProvider>
+      <MemoryRouter>
+        <SellerProductsPage />
+      </MemoryRouter>
+    </ConfirmProvider>,
   );
 
 const product = (over: Partial<Product> = {}): Product => ({
@@ -94,7 +97,7 @@ describe('SellerProductsPage', () => {
     renderPage();
     const row = (await screen.findByText('Aurora Phone')).closest('tr')!;
     await userEvent.click(within(row).getByRole('button', { name: /actions for/i }));
-    const editLink = within(row).getByRole('link', { name: /edit/i });
+    const editLink = screen.getByRole('menuitem', { name: /edit/i });
     expect(editLink).toHaveAttribute('href', '/seller/products/p1/edit');
   });
 
@@ -103,12 +106,13 @@ describe('SellerProductsPage', () => {
       .mockResolvedValueOnce(page([product({ status: 'ACTIVE' })]))
       .mockResolvedValueOnce(page([product({ status: 'ARCHIVED' })]));
     archiveSellerProduct.mockResolvedValue(product({ status: 'ARCHIVED' }));
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
 
     renderPage();
     const row = (await screen.findByText('Aurora Phone')).closest('tr')!;
     await userEvent.click(within(row).getByRole('button', { name: /actions for/i }));
-    await userEvent.click(within(row).getByRole('button', { name: /archive/i }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /archive/i }));
+    const dialog = await screen.findByRole('alertdialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /archive/i }));
 
     await waitFor(() => expect(archiveSellerProduct).toHaveBeenCalledWith('p1'));
     expect(listSellerProducts).toHaveBeenCalledTimes(2); // reloaded
@@ -121,7 +125,7 @@ describe('SellerProductsPage', () => {
     renderPage();
     const row = (await screen.findByText('Aurora Phone')).closest('tr')!;
     await userEvent.click(within(row).getByRole('button', { name: /actions for/i }));
-    await userEvent.click(within(row).getByRole('button', { name: /archive/i }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /archive/i }));
 
     expect(archiveSellerProduct).not.toHaveBeenCalled();
   });
@@ -136,7 +140,7 @@ describe('SellerProductsPage', () => {
     const row = (await screen.findByText('Aurora Phone')).closest('tr')!;
     await userEvent.click(within(row).getByRole('button', { name: /actions for/i }));
     await userEvent.click(
-      within(row).getByRole('button', { name: /deactivate/i }),
+      screen.getByRole('menuitem', { name: /deactivate/i }),
     );
 
     await waitFor(() => expect(setSellerProductActive).toHaveBeenCalledWith('p1', false));
@@ -151,7 +155,7 @@ describe('SellerProductsPage', () => {
     renderPage();
     const row = (await screen.findByText('Aurora Phone')).closest('tr')!;
     await userEvent.click(within(row).getByRole('button', { name: /actions for/i }));
-    await userEvent.click(within(row).getByRole('button', { name: /activate/i }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /activate/i }));
 
     await waitFor(() => expect(setSellerProductActive).toHaveBeenCalledWith('p1', true));
   });

@@ -1,72 +1,55 @@
+import { Children, isValidElement, type ReactNode } from 'react';
 import {
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './dropdown-menu';
 
 interface RowActionsMenuProps {
   /** Accessible name for the trigger, e.g. "Actions for Aurora Phone". */
   label: string;
-  /** Menu items — typically <button>/<Link> elements. */
+  /** Menu items — `<button>`/`<Link>` elements; each is wrapped in a
+   *  DropdownMenuItem so it gets Radix focus/keyboard handling and auto-close. */
   children: ReactNode;
 }
 
 /**
- * A compact "⋯" row-actions menu. Collapses several per-row actions into one
- * trigger so dense tables stay calm and destructive actions sit one level down
- * rather than one stray click away.
+ * A compact "⋯" row-actions menu built on shadcn/Radix DropdownMenu. Collapses
+ * several per-row actions into one trigger so dense tables stay calm and
+ * destructive actions sit one level down. Accessibility (roles, keyboard nav,
+ * outside-click/Escape close, focus management) is handled by Radix; selecting
+ * an item closes the menu automatically.
  *
- * Accessibility: the trigger exposes aria-haspopup/aria-expanded; the menu
- * closes on outside click, on Escape, and after any item inside is activated
- * (click bubbles to the container). Keyboard users can tab to the trigger and
- * into the revealed items.
+ * Call sites pass plain `<button>`/`<Link>` children; each is rendered via
+ * `DropdownMenuItem asChild` so existing handlers/hrefs keep working.
  */
 export function RowActionsMenu({ label, children }: RowActionsMenuProps) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDocClick(event: MouseEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [open]);
-
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === 'Escape') setOpen(false);
-  }
+  const items = Children.toArray(children).filter(isValidElement);
 
   return (
-    <div ref={containerRef} className="relative inline-block text-left" onKeyDown={onKeyDown}>
-      <button
-        type="button"
+    <DropdownMenu>
+      <DropdownMenuTrigger
         aria-label={label}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-content-muted transition-colors hover:bg-surface-muted hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+        className="inline-flex size-8 items-center justify-center text-content-muted transition-colors hover:bg-surface-muted hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 data-[state=open]:bg-surface-muted"
       >
         <span aria-hidden="true" className="text-lg leading-none">
           ⋯
         </span>
-      </button>
-
-      {open && (
-        // Activating any item inside closes the menu (the click bubbles here).
-        <div
-          role="menu"
-          onClick={() => setOpen(false)}
-          className="absolute right-0 z-20 mt-1 flex w-44 flex-col gap-0.5 rounded-md border border-line bg-surface p-1 shadow-lg"
-        >
-          {children}
-        </div>
-      )}
-    </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="w-48 rounded-none border-line"
+      >
+        <DropdownMenuGroup>
+          {items.map((child, i) => (
+            <DropdownMenuItem key={i} asChild className="rounded-none">
+              {child}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

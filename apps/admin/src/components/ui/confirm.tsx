@@ -59,19 +59,21 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
           if (!next) settle(false);
         }}
       >
-        <AlertDialogContent className="rounded-none border-line">
+        <AlertDialogContent className="rounded-none border border-line bg-surface">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-heading">
+            <AlertDialogTitle className="font-serif text-2xl font-medium text-content">
               {opts?.title}
             </AlertDialogTitle>
             {opts?.description && (
-              <AlertDialogDescription>{opts.description}</AlertDialogDescription>
+              <AlertDialogDescription className="text-content-muted">
+                {opts.description}
+              </AlertDialogDescription>
             )}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => settle(false)}
-              className="rounded-none"
+              className="rounded-none border border-line bg-surface px-6 text-xs font-medium uppercase tracking-[0.12em] text-content hover:border-content hover:bg-surface-muted"
             >
               {opts?.cancelLabel ?? 'Cancel'}
             </AlertDialogCancel>
@@ -79,8 +81,8 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               onClick={() => settle(true)}
               className={
                 opts?.destructive
-                  ? 'rounded-none bg-error-500 text-white hover:bg-error-600'
-                  : 'rounded-none'
+                  ? 'rounded-none px-6 text-xs font-medium uppercase tracking-[0.12em] !bg-error-500 !text-white hover:!bg-error-600'
+                  : 'rounded-none px-6 text-xs font-medium uppercase tracking-[0.12em] !bg-primary-600 !text-white hover:!bg-primary-700'
               }
             >
               {opts?.confirmLabel ?? 'Confirm'}

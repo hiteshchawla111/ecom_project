@@ -24,15 +24,15 @@ export function SellerProductImportPage() {
   }
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
         <Link
           to="/seller/products"
-          className="w-fit text-sm font-medium text-primary-700 hover:underline"
+          className="w-fit text-[0.7rem] font-medium uppercase tracking-[0.14em] text-content-muted transition-colors hover:text-content"
         >
           ← Back to products
         </Link>
-        <h2 className="font-heading text-2xl font-semibold text-content">
+        <h2 className="font-serif text-3xl font-medium tracking-tight text-content">
           Import products from CSV
         </h2>
         <p className="text-sm text-content-muted">
@@ -60,7 +60,7 @@ export function SellerProductImportPage() {
             type="button"
             disabled={!file || uploading}
             onClick={() => void onUpload()}
-            className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50"
+            className="bg-primary-600 px-6 py-2.5 text-xs font-medium uppercase tracking-[0.12em] text-white transition-colors duration-300 hover:bg-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50"
           >
             {uploading ? 'Uploading…' : 'Upload'}
           </button>
@@ -95,15 +95,15 @@ export function SellerProductImportPage() {
           {result.errors.length > 0 && (
             <div className="overflow-x-auto rounded-lg border border-line">
               <table className="w-full text-left text-sm">
-                <thead className="bg-surface-muted text-content-muted">
+                <thead className="border-b border-line text-content-subtle">
                   <tr>
-                    <th scope="col" className="px-4 py-2.5 font-medium">
+                    <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                       Row
                     </th>
-                    <th scope="col" className="px-4 py-2.5 font-medium">
+                    <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                       SKU
                     </th>
-                    <th scope="col" className="px-4 py-2.5 font-medium">
+                    <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                       Problem
                     </th>
                   </tr>
@@ -114,9 +114,9 @@ export function SellerProductImportPage() {
                       key={`${e.row}-${e.sku ?? ''}-${i}`}
                       className="border-t border-line text-content"
                     >
-                      <td className="px-4 py-2">{e.row}</td>
-                      <td className="px-4 py-2 text-content-muted">{e.sku ?? '—'}</td>
-                      <td className="px-4 py-2">{e.message}</td>
+                      <td className="px-5 py-3.5">{e.row}</td>
+                      <td className="px-5 py-3.5 text-content-muted">{e.sku ?? '—'}</td>
+                      <td className="px-5 py-3.5">{e.message}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -23,7 +23,7 @@ export default defineConfig([
     // shadcn/ui primitives export variant helpers (e.g. buttonVariants)
     // alongside the component — the canonical shadcn pattern. Exempt them from
     // the fast-refresh single-export rule.
-    files: ['src/components/ui/button.tsx'],
+    files: ['src/components/ui/button.tsx', 'src/components/ui/confirm.tsx'],
     rules: { 'react-refresh/only-export-components': 'off' },
   },
 ])

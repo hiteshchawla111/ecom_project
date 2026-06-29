@@ -106,7 +106,7 @@ export function ProductForm({
   }
 
   return (
-    <form onSubmit={onFormSubmit} className="flex max-w-xl flex-col gap-4" noValidate>
+    <form onSubmit={onFormSubmit} className="flex max-w-2xl flex-col gap-5 border border-line bg-surface p-8" noValidate>
       {submitError && (
         <p
           role="alert"
@@ -116,37 +116,38 @@ export function ProductForm({
         </p>
       )}
 
-      <Field id="name" label="Name" error={errors.name}>
-        <input
-          id="name"
-          value={fields.name}
-          onChange={(e) => set('name', e.target.value)}
-          className={inputClass}
-        />
-      </Field>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <Field id="name" label="Name" error={errors.name}>
+            <input
+              id="name"
+              value={fields.name}
+              onChange={(e) => set('name', e.target.value)}
+              className={inputClass}
+            />
+          </Field>
+        </div>
 
-      {mode === 'create' && (
-        <Field id="sku" label="SKU" error={errors.sku}>
+        {mode === 'create' && (
+          <Field id="sku" label="SKU" error={errors.sku}>
+            <input
+              id="sku"
+              value={fields.sku}
+              onChange={(e) => set('sku', e.target.value)}
+              className={inputClass}
+            />
+          </Field>
+        )}
+
+        <Field id="brand" label="Brand (optional)">
           <input
-            id="sku"
-            value={fields.sku}
-            onChange={(e) => set('sku', e.target.value)}
+            id="brand"
+            value={fields.brand}
+            onChange={(e) => set('brand', e.target.value)}
             className={inputClass}
           />
         </Field>
-      )}
 
-      <Field id="description" label="Description" error={errors.description}>
-        <textarea
-          id="description"
-          rows={3}
-          value={fields.description}
-          onChange={(e) => set('description', e.target.value)}
-          className={inputClass}
-        />
-      </Field>
-
-      <div className="flex gap-4">
         <Field id="price" label="Price" error={errors.price}>
           <input
             id="price"
@@ -169,38 +170,43 @@ export function ProductForm({
             className={inputClass}
           />
         </Field>
+
+        <div className="sm:col-span-2">
+          <Field id="category" label="Category" error={errors.categoryId}>
+            <select
+              id="category"
+              value={fields.categoryId}
+              onChange={(e) => set('categoryId', e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Select a category</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+
+        <div className="sm:col-span-2">
+          <Field id="description" label="Description" error={errors.description}>
+            <textarea
+              id="description"
+              rows={4}
+              value={fields.description}
+              onChange={(e) => set('description', e.target.value)}
+              className={inputClass}
+            />
+          </Field>
+        </div>
       </div>
 
-      <Field id="brand" label="Brand (optional)">
-        <input
-          id="brand"
-          value={fields.brand}
-          onChange={(e) => set('brand', e.target.value)}
-          className={inputClass}
-        />
-      </Field>
-
-      <Field id="category" label="Category" error={errors.categoryId}>
-        <select
-          id="category"
-          value={fields.categoryId}
-          onChange={(e) => set('categoryId', e.target.value)}
-          className={inputClass}
-        >
-          <option value="">Select a category</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-      </Field>
-
-      <div>
+      <div className="border-t border-line pt-5">
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50"
+          className="bg-primary-600 px-7 py-3 text-xs font-medium uppercase tracking-[0.14em] text-white transition-colors duration-300 hover:bg-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50"
         >
           {mode === 'create' ? 'Create product' : 'Save changes'}
         </button>
@@ -210,7 +216,7 @@ export function ProductForm({
 }
 
 const inputClass =
-  'w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
+  'w-full border border-line bg-surface px-3.5 py-2.5 text-sm text-content transition-colors focus:border-content focus:outline-none focus:ring-1 focus:ring-content';
 
 function Field({
   id,
@@ -225,7 +231,10 @@ function Field({
 }) {
   return (
     <div className="flex flex-1 flex-col gap-1">
-      <label htmlFor={id} className="text-sm font-medium text-content">
+      <label
+        htmlFor={id}
+        className="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-content-subtle"
+      >
         {label}
       </label>
       {children}

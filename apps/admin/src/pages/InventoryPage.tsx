@@ -46,9 +46,9 @@ export function InventoryPage() {
   }
 
   return (
-    <section className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-heading text-2xl font-semibold text-content">
+    <section className="flex flex-col gap-8">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-6">
+        <h2 className="font-serif text-3xl font-medium tracking-tight text-content">
           Inventory
         </h2>
         <label className="flex items-center gap-2 text-sm text-content-muted">
@@ -80,29 +80,29 @@ export function InventoryPage() {
           {lowStock ? 'No low-stock items.' : 'No inventory found.'}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-line">
+        <div className="overflow-x-auto border border-line bg-surface">
           <table className="w-full text-left text-sm">
-            <thead className="bg-surface-muted text-content-muted">
+            <thead className="border-b border-line text-content-subtle">
               <tr>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Product
                 </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   SKU
                 </th>
-                <th scope="col" className="px-4 py-2.5 text-right font-medium">
+                <th scope="col" className="px-5 py-3 text-right text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Available
                 </th>
-                <th scope="col" className="px-4 py-2.5 text-right font-medium">
+                <th scope="col" className="px-5 py-3 text-right text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Reserved
                 </th>
-                <th scope="col" className="px-4 py-2.5 text-right font-medium">
+                <th scope="col" className="px-5 py-3 text-right text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Threshold
                 </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Stock
                 </th>
-                <th scope="col" className="px-4 py-2.5 text-right font-medium">
+                <th scope="col" className="px-5 py-3 text-right text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Actions
                 </th>
               </tr>
@@ -111,25 +111,25 @@ export function InventoryPage() {
               {rows.map((r) => (
                 <tr
                   key={r.productId}
-                  className="border-t border-line text-content transition-colors hover:bg-surface-sunk"
+                  className="border-t border-line text-content transition-colors hover:bg-surface-muted/50"
                 >
-                  <td className="px-4 py-2 font-medium">{r.name}</td>
-                  <td className="px-4 py-2 text-content-muted">{r.sku}</td>
-                  <td className="px-4 py-2 text-right">{r.available}</td>
-                  <td className="px-4 py-2 text-right text-content-muted">
+                  <td className="px-5 py-3.5 font-medium">{r.name}</td>
+                  <td className="px-5 py-3.5 text-content-muted">{r.sku}</td>
+                  <td className="px-5 py-3.5 text-right">{r.available}</td>
+                  <td className="px-5 py-3.5 text-right text-content-muted">
                     {r.reserved}
                   </td>
-                  <td className="px-4 py-2 text-right text-content-muted">
+                  <td className="px-5 py-3.5 text-right text-content-muted">
                     {r.lowStockThreshold}
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-5 py-3.5">
                     <LowStockBadge low={r.isLowStock} />
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-5 py-3.5">
                     <div className="flex justify-end">
                       <Link
                         to={`/inventory/${r.productId}`}
-                        className="rounded-md border border-line px-3 py-1.5 text-xs font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                        className="border border-line px-4 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.1em] text-content transition-colors duration-200 hover:border-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
                       >
                         Manage
                       </Link>

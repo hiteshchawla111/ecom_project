@@ -36,15 +36,15 @@ export function SellerProductNewPage() {
   }
 
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
         <Link
           to="/seller/products"
-          className="w-fit text-sm font-medium text-primary-700 hover:underline"
+          className="w-fit text-[0.7rem] font-medium uppercase tracking-[0.14em] text-content-muted transition-colors hover:text-content"
         >
           ← Back to products
         </Link>
-        <h2 className="font-heading text-2xl font-semibold text-content">
+        <h2 className="font-serif text-3xl font-medium tracking-tight text-content">
           New product
         </h2>
       </header>

@@ -14,7 +14,7 @@ import { CategoryEditForm } from '../components/categories/CategoryEditForm';
 import { useConfirm } from '../components/ui/confirm';
 
 const inputClass =
-  'w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
+  'w-full border border-line bg-surface px-3.5 py-2.5 text-sm text-content focus:border-content focus:outline-none focus:ring-1 focus:ring-content';
 
 export function CategoriesPage() {
   const confirm = useConfirm();
@@ -114,19 +114,22 @@ export function CategoriesPage() {
 
   return (
     <section className="flex flex-col gap-8">
-      <header>
-        <h2 className="font-heading text-2xl font-semibold text-content">
+      <header className="border-b border-line pb-6">
+        <span className="text-[0.7rem] font-medium uppercase tracking-[0.22em] text-content-subtle">
+          Catalog
+        </span>
+        <h2 className="font-serif text-3xl font-medium tracking-tight text-content">
           Categories
         </h2>
       </header>
 
       <form
         onSubmit={onCreate}
-        className="flex max-w-2xl flex-col gap-4 rounded-lg border border-line p-4 sm:flex-row sm:items-end"
+        className="flex flex-col gap-4 border border-line bg-surface p-5 sm:flex-row sm:items-end"
         noValidate
       >
-        <div className="flex flex-1 flex-col gap-1">
-          <label htmlFor="cat-name" className="text-sm font-medium text-content">
+        <div className="flex flex-1 flex-col gap-2">
+          <label htmlFor="cat-name" className="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-content-subtle">
             Name
           </label>
           <input
@@ -136,8 +139,8 @@ export function CategoriesPage() {
             className={inputClass}
           />
         </div>
-        <div className="flex flex-1 flex-col gap-1">
-          <label htmlFor="cat-slug" className="text-sm font-medium text-content">
+        <div className="flex flex-1 flex-col gap-2">
+          <label htmlFor="cat-slug" className="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-content-subtle">
             Slug
           </label>
           <input
@@ -148,10 +151,10 @@ export function CategoriesPage() {
             className={inputClass}
           />
         </div>
-        <div className="flex flex-1 flex-col gap-1">
+        <div className="flex flex-1 flex-col gap-2">
           <label
             htmlFor="cat-parent"
-            className="text-sm font-medium text-content"
+            className="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-content-subtle"
           >
             Parent (optional)
           </label>
@@ -172,7 +175,7 @@ export function CategoriesPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50"
+          className="bg-primary-600 px-6 py-2.5 text-xs font-medium uppercase tracking-[0.12em] text-white transition-colors duration-300 hover:bg-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50"
         >
           Add category
         </button>
@@ -242,16 +245,16 @@ function CategoryNodes({
     <ul className="flex flex-col gap-1">
       {categories.map((category) => (
         <li key={category.id}>
-          <div className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-surface-muted">
+          <div className="flex items-center justify-between border-b border-line px-1 py-3 transition-colors hover:bg-surface-muted/50">
             <span className="text-content">
-              <span>{category.name}</span>{' '}
+              <span className="font-medium">{category.name}</span>{' '}
               <span className="text-xs text-content-subtle">/{category.slug}</span>
             </span>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => onEditStart(category)}
-                className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                className="border border-line px-3 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.1em] text-content transition-colors hover:border-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
               >
                 Edit
               </button>
@@ -259,7 +262,7 @@ function CategoryNodes({
                 type="button"
                 disabled={busyId === category.id}
                 onClick={() => onDelete(category)}
-                className="rounded-md border border-error-500 px-2.5 py-1 text-xs font-medium text-error-500 transition-colors hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50"
+                className="border border-line px-3 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.1em] text-error-600 transition-colors hover:border-error-500 hover:bg-error-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50"
               >
                 Delete
               </button>

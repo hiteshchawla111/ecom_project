@@ -86,9 +86,9 @@ export function OrdersPage() {
   }
 
   return (
-    <section className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-heading text-2xl font-semibold text-content">
+    <section className="flex flex-col gap-8">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-6">
+        <h2 className="font-serif text-3xl font-medium tracking-tight text-content">
           Orders
         </h2>
         <label className="flex items-center gap-2 text-sm text-content-muted">
@@ -96,7 +96,7 @@ export function OrdersPage() {
           <select
             value={status}
             onChange={(e) => onStatusChange(e.target.value as OrderStatus | '')}
-            className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+            className="border border-line bg-surface px-3 py-2 text-sm text-content focus:border-content focus:outline-none focus:ring-1 focus:ring-content"
           >
             <option value="">All</option>
             {STATUSES.map((s) => (
@@ -131,26 +131,26 @@ export function OrdersPage() {
       ) : error ? null : orders.length === 0 ? (
         <p className="text-content-muted">No orders found.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-line">
+        <div className="overflow-x-auto border border-line bg-surface">
           <table className="w-full text-left text-sm">
-            <thead className="bg-surface-muted text-content-muted">
+            <thead className="border-b border-line text-content-subtle">
               <tr>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Customer
                 </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Status
                 </th>
-                <th scope="col" className="px-4 py-2.5 text-right font-medium">
+                <th scope="col" className="px-5 py-3 text-right text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Total
                 </th>
-                <th scope="col" className="px-4 py-2.5 text-right font-medium">
+                <th scope="col" className="px-5 py-3 text-right text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Items
                 </th>
-                <th scope="col" className="px-4 py-2.5 font-medium">
+                <th scope="col" className="px-5 py-3 text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Placed
                 </th>
-                <th scope="col" className="px-4 py-2.5 text-right font-medium">
+                <th scope="col" className="px-5 py-3 text-right text-[0.7rem] font-medium uppercase tracking-[0.1em]">
                   Actions
                 </th>
               </tr>
@@ -159,29 +159,29 @@ export function OrdersPage() {
               {orders.map((order) => (
                 <tr
                   key={order.id}
-                  className="border-t border-line text-content transition-colors hover:bg-surface-sunk"
+                  className="border-t border-line text-content transition-colors hover:bg-surface-muted/50"
                 >
-                  <td className="px-4 py-2">
+                  <td className="px-5 py-3.5">
                     <div className="font-medium">{order.customerName}</div>
                     <div className="text-xs text-content-muted">
                       {order.customerEmail}
                     </div>
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-5 py-3.5">
                     <OrderStatusBadge status={order.status} />
                   </td>
-                  <td className="px-4 py-2 text-right">
+                  <td className="px-5 py-3.5 text-right">
                     {usd.format(Number(order.grandTotal))}
                   </td>
-                  <td className="px-4 py-2 text-right">{order.itemCount}</td>
-                  <td className="px-4 py-2 text-content-muted">
+                  <td className="px-5 py-3.5 text-right">{order.itemCount}</td>
+                  <td className="px-5 py-3.5 text-content-muted">
                     {dateFmt.format(new Date(order.createdAt))}
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-5 py-3.5">
                     <div className="flex justify-end">
                       <Link
                         to={`/orders/${order.id}`}
-                        className="rounded-md border border-line px-3 py-1.5 text-xs font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                        className="border border-line px-4 py-1.5 text-[0.7rem] font-medium uppercase tracking-[0.1em] text-content transition-colors hover:border-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
                       >
                         View
                       </Link>

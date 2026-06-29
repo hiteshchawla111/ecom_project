@@ -16,7 +16,8 @@ interface CategoryEditFormProps {
 }
 
 const inputClass =
-  'w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
+  'w-full border border-line bg-surface px-3.5 py-2.5 text-sm text-content transition-colors focus:border-content focus:outline-none focus:ring-1 focus:ring-content';
+const labelClass = 'text-[0.7rem] font-medium uppercase tracking-[0.14em] text-content-subtle';
 
 /**
  * Inline edit form for a single category: rename, re-slug, reparent (or detach
@@ -65,16 +66,16 @@ export function CategoryEditForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-2 flex flex-col gap-3 rounded-md border border-line bg-surface-sunk p-3 sm:flex-row sm:items-end"
+      className="mb-2 mt-2 flex flex-col gap-4 border border-line bg-surface-muted/40 p-4 sm:flex-row sm:items-end"
       noValidate
     >
       {error && (
-        <p role="alert" className="text-sm text-error-500 sm:order-last sm:w-full">
+        <p role="alert" className="text-sm text-error-600 sm:order-last sm:w-full">
           {error}
         </p>
       )}
-      <div className="flex flex-1 flex-col gap-1">
-        <label htmlFor={nameId} className="text-xs font-medium text-content-muted">
+      <div className="flex flex-1 flex-col gap-2">
+        <label htmlFor={nameId} className={labelClass}>
           Name
         </label>
         <input
@@ -84,8 +85,8 @@ export function CategoryEditForm({
           className={inputClass}
         />
       </div>
-      <div className="flex flex-1 flex-col gap-1">
-        <label htmlFor={slugId} className="text-xs font-medium text-content-muted">
+      <div className="flex flex-1 flex-col gap-2">
+        <label htmlFor={slugId} className={labelClass}>
           Slug
         </label>
         <input
@@ -95,11 +96,8 @@ export function CategoryEditForm({
           className={inputClass}
         />
       </div>
-      <div className="flex flex-1 flex-col gap-1">
-        <label
-          htmlFor={parentSelId}
-          className="text-xs font-medium text-content-muted"
-        >
+      <div className="flex flex-1 flex-col gap-2">
+        <label htmlFor={parentSelId} className={labelClass}>
           Parent
         </label>
         <select
@@ -120,14 +118,14 @@ export function CategoryEditForm({
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-md bg-primary-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50"
+          className="bg-content px-5 py-2.5 text-[0.7rem] font-medium uppercase tracking-[0.12em] text-surface transition-colors duration-300 hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 disabled:opacity-50"
         >
           Save
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-line px-3 py-2 text-sm font-medium text-content transition-colors hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+          className="border border-line px-5 py-2.5 text-[0.7rem] font-medium uppercase tracking-[0.12em] text-content transition-colors duration-300 hover:border-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
         >
           Cancel
         </button>

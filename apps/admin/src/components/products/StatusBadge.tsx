@@ -16,7 +16,7 @@ const LABELS: Record<ProductStatus, string> = {
 export function StatusBadge({ status }: { status: ProductStatus }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STYLES[status]}`}
+      className={`inline-flex items-center px-2.5 py-1 text-[0.65rem] font-medium uppercase tracking-[0.1em] ${STYLES[status]}`}
     >
       {LABELS[status]}
     </span>

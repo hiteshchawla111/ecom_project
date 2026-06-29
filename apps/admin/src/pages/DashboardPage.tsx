@@ -62,11 +62,11 @@ export function DashboardPage() {
 
   return (
     <section className="flex flex-col gap-8">
-      <header className="flex flex-col gap-1.5 border-b border-line pb-5">
-        <span className="text-[0.7rem] font-medium uppercase tracking-[0.18em] text-content-subtle">
+      <header className="flex flex-col gap-1.5 border-b border-line pb-6">
+        <span className="text-[0.7rem] font-medium uppercase tracking-[0.22em] text-content-subtle">
           Overview
         </span>
-        <h2 className="font-heading text-3xl font-bold tracking-tight text-content">
+        <h2 className="font-serif text-4xl font-medium tracking-tight text-content">
           Dashboard
         </h2>
         <p className="text-sm text-content-muted">Welcome back, {user?.email}.</p>

@@ -12,7 +12,7 @@ describe('Hero', () => {
 
   it('links the primary CTA to products and the secondary to categories', () => {
     render(<Hero />);
-    expect(screen.getByRole('link', { name: /shop products/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /shop the collection/i })).toHaveAttribute(
       'href',
       '/products',
     );
@@ -23,7 +23,7 @@ describe('Hero', () => {
 
   it('honors custom CTA hrefs', () => {
     render(<Hero primaryCtaHref="/products?sort=price" secondaryCtaHref="/categories/electronics" />);
-    expect(screen.getByRole('link', { name: /shop products/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /shop the collection/i })).toHaveAttribute(
       'href',
       '/products?sort=price',
     );

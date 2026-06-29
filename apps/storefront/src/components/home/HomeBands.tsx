@@ -9,29 +9,26 @@ import Link from 'next/link';
 /** Full-width brand-tinted promo band with a single CTA. */
 export function PromoBanner() {
   return (
-    <section className="relative isolate overflow-hidden rounded-3xl bg-primary-500 px-6 py-12 text-surface shadow-md sm:px-12 sm:py-16">
+    <section className="relative isolate overflow-hidden rounded-2xl bg-neutral-900 px-8 py-16 text-white sm:px-16 sm:py-20">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-surface/15 blur-2xl"
+        className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary-500/20 blur-3xl"
       />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-20 left-1/3 h-64 w-64 rounded-full bg-secondary-500/30 blur-3xl"
-      />
-      <div className="relative flex flex-col items-start gap-5 sm:max-w-2xl">
-        <span className="rounded-full bg-surface/20 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] backdrop-blur">
+      <div className="relative flex flex-col items-start gap-6 sm:max-w-2xl">
+        <span className="inline-flex items-center gap-3 text-xs font-medium uppercase tracking-[0.28em] text-white/60">
+          <span className="h-px w-10 bg-white/40" aria-hidden="true" />
           The season edit
         </span>
-        <h2 className="font-heading text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
+        <h2 className="font-heading text-4xl font-medium leading-tight tracking-[-0.01em] sm:text-5xl">
           Fresh picks, restocked weekly.
         </h2>
-        <p className="text-base/relaxed text-surface/90">
-          New arrivals drop every week across every category. Find this week’s
-          edit and shop before it’s gone.
+        <p className="max-w-lg text-base leading-relaxed text-white/70">
+          New arrivals drop every week across every category. Discover this
+          week’s edit and shop before it’s gone.
         </p>
         <Link
           href="/products?sortBy=createdAt&sortDir=desc"
-          className="rounded-full bg-surface px-7 py-3.5 text-sm font-semibold text-primary-700 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-surface focus-visible:ring-offset-2 focus-visible:ring-offset-primary-500"
+          className="mt-2 inline-block bg-white px-8 py-4 text-sm font-medium uppercase tracking-[0.12em] text-neutral-900 transition-colors duration-300 hover:bg-primary-500 hover:text-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
         >
           Explore the edit
         </Link>
@@ -45,10 +42,10 @@ export function ValueProps() {
   return (
     <section className="flex flex-col gap-8">
       <div className="flex flex-col gap-1.5 border-b border-line pb-5">
-        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-700">
+        <span className="text-xs font-medium uppercase tracking-[0.28em] text-content-subtle">
           Why Coral Market
         </span>
-        <h2 className="font-heading text-3xl font-extrabold tracking-tight text-content sm:text-4xl">
+        <h2 className="font-heading text-4xl font-medium tracking-[-0.01em] text-content sm:text-5xl">
           Shopping, made simple.
         </h2>
       </div>
@@ -61,7 +58,7 @@ export function ValueProps() {
             <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-700">
               {vp.icon}
             </span>
-            <h3 className="font-heading text-lg font-bold text-content">
+            <h3 className="font-heading text-xl font-medium text-content">
               {vp.title}
             </h3>
             <p className="text-sm/relaxed text-content-muted">{vp.body}</p>
@@ -77,7 +74,7 @@ export function NewsletterBand() {
   return (
     <section className="relative isolate overflow-hidden rounded-3xl border border-line bg-surface-muted px-6 py-12 sm:px-12 sm:py-14">
       <div className="relative flex flex-col items-center gap-5 text-center">
-        <h2 className="font-heading text-2xl font-extrabold tracking-tight text-content sm:text-3xl">
+        <h2 className="font-heading text-3xl font-medium tracking-[-0.01em] text-content sm:text-4xl">
           Get first look at new arrivals.
         </h2>
         <p className="max-w-md text-sm/relaxed text-content-muted">

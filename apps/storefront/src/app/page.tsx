@@ -11,6 +11,8 @@ import {
   NewsletterBand,
 } from '@/components/home/HomeBands';
 import { Reveal } from '@/components/motion/Reveal';
+import { SplitReveal } from '@/components/motion/SplitReveal';
+import { TiltCard } from '@/components/motion/TiltCard';
 import Link from 'next/link';
 
 /** Number of newest products to feature on the home page. */
@@ -53,12 +55,15 @@ export default async function Home() {
         <section className="flex flex-col gap-8">
           <div className="flex items-end justify-between gap-4 border-b border-line pb-5">
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-700">
+              <span className="text-xs font-medium uppercase tracking-[0.28em] text-content-subtle">
                 {featured.length} just landed
               </span>
-              <h2 className="font-heading text-3xl font-extrabold tracking-tight text-content sm:text-4xl">
+              <SplitReveal
+                as="h2"
+                className="font-heading text-4xl font-medium tracking-[-0.01em] text-content sm:text-5xl"
+              >
                 New arrivals
-              </h2>
+              </SplitReveal>
             </div>
             <Link
               href="/products?sortBy=createdAt&sortDir=desc"
@@ -84,14 +89,17 @@ export default async function Home() {
             stagger
             className="grid auto-rows-[minmax(0,1fr)] grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4"
           >
-            {featured.map((product, i) => (
-              <div
-                key={product.id}
-                className={i === 0 ? 'col-span-2 row-span-2' : undefined}
-              >
-                <ProductCard product={product} featured={i === 0} />
-              </div>
-            ))}
+            {featured.map((product, i) =>
+              i === 0 ? (
+                <div key={product.id} className="col-span-2 row-span-2">
+                  <ProductCard product={product} featured />
+                </div>
+              ) : (
+                <TiltCard key={product.id} className="h-full">
+                  <ProductCard product={product} />
+                </TiltCard>
+              ),
+            )}
           </Reveal>
         </section>
       )}

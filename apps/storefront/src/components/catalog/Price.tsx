@@ -17,16 +17,20 @@ export function Price({ price, salePrice, className }: PriceProps) {
   if (!onSale || salePrice === null) {
     return (
       <span className={className}>
-        <span className="font-bold text-content">{formatPrice(price)}</span>
+        <span className="font-medium tabular-nums text-content">
+          {formatPrice(price)}
+        </span>
       </span>
     );
   }
 
   return (
     <span className={className}>
-      <span className="font-bold text-accent-600">{formatPrice(salePrice)}</span>{' '}
-      <del className="text-content-subtle">{formatPrice(price)}</del>{' '}
-      <span className="rounded-full bg-accent-400/20 px-2 py-0.5 text-xs font-medium text-accent-600">
+      <span className="font-medium tabular-nums text-content">
+        {formatPrice(salePrice)}
+      </span>{' '}
+      <del className="tabular-nums text-content-subtle">{formatPrice(price)}</del>{' '}
+      <span className="text-xs font-medium uppercase tracking-wide text-accent-600">
         Sale
       </span>
     </span>

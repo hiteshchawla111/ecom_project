@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { HeroMotion } from './HeroMotion';
+import { MagneticButton } from '@/components/motion/MagneticButton';
 
 /** A single product surfaced in the hero collage. */
 export interface HeroShowcaseItem {
@@ -41,54 +42,50 @@ export function Hero({
   return (
     <HeroMotion
       as="section"
-      className="relative isolate overflow-hidden rounded-3xl border border-line bg-surface px-6 py-12 shadow-sm sm:px-10 sm:py-14 lg:px-14 lg:py-20"
+      className="relative isolate overflow-hidden border-b border-line pb-16 pt-8 sm:pb-20 sm:pt-12 lg:pb-24"
     >
-      {/* Ambient brand glow — soft, perf-cheap radial tints for depth. */}
+      {/* A single, very soft brand wash — restraint over decoration. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-primary-500/20 blur-3xl"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-32 right-1/4 h-72 w-72 rounded-full bg-secondary-500/10 blur-3xl"
+        className="pointer-events-none absolute -right-40 -top-40 h-96 w-96 rounded-full bg-primary-500/10 blur-3xl"
       />
 
-      <div className="relative grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="relative grid items-center gap-14 lg:grid-cols-[1.1fr_0.9fr]">
         {/* Left — the pitch */}
-        <div className="flex flex-col gap-7">
+        <div className="flex flex-col gap-8">
           <span
             data-hero="eyebrow"
-            className="inline-flex w-fit items-center gap-2 rounded-full border border-line bg-surface-sunk px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-content-muted"
+            className="inline-flex w-fit items-center gap-3 text-xs font-medium uppercase tracking-[0.28em] text-content-muted"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-primary-500" aria-hidden="true" />
-            New season · Free returns
+            <span className="h-px w-10 bg-content-subtle" aria-hidden="true" />
+            New season
           </span>
 
           <h1
             data-hero="headline"
-            className="font-heading text-[clamp(2.5rem,6vw,4.5rem)] font-extrabold leading-[1.0] tracking-tight text-content"
+            className="font-heading text-[clamp(2.75rem,6.5vw,5.25rem)] font-normal leading-[1.05] tracking-[-0.01em] text-content"
           >
-            <span className="block overflow-hidden pb-1">
+            <span className="block overflow-hidden pb-2">
               <span data-hero="line" className="block">
                 Everyday essentials,
               </span>
             </span>
-            <span className="block overflow-hidden pb-1">
+            <span className="block overflow-hidden pb-2">
               <span data-hero="line" className="block">
-                <span className="relative inline-block">
+                <span className="relative inline-block italic">
                   seasonal finds.
                   <svg
                     data-hero="underline"
                     aria-hidden="true"
-                    viewBox="0 0 320 16"
+                    viewBox="0 0 320 12"
                     preserveAspectRatio="none"
-                    className="absolute -bottom-1 left-0 h-3 w-full text-primary-500"
+                    className="absolute -bottom-2 left-0 h-2 w-full text-primary-500"
                   >
                     <path
-                      d="M2 11 C 80 4, 240 4, 318 9"
+                      d="M2 8 C 80 3, 240 3, 318 6"
                       fill="none"
                       stroke="currentColor"
-                      strokeWidth="4"
+                      strokeWidth="2"
                       strokeLinecap="round"
                     />
                   </svg>
@@ -101,20 +98,20 @@ export function Hero({
             data-hero="lede"
             className="max-w-md text-lg leading-relaxed text-content-muted"
           >
-            A curated catalog delivered with care. Browse the latest arrivals or
-            shop straight from a category.
+            A curated catalog, delivered with care. Discover the latest arrivals
+            or shop straight from a category.
           </p>
 
-          <div data-hero="actions" className="flex flex-wrap items-center gap-3">
-            <Link
+          <div data-hero="actions" className="flex flex-wrap items-center gap-6">
+            <MagneticButton
               href={primaryCtaHref}
-              className="rounded-full bg-primary-500 px-7 py-3.5 text-sm font-semibold text-surface shadow-md transition-all duration-150 hover:-translate-y-0.5 hover:bg-primary-600 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              className="inline-block bg-content px-8 py-4 text-sm font-medium uppercase tracking-[0.12em] text-surface transition-colors duration-300 hover:bg-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-sunk"
             >
-              Shop products
-            </Link>
+              Shop the collection
+            </MagneticButton>
             <Link
               href={secondaryCtaHref}
-              className="group inline-flex items-center gap-1.5 rounded-full border border-line px-6 py-3.5 text-sm font-semibold text-content transition-colors duration-150 hover:border-primary-300 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+              className="group inline-flex items-center gap-2 border-b border-content/30 pb-1 text-sm font-medium text-content transition-colors duration-300 hover:border-content focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
             >
               Browse categories
               <svg
@@ -122,10 +119,10 @@ export function Hero({
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="1.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5"
+                className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
               >
                 <path d="M5 12h14M13 5l7 7-7 7" />
               </svg>

@@ -26,8 +26,8 @@ export interface SiteHeaderViewProps {
  */
 export function SiteHeaderView({ user }: SiteHeaderViewProps) {
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3">
+    <header className="fixed inset-x-0 top-0 z-50 h-[var(--header-h)] border-b border-line bg-surface/90 backdrop-blur-md">
+      <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between gap-4 px-4">
         <div className="flex items-center gap-6">
           <Link
             href="/"

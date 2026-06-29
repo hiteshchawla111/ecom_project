@@ -35,11 +35,11 @@ export function ProductRow({
       <div className="flex items-end justify-between gap-4 border-b border-line pb-5">
         <div className="flex flex-col gap-1.5">
           {eyebrow && (
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-700">
+            <span className="text-xs font-medium uppercase tracking-[0.28em] text-content-subtle">
               {eyebrow}
             </span>
           )}
-          <h2 className="font-heading text-3xl font-extrabold tracking-tight text-content sm:text-4xl">
+          <h2 className="font-heading text-4xl font-medium tracking-[-0.01em] text-content sm:text-5xl">
             {title}
           </h2>
         </div>

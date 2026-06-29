@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans, Playfair_Display } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { CartProvider } from "@/components/cart/CartProvider";
+import { SmoothScroll } from "@/components/motion/SmoothScroll";
 import { getCurrentUser } from "@/lib/session";
 import { getCart, liveCartDeps, type CartView } from "@/lib/api-cart";
 import { THEME_COOKIE, parseTheme } from "@/lib/theme";
@@ -18,6 +19,14 @@ const inter = Inter({
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
   subsets: ["latin"],
+});
+
+// Editorial high-contrast serif for display headings — the primary "premium
+// retail" signal. Used for hero + section titles via --font-heading.
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 async function readInitialCart(): Promise<CartView | null> {
@@ -54,13 +63,19 @@ export default async function RootLayout({
       lang="en"
       data-theme={theme}
       style={{ ['--brand-hue' as string]: String(brandHue) }}
-      className={`${inter.variable} ${jakarta.variable} h-full antialiased`}
+      className={`${inter.variable} ${jakarta.variable} ${playfair.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         <CartProvider initialCart={initialCart}>
+          {/* Header stays outside the smooth-scroll content so its sticky
+              positioning keeps working (ScrollSmoother transforms the content). */}
           <SiteHeader />
-          <div className="flex-1">{children}</div>
-          <SiteFooter />
+          <SmoothScroll>
+            <div className="flex min-h-[60vh] flex-col">
+              <div className="flex-1">{children}</div>
+              <SiteFooter />
+            </div>
+          </SmoothScroll>
         </CartProvider>
       </body>
     </html>

@@ -11,7 +11,7 @@ describe('Home page', () => {
     render(<Hero />);
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: /shop products/i }),
+      screen.getByRole('link', { name: /shop the collection/i }),
     ).toHaveAttribute('href', '/products');
   });
 });

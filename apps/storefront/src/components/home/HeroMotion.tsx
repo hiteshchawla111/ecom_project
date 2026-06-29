@@ -2,10 +2,12 @@
 
 import { useRef, type ElementType, type ReactNode } from 'react';
 import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { DrawSVGPlugin } from 'gsap/DrawSVGPlugin';
 import { useGSAP } from '@gsap/react';
 import { prefersReducedMotion } from '@/components/motion/prefers-reduced-motion';
 
-gsap.registerPlugin(useGSAP);
+gsap.registerPlugin(useGSAP, ScrollTrigger, DrawSVGPlugin);
 
 export interface HeroMotionProps {
   children: ReactNode;
@@ -41,24 +43,15 @@ export function HeroMotion({ children, as, className }: HeroMotionProps) {
         defaults: { ease: 'power3.out', duration: 0.6, clearProps: 'all' },
       });
 
-      // Underline draw via stroke dash offset (no premium plugin needed).
-      const underline = root.querySelector<SVGPathElement>(
-        '[data-hero="underline"] path',
-      );
-      if (underline) {
-        const len = underline.getTotalLength();
-        gsap.set(underline, { strokeDasharray: len, strokeDashoffset: len });
-      }
-
       tl.from(q('[data-hero="eyebrow"]'), { opacity: 0, y: 12, duration: 0.4 })
         .from(
           q('[data-hero="line"]'),
           { opacity: 0, yPercent: 100, stagger: 0.08 },
           '-=0.1',
         )
-        .to(
+        .from(
           q('[data-hero="underline"] path'),
-          { strokeDashoffset: 0, duration: 0.5 },
+          { drawSVG: '0%', duration: 0.6, ease: 'power2.inOut' },
           '-=0.2',
         )
         .from(q('[data-hero="lede"]'), { opacity: 0, y: 12 }, '-=0.3')
@@ -84,6 +77,22 @@ export function HeroMotion({ children, as, className }: HeroMotionProps) {
           { opacity: 0, scale: 0.6, duration: 0.4 },
           '-=0.2',
         );
+
+      // Scrubbed parallax: each collage tile drifts at its own rate as the hero
+      // scrolls, giving the composition depth. Transform-only → cheap + smooth.
+      const tiles = q('[data-hero="tile"]');
+      tiles.forEach((tile, i) => {
+        gsap.to(tile, {
+          yPercent: -12 - i * 8,
+          ease: 'none',
+          scrollTrigger: {
+            trigger: root,
+            start: 'top top',
+            end: 'bottom top',
+            scrub: 1,
+          },
+        });
+      });
     },
     { scope: ref },
   );

@@ -21,7 +21,7 @@ export function CategoryShortcuts({ categories }: CategoryShortcutsProps) {
   return (
     <section className="flex flex-col gap-8">
       <div className="flex items-end justify-between gap-4 border-b border-line pb-5">
-        <h2 className="font-heading text-3xl font-extrabold tracking-tight text-content sm:text-4xl">
+        <h2 className="font-heading text-4xl font-medium tracking-[-0.01em] text-content sm:text-5xl">
           Shop by category
         </h2>
         <Link

@@ -5,13 +5,33 @@
    Must come AFTER the token import so these override the token defaults. */
 @theme {
   --font-sans: var(--font-inter), Inter, system-ui, sans-serif;
-  --font-heading: var(--font-jakarta), "Plus Jakarta Sans", Inter, sans-serif;
+  /* Editorial serif for display headings (premium/luxury direction). */
+  --font-heading: var(--font-playfair), "Playfair Display", Georgia, serif;
+}
+
+:root {
+  /* Height of the fixed site header. Page content is offset by this so nothing
+     hides behind the header (the header lives outside the smooth-scroll wrapper,
+     so content must reserve the space itself). */
+  --header-h: 4rem;
 }
 
 body {
   background: var(--color-surface-sunk);
   color: var(--color-content);
   font-family: var(--font-sans);
+}
+
+/* Offset page content below the fixed header. Applied on the smooth-scroll
+   content wrapper so it works whether or not ScrollSmoother is active. */
+#smooth-content {
+  padding-top: var(--header-h);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
 }
 
 h1,

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import './index.css';
 import { AuthProvider } from './auth/AuthContext';
+import { ConfirmProvider } from './components/ui/confirm';
 import { router } from './router';
 import { getBranding, applyBrandHue } from './lib/branding';
 
@@ -18,7 +19,9 @@ void getBranding()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
-      <RouterProvider router={router} />
+      <ConfirmProvider>
+        <RouterProvider router={router} />
+      </ConfirmProvider>
     </AuthProvider>
   </StrictMode>,
 );

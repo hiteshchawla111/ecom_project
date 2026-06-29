@@ -11,11 +11,13 @@ import {
 } from '../lib/categories';
 import { ApiError } from '../lib/types';
 import { CategoryEditForm } from '../components/categories/CategoryEditForm';
+import { useConfirm } from '../components/ui/confirm';
 
 const inputClass =
   'w-full rounded-md border border-line px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500';
 
 export function CategoriesPage() {
+  const confirm = useConfirm();
   const [tree, setTree] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +85,12 @@ export function CategoriesPage() {
   }
 
   async function onDelete(category: Category) {
-    const ok = window.confirm(`Delete category “${category.name}”?`);
+    const ok = await confirm({
+      title: 'Delete category',
+      description: `Delete “${category.name}”? This can’t be undone.`,
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
     if (!ok) return;
     setError(null);
     setBusyId(category.id);

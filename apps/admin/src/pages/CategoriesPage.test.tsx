@@ -18,6 +18,16 @@ vi.mock('../lib/categories', async (orig) => ({
 }));
 
 import { CategoriesPage } from './CategoriesPage';
+import { ConfirmProvider } from '../components/ui/confirm';
+
+/** Categories delete now uses the AlertDialog confirm, so render within it. */
+function renderPage() {
+  return render(
+    <ConfirmProvider>
+      <CategoriesPage />
+    </ConfirmProvider>,
+  );
+}
 
 const tree: Category[] = [
   {
@@ -39,7 +49,7 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('CategoriesPage', () => {
   it('renders the category hierarchy', async () => {
-    render(<CategoriesPage />);
+    renderPage();
     // "Electronics"/"Phones" appear both as tree nodes and as parent <option>s;
     // assert the tree node (rendered inside an <li>) specifically.
     const phonesNode = (await screen.findByText('Phones', { selector: 'span' }))
@@ -50,7 +60,7 @@ describe('CategoriesPage', () => {
 
   it('creates a category and reloads the tree', async () => {
     createCategory.mockResolvedValue({ id: 'c3' });
-    render(<CategoriesPage />);
+    renderPage();
     await screen.findByText('Electronics', { selector: 'span' });
 
     await userEvent.type(screen.getByLabelText(/name/i), 'Books');
@@ -67,32 +77,36 @@ describe('CategoriesPage', () => {
 
   it('deletes a category after confirmation', async () => {
     deleteCategory.mockResolvedValue(undefined);
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
-    render(<CategoriesPage />);
+    renderPage();
     const node = (await screen.findByText('Phones')).closest('li')!;
 
     await userEvent.click(within(node).getByRole('button', { name: /delete/i }));
+    // Confirm in the AlertDialog.
+    const dialog = await screen.findByRole('alertdialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /delete/i }));
 
     await waitFor(() => expect(deleteCategory).toHaveBeenCalledWith('c2'));
   });
 
   it('does not delete when confirmation is cancelled', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
-    render(<CategoriesPage />);
+    renderPage();
     const node = (await screen.findByText('Phones')).closest('li')!;
 
     await userEvent.click(within(node).getByRole('button', { name: /delete/i }));
+    const dialog = await screen.findByRole('alertdialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /cancel/i }));
 
     expect(deleteCategory).not.toHaveBeenCalled();
   });
 
   it('shows a clear message when delete is blocked (409 in use)', async () => {
     deleteCategory.mockRejectedValue(new ApiError(409, 'in use'));
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
-    render(<CategoriesPage />);
+    renderPage();
     const node = (await screen.findByText('Phones')).closest('li')!;
 
     await userEvent.click(within(node).getByRole('button', { name: /delete/i }));
+    const dialog = await screen.findByRole('alertdialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: /delete/i }));
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(/in use|subcategories|products/i);
@@ -100,7 +114,7 @@ describe('CategoriesPage', () => {
 
   it('edits a category (rename) and reloads', async () => {
     updateCategory.mockResolvedValue({ id: 'c2' });
-    render(<CategoriesPage />);
+    renderPage();
     const node = (await screen.findByText('Phones', { selector: 'span' })).closest(
       'li',
     )!;
@@ -122,7 +136,7 @@ describe('CategoriesPage', () => {
 
   it('shows a validation message when create fails with 409 (duplicate slug)', async () => {
     createCategory.mockRejectedValue(new ApiError(409, 'dup'));
-    render(<CategoriesPage />);
+    renderPage();
     await screen.findByText('Electronics', { selector: 'span' });
 
     await userEvent.type(screen.getByLabelText(/name/i), 'Dup');

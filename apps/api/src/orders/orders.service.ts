@@ -483,6 +483,27 @@ export class OrdersService {
     );
   }
 
+  /**
+   * Verified-purchase gate for reviews (M4a): true iff `userId` has a DELIVERED
+   * order containing `productId`. Exposed as the reviews module's injected
+   * orders-read so `reviews` never touches Order tables directly (ADR-002).
+   * Tighten to SubOrder when M5 lands.
+   */
+  async hasDeliveredProduct(
+    userId: string,
+    productId: string,
+  ): Promise<boolean> {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        userId,
+        status: OrderStatus.DELIVERED,
+        items: { some: { productId } },
+      },
+      select: { id: true },
+    });
+    return order !== null;
+  }
+
   /** Apply the per-line inventory effect of a stock-moving status transition. */
   private async applyStockForStatus(
     status: OrderStatus,

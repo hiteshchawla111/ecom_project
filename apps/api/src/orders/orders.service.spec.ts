@@ -578,6 +578,31 @@ describe('OrdersService.listAllOrders (admin)', () => {
   });
 });
 
+describe('OrdersService.hasDeliveredProduct', () => {
+  it('returns true when a DELIVERED order contains the product', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findFirst.mockResolvedValue({ id: 'o1' });
+
+    await expect(svc.hasDeliveredProduct('u1', 'p1')).resolves.toBe(true);
+
+    expect(prisma.order.findFirst).toHaveBeenCalledWith({
+      where: {
+        userId: 'u1',
+        status: OrderStatus.DELIVERED,
+        items: { some: { productId: 'p1' } },
+      },
+      select: { id: true },
+    });
+  });
+
+  it('returns false when there is no matching delivered order', async () => {
+    const { svc, prisma } = build();
+    prisma.order.findFirst.mockResolvedValue(null);
+
+    await expect(svc.hasDeliveredProduct('u1', 'p1')).resolves.toBe(false);
+  });
+});
+
 describe('OrdersService.getAnyOrder (admin)', () => {
   it('returns any order (not ownership-scoped) with items + customer', async () => {
     const { svc, prisma } = build();

@@ -45,6 +45,7 @@ model User {
   refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
   seller              Seller?
+  reviews             Review[]
 
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -183,6 +184,7 @@ model Product {
   inventory   InventoryItem?
   cartItems   CartItem[]
   orderItems  OrderItem[]
+  reviews     Review[]
 
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
@@ -204,6 +206,27 @@ model ProductImage {
   position  Int     @default(0)
 
   @@index([productId])
+}
+
+model Review {
+  id           String    @id @default(cuid())
+  product      Product   @relation(fields: [productId], references: [id])
+  productId    String
+  author       User      @relation(fields: [userId], references: [id])
+  userId       String
+  rating       Int       // 1..5 — CHECK constraint added via raw SQL in the migration
+  title        String?
+  body         String?
+  isVerified   Boolean   @default(false)
+  helpfulCount Int       @default(0)
+  publishedAt  DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@unique([productId, userId])
+  @@index([productId, rating])
+  @@index([userId])
+  @@index([publishedAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -358,6 +381,7 @@ enum NotificationType {
   NEW_ORDER
   LOW_STOCK
   REFUND_REQUEST
+  NEW_REVIEW
 }
 
 model Notification {

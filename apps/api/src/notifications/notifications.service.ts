@@ -9,6 +9,7 @@ import {
   SellerRegisteredEvent,
   SellerKycEvent,
 } from '../sellers/seller-events';
+import { ReviewPublishedEvent } from '../reviews/reviews.events';
 
 /**
  * Persists domain-event notifications. This is the sink for events emitted
@@ -61,6 +62,25 @@ export class NotificationsService {
         err instanceof Error ? err.stack : String(err),
       );
     }
+  }
+
+  /**
+   * Record an admin-queue notification when a review is published.
+   * Targets staff (not a specific user), so `userId` is null — matching the
+   * low-stock admin-target convention.
+   */
+  async recordNewReview(event: ReviewPublishedEvent): Promise<void> {
+    await this.prisma.notification.create({
+      data: {
+        type: NotificationType.NEW_REVIEW,
+        userId: null,
+        payload: {
+          reviewId: event.reviewId,
+          productId: event.productId,
+          rating: event.rating,
+        },
+      },
+    });
   }
 
   // ---------------------------------------------------------------------------

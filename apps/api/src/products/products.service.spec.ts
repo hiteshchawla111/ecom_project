@@ -458,4 +458,49 @@ describe('ProductsService', () => {
       expect(prisma.seller.findFirstOrThrow).not.toHaveBeenCalled();
     });
   });
+
+  describe('recomputeRating', () => {
+    const makeTx = (agg: {
+      _avg: { rating: number | null };
+      _count: { _all: number };
+    }) => ({
+      review: { aggregate: jest.fn().mockResolvedValue(agg) },
+      product: { update: jest.fn().mockResolvedValue({}) },
+    });
+
+    it('writes avg + count over visible reviews', async () => {
+      const { svc } = build();
+      const tx = makeTx({ _avg: { rating: 4.5 }, _count: { _all: 2 } });
+
+      await svc.recomputeRating(
+        'p1',
+        tx as unknown as Prisma.TransactionClient,
+      );
+
+      expect(tx.review.aggregate).toHaveBeenCalledWith({
+        where: { productId: 'p1', publishedAt: { not: null }, deletedAt: null },
+        _avg: { rating: true },
+        _count: { _all: true },
+      });
+      expect(tx.product.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: { ratingAvg: 4.5, ratingCount: 2 },
+      });
+    });
+
+    it('nulls the aggregate when there are no visible reviews', async () => {
+      const { svc } = build();
+      const tx = makeTx({ _avg: { rating: null }, _count: { _all: 0 } });
+
+      await svc.recomputeRating(
+        'p1',
+        tx as unknown as Prisma.TransactionClient,
+      );
+
+      expect(tx.product.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: { ratingAvg: null, ratingCount: 0 },
+      });
+    });
+  });
 });

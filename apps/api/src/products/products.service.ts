@@ -215,6 +215,29 @@ export class ProductsService {
     if (!found) throw new NotFoundException('Product not found');
   }
 
+  /**
+   * Recompute the denormalized rating aggregate for a product from its VISIBLE
+   * reviews, on the caller's transaction. Kept in-tx with every review
+   * create/hide/unhide so the aggregate can never drift (M4a design decision).
+   */
+  async recomputeRating(
+    productId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
+    const agg = await tx.review.aggregate({
+      where: { productId, publishedAt: { not: null }, deletedAt: null },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+    await tx.product.update({
+      where: { id: productId },
+      data: {
+        ratingAvg: agg._avg.rating, // number | null → Prisma Decimal column
+        ratingCount: agg._count._all,
+      },
+    });
+  }
+
   /** Translates known Prisma write errors into HTTP-meaningful exceptions. */
   private mapWriteError(err: unknown): Error {
     if (err instanceof Prisma.PrismaClientKnownRequestError) {

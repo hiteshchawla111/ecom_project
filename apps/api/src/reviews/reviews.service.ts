@@ -2,15 +2,19 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrdersService } from '../orders/orders.service';
 import { ProductsService } from '../products/products.service';
+import { AuditService } from '../audit/audit.service';
+import { REVIEW_HIDDEN, REVIEW_UNHIDDEN } from '../audit/audit-actions';
 import { REVIEW_PUBLISHED_EVENT } from './reviews.events';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { ListReviewsDto } from './dto/list-reviews.dto';
+import { ListAdminReviewsDto } from './dto/list-admin-reviews.dto';
 
 export interface ReviewView {
   id: string;
@@ -30,6 +34,22 @@ export interface PublicReviewList {
   data: ReviewView[];
   nextCursor: string | null;
   summary: ReviewSummary;
+}
+
+/** Admin-facing view: base fields plus moderation/ownership metadata. */
+export type AdminReviewView = ReviewView & {
+  productId: string;
+  userId: string;
+  isHidden: boolean;
+  createdAt: Date;
+};
+
+/** Offset-paginated list envelope for admin moderation. */
+export interface Paginated<T> {
+  data: T[];
+  page: number;
+  pageSize: number;
+  total: number;
 }
 
 // name only — never email (PII). User model exposes a single `name` field.
@@ -62,6 +82,7 @@ export class ReviewsService {
     private readonly orders: OrdersService,
     private readonly products: ProductsService,
     private readonly emitter: EventEmitter2,
+    private readonly audit: AuditService,
   ) {}
 
   async create(
@@ -140,6 +161,91 @@ export class ReviewsService {
       nextCursor,
       summary: await this.summary(productId),
     };
+  }
+
+  async adminList(
+    dto: ListAdminReviewsDto,
+  ): Promise<Paginated<AdminReviewView>> {
+    const page = dto.page ?? 1;
+    const pageSize = dto.pageSize ?? 20;
+    const where: Prisma.ReviewWhereInput = {};
+    if (dto.productId) where.productId = dto.productId;
+    if (dto.isHidden === 'true') where.deletedAt = { not: null };
+    else if (dto.isHidden === 'false') where.deletedAt = null;
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.review.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          productId: true,
+          userId: true,
+          rating: true,
+          title: true,
+          body: true,
+          isVerified: true,
+          publishedAt: true,
+          deletedAt: true,
+          createdAt: true,
+          author: { select: AUTHOR_SELECT },
+        },
+      }),
+      this.prisma.review.count({ where }),
+    ]);
+    return {
+      data: rows.map((r) => ({
+        ...this.toView(r),
+        productId: r.productId,
+        userId: r.userId,
+        isHidden: r.deletedAt !== null,
+        createdAt: r.createdAt,
+      })),
+      page,
+      pageSize,
+      total,
+    };
+  }
+
+  async hide(id: string, actorId: string): Promise<void> {
+    await this.setHidden(id, true, actorId);
+  }
+
+  async unhide(id: string, actorId: string): Promise<void> {
+    await this.setHidden(id, false, actorId);
+  }
+
+  private async setHidden(
+    id: string,
+    hidden: boolean,
+    actorId: string,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const review = await tx.review.findUnique({
+        where: { id },
+        select: { id: true, productId: true, deletedAt: true },
+      });
+      if (!review) throw new NotFoundException('Review not found.');
+      const currentlyHidden = review.deletedAt !== null;
+      if (currentlyHidden === hidden) return; // idempotent no-op
+      await tx.review.update({
+        where: { id },
+        data: hidden
+          ? { publishedAt: null, deletedAt: new Date() }
+          : { publishedAt: new Date(), deletedAt: null },
+      });
+      await this.products.recomputeRating(review.productId, tx);
+      await this.audit.record(
+        {
+          actorId,
+          action: hidden ? REVIEW_HIDDEN : REVIEW_UNHIDDEN,
+          entityType: 'Review',
+          entityId: id,
+        },
+        tx,
+      );
+    });
   }
 
   private async summary(productId: string): Promise<ReviewSummary> {

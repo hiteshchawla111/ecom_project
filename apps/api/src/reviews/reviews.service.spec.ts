@@ -2,7 +2,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ReviewsService } from './reviews.service';
 import { REVIEW_PUBLISHED_EVENT } from './reviews.events';
@@ -20,12 +24,16 @@ const makePrisma = () => {
     review: {
       create: jest.fn(),
       findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      count: jest.fn(),
       aggregate: jest.fn(),
       groupBy: jest.fn(),
     },
   };
-  prisma.$transaction = jest.fn(async (cb: (tx: any) => Promise<unknown>) =>
-    cb(prisma),
+  prisma.$transaction = jest.fn(
+    async (arg: ((tx: any) => Promise<unknown>) | Promise<unknown>[]) =>
+      Array.isArray(arg) ? Promise.all(arg) : arg(prisma),
   );
   return prisma;
 };
@@ -42,18 +50,24 @@ const makeEmitter = () => ({
   emit: jest.fn(),
 });
 
+const makeAudit = () => ({
+  record: jest.fn().mockResolvedValue(undefined),
+});
+
 const build = () => {
   const prisma = makePrisma();
   const orders = makeOrders();
   const products = makeProducts();
   const emitter = makeEmitter();
+  const audit = makeAudit();
   const service = new ReviewsService(
     prisma as never,
     orders as never,
     products as never,
     emitter as never,
+    audit as never,
   );
-  return { service, prisma, tx: prisma, orders, products, emitter };
+  return { service, prisma, tx: prisma, orders, products, emitter, audit };
 };
 
 describe('ReviewsService', () => {
@@ -233,6 +247,170 @@ describe('ReviewsService', () => {
         { publishedAt: { lt: new Date('2026-07-01T00:00:00.000Z') } },
         { publishedAt: new Date('2026-07-01T00:00:00.000Z'), id: { lt: 'r5' } },
       ]);
+    });
+  });
+
+  describe('hide', () => {
+    it('soft-hides, recomputes the aggregate, and audits within one transaction', async () => {
+      const { service, tx, products, audit } = build();
+      tx.review.findUnique.mockResolvedValue({
+        id: 'r1',
+        productId: 'p1',
+        deletedAt: null,
+      });
+      tx.review.update.mockResolvedValue({});
+      await service.hide('r1', 'admin1');
+      expect(tx.review.update).toHaveBeenCalledWith({
+        where: { id: 'r1' },
+        data: { publishedAt: null, deletedAt: expect.any(Date) },
+      });
+      expect(products.recomputeRating).toHaveBeenCalledWith('p1', tx);
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'review.hidden',
+          entityType: 'Review',
+          entityId: 'r1',
+          actorId: 'admin1',
+        }),
+        tx,
+      );
+    });
+
+    it('throws 404 when hiding an unknown review', async () => {
+      const { service, tx } = build();
+      tx.review.findUnique.mockResolvedValue(null);
+      await expect(service.hide('missing', 'admin1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('is a no-op success when the review is already hidden', async () => {
+      const { service, tx, products, audit } = build();
+      tx.review.findUnique.mockResolvedValue({
+        id: 'r1',
+        productId: 'p1',
+        deletedAt: new Date(),
+      });
+      await service.hide('r1', 'admin1');
+      expect(tx.review.update).not.toHaveBeenCalled();
+      expect(products.recomputeRating).not.toHaveBeenCalled();
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('unhide', () => {
+    it('re-publishes, recomputes the aggregate, and audits within one transaction', async () => {
+      const { service, tx, products, audit } = build();
+      tx.review.findUnique.mockResolvedValue({
+        id: 'r1',
+        productId: 'p1',
+        deletedAt: new Date(),
+      });
+      tx.review.update.mockResolvedValue({});
+      await service.unhide('r1', 'admin1');
+      expect(tx.review.update).toHaveBeenCalledWith({
+        where: { id: 'r1' },
+        data: { publishedAt: expect.any(Date), deletedAt: null },
+      });
+      expect(products.recomputeRating).toHaveBeenCalledWith('p1', tx);
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'review.unhidden',
+          entityType: 'Review',
+          entityId: 'r1',
+          actorId: 'admin1',
+        }),
+        tx,
+      );
+    });
+
+    it('throws 404 when unhiding an unknown review', async () => {
+      const { service, tx } = build();
+      tx.review.findUnique.mockResolvedValue(null);
+      await expect(service.unhide('missing', 'admin1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('is a no-op success when the review is already visible', async () => {
+      const { service, tx, products, audit } = build();
+      tx.review.findUnique.mockResolvedValue({
+        id: 'r1',
+        productId: 'p1',
+        deletedAt: null,
+      });
+      await service.unhide('r1', 'admin1');
+      expect(tx.review.update).not.toHaveBeenCalled();
+      expect(products.recomputeRating).not.toHaveBeenCalled();
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('adminList', () => {
+    const makeRow = (deletedAt: Date | null) => ({
+      id: 'r1',
+      productId: 'p1',
+      userId: 'u1',
+      rating: 5,
+      title: null,
+      body: null,
+      isVerified: true,
+      publishedAt: deletedAt ? null : new Date('2026-07-01T00:00:00Z'),
+      deletedAt,
+      createdAt: new Date('2026-07-01T00:00:00Z'),
+      author: { name: 'Ann' },
+    });
+
+    it('filters to hidden reviews when isHidden="true" and returns the paginated shape', async () => {
+      const { service, prisma } = build();
+      prisma.review.findMany.mockResolvedValue([makeRow(new Date())]);
+      prisma.review.count.mockResolvedValue(1);
+
+      const res = await service.adminList({ isHidden: 'true' });
+
+      const findManyArgs = prisma.review.findMany.mock.calls[0][0];
+      expect(findManyArgs.where).toEqual({ deletedAt: { not: null } });
+      expect(findManyArgs.orderBy).toEqual({ createdAt: 'desc' });
+      expect(res).toMatchObject({ page: 1, pageSize: 20, total: 1 });
+      expect(res.data).toHaveLength(1);
+      expect(res.data[0]).toMatchObject({
+        id: 'r1',
+        productId: 'p1',
+        userId: 'u1',
+        isHidden: true,
+        authorName: 'Ann',
+      });
+    });
+
+    it('filters to visible reviews when isHidden="false"', async () => {
+      const { service, prisma } = build();
+      prisma.review.findMany.mockResolvedValue([makeRow(null)]);
+      prisma.review.count.mockResolvedValue(1);
+
+      const res = await service.adminList({ isHidden: 'false' });
+
+      expect(prisma.review.findMany.mock.calls[0][0].where).toEqual({
+        deletedAt: null,
+      });
+      expect(res.data[0].isHidden).toBe(false);
+    });
+
+    it('applies productId filter and pagination math', async () => {
+      const { service, prisma } = build();
+      prisma.review.findMany.mockResolvedValue([]);
+      prisma.review.count.mockResolvedValue(0);
+
+      const res = await service.adminList({
+        productId: 'p1',
+        page: 2,
+        pageSize: 5,
+      });
+
+      const findManyArgs = prisma.review.findMany.mock.calls[0][0];
+      expect(findManyArgs.where).toEqual({ productId: 'p1' });
+      expect(findManyArgs.skip).toBe(5);
+      expect(findManyArgs.take).toBe(5);
+      expect(res).toMatchObject({ page: 2, pageSize: 5, total: 0, data: [] });
     });
   });
 });

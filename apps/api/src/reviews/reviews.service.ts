@@ -50,6 +50,7 @@ export interface Paginated<T> {
   page: number;
   pageSize: number;
   total: number;
+  totalPages: number;
 }
 
 // name only — never email (PII). User model exposes a single `name` field.
@@ -205,6 +206,7 @@ export class ReviewsService {
       page,
       pageSize,
       total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
     };
   }
 
@@ -286,6 +288,7 @@ export class ReviewsService {
     const idx = cursor.lastIndexOf('_');
     if (idx < 0) return null;
     const publishedAt = new Date(cursor.slice(0, idx));
+    if (Number.isNaN(publishedAt.getTime())) return null;
     const id = cursor.slice(idx + 1);
     // Keyset "before" this row under publishedAt DESC, id DESC.
     return {

@@ -371,7 +371,12 @@ describe('ReviewsService', () => {
       const findManyArgs = prisma.review.findMany.mock.calls[0][0];
       expect(findManyArgs.where).toEqual({ deletedAt: { not: null } });
       expect(findManyArgs.orderBy).toEqual({ createdAt: 'desc' });
-      expect(res).toMatchObject({ page: 1, pageSize: 20, total: 1 });
+      expect(res).toMatchObject({
+        page: 1,
+        pageSize: 20,
+        total: 1,
+        totalPages: 1,
+      });
       expect(res.data).toHaveLength(1);
       expect(res.data[0]).toMatchObject({
         id: 'r1',
@@ -410,7 +415,47 @@ describe('ReviewsService', () => {
       expect(findManyArgs.where).toEqual({ productId: 'p1' });
       expect(findManyArgs.skip).toBe(5);
       expect(findManyArgs.take).toBe(5);
-      expect(res).toMatchObject({ page: 2, pageSize: 5, total: 0, data: [] });
+      expect(res).toMatchObject({
+        page: 2,
+        pageSize: 5,
+        total: 0,
+        data: [],
+        totalPages: 1,
+      });
+    });
+
+    it('computes totalPages as ceil(total / pageSize)', async () => {
+      const { service, prisma } = build();
+      prisma.review.findMany.mockResolvedValue([]);
+      prisma.review.count.mockResolvedValue(12);
+
+      const res = await service.adminList({ pageSize: 5 });
+
+      expect(res.totalPages).toBe(3);
+    });
+  });
+
+  describe('decodeCursor (via listPublic)', () => {
+    it('treats a garbage cursor as no cursor instead of throwing', async () => {
+      const { service, prisma } = build();
+      prisma.review.findMany.mockResolvedValue([]);
+      prisma.review.aggregate.mockResolvedValue({
+        _avg: { rating: null },
+        _count: { _all: 0 },
+      });
+      prisma.review.groupBy.mockResolvedValue([]);
+
+      await expect(
+        service.listPublic('p1', { cursor: 'garbage_x', limit: 10 }),
+      ).resolves.toBeDefined();
+
+      const where = prisma.review.findMany.mock.calls[0][0].where;
+      expect(where.AND).toBeUndefined();
+      expect(where).toMatchObject({
+        productId: 'p1',
+        publishedAt: { not: null },
+        deletedAt: null,
+      });
     });
   });
 });

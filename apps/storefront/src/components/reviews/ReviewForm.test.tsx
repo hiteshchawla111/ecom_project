@@ -94,4 +94,25 @@ describe('ReviewForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /post review/i }));
     await waitFor(() => expect(push).toHaveBeenCalledWith('/login'));
   });
+
+  it('uses roving tabindex across the star radiogroup', () => {
+    render(<ReviewForm productId="p1" canAttempt={true} />);
+
+    // Before any selection: star 1 is tabbable, the rest are not.
+    expect(screen.getByRole('radio', { name: /1 star/i }).tabIndex).toBe(0);
+    for (const n of [2, 3, 4, 5]) {
+      expect(screen.getByRole('radio', { name: new RegExp(`${n} stars`, 'i') }).tabIndex).toBe(
+        -1,
+      );
+    }
+
+    // After selecting star 4: only star 4 is tabbable.
+    fireEvent.click(screen.getByRole('radio', { name: /4 stars/i }));
+    expect(screen.getByRole('radio', { name: /4 stars/i }).tabIndex).toBe(0);
+    for (const n of [1, 2, 3, 5]) {
+      expect(
+        screen.getByRole('radio', { name: new RegExp(`${n} stars?`, 'i') }).tabIndex,
+      ).toBe(-1);
+    }
+  });
 });

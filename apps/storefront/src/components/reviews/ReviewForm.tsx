@@ -41,14 +41,25 @@ function RatingInput({
               role="radio"
               aria-checked={value === star}
               aria-label={`${star} ${star === 1 ? 'star' : 'stars'}`}
+              tabIndex={star === (value || 1) ? 0 : -1}
               onClick={() => onChange(star)}
               onKeyDown={(e) => {
                 if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
                   e.preventDefault();
-                  onChange(Math.min(STAR_COUNT, value + 1 || 1));
+                  const next = Math.min(STAR_COUNT, (value || 0) + 1);
+                  onChange(next);
+                  const radios = e.currentTarget.parentElement?.querySelectorAll(
+                    '[role="radio"]',
+                  );
+                  (radios?.[next - 1] as HTMLElement | undefined)?.focus();
                 } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
                   e.preventDefault();
-                  onChange(Math.max(1, value - 1));
+                  const next = Math.max(1, (value || 1) - 1);
+                  onChange(next);
+                  const radios = e.currentTarget.parentElement?.querySelectorAll(
+                    '[role="radio"]',
+                  );
+                  (radios?.[next - 1] as HTMLElement | undefined)?.focus();
                 }
               }}
               className={`text-2xl leading-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 ${

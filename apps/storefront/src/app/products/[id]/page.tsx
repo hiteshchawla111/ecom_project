@@ -9,6 +9,7 @@ import { RelatedProducts } from '@/components/catalog/RelatedProducts';
 import { SellerLink } from '@/components/catalog/SellerLink';
 import { RatingStars } from '@/components/catalog/RatingStars';
 import { AddToCartButton } from '@/components/cart/AddToCartButton';
+import { ProductReviews } from '@/components/reviews/ProductReviews';
 
 type Params = { id: string };
 
@@ -160,6 +161,8 @@ export default async function ProductDetailPage({
           </dl>
         </div>
       </div>
+
+      <ProductReviews productId={product.id} />
 
       <RelatedProducts products={related} />
     </main>

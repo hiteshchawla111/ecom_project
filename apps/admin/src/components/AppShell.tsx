@@ -137,6 +137,9 @@ export function AppShell() {
                   <NavItem to="/sellers" icon="sellers">
                     Sellers
                   </NavItem>
+                  <NavItem to="/reviews" icon="report">
+                    Reviews
+                  </NavItem>
                 </>
               )}
               <NavItem to="/inventory" end icon="inventory">

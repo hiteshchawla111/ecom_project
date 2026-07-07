@@ -38,5 +38,6 @@ describe('AppShell (SELLER)', () => {
     expect(screen.queryByRole('link', { name: /categories/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /orders/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /sellers/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /reviews/i })).not.toBeInTheDocument();
   });
 });

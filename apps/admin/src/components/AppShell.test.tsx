@@ -65,6 +65,12 @@ describe('AppShell', () => {
     expect(screen.getByRole('link', { name: /sellers/i })).toHaveAttribute('href', '/sellers');
   });
 
+  it('shows the Reviews nav link for an ADMIN', () => {
+    renderShell();
+    expect(screen.getByRole('link', { name: /reviews/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /reviews/i })).toHaveAttribute('href', '/reviews');
+  });
+
   it('marks the Dashboard link active on the index route', () => {
     renderShell();
     expect(screen.getByRole('link', { name: /dashboard/i })).toHaveAttribute(

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { NotificationType, Prisma } from '@prisma/client';
+import { NotificationType, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LowStockEvent } from '../inventory/inventory.events';
 import {
@@ -10,6 +10,36 @@ import {
   SellerKycEvent,
 } from '../sellers/seller-events';
 import { ReviewPublishedEvent } from '../reviews/reviews.events';
+import type { AccessTokenPayload } from '../auth/auth-tokens';
+import { ListNotificationsDto } from './dto/list-notifications.dto';
+
+export interface Paginated<T> {
+  data: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface NotificationView {
+  id: string;
+  type: NotificationType;
+  payload: unknown;
+  readAt: Date | null;
+  createdAt: Date;
+}
+
+/** Own rows always; the shared staff queue (userId:null) only for staff.
+ *  Reused by every read/mark op so scoping can never diverge. */
+function visibilityWhere(
+  user: AccessTokenPayload,
+): Prisma.NotificationWhereInput {
+  const isStaff =
+    user.role === Role.ADMIN || user.role === Role.INVENTORY_MANAGER;
+  return isStaff
+    ? { OR: [{ userId: user.sub }, { userId: null }] }
+    : { userId: user.sub };
+}
 
 /**
  * Persists domain-event notifications. This is the sink for events emitted
@@ -128,5 +158,75 @@ export class NotificationsService {
         },
       },
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Consumption (read) API — visibility-scoped via visibilityWhere() so every
+  // method (list/count/mark) shares one definition of "what can this caller see".
+  // ---------------------------------------------------------------------------
+
+  async list(
+    user: AccessTokenPayload,
+    dto: ListNotificationsDto,
+  ): Promise<Paginated<NotificationView>> {
+    const page = dto.page ?? 1;
+    const pageSize = dto.pageSize ?? 20;
+    const skip = (page - 1) * pageSize;
+    const where: Prisma.NotificationWhereInput = { ...visibilityWhere(user) };
+    if (dto.unread === 'true') where.readAt = null;
+
+    const [rows, total] = await Promise.all([
+      this.prisma.notification.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: pageSize,
+        select: {
+          id: true,
+          type: true,
+          payload: true,
+          readAt: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.notification.count({ where }),
+    ]);
+
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        type: r.type,
+        payload: r.payload,
+        readAt: r.readAt,
+        createdAt: r.createdAt,
+      })),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
+  }
+
+  async unreadCount(user: AccessTokenPayload): Promise<{ count: number }> {
+    const count = await this.prisma.notification.count({
+      where: { ...visibilityWhere(user), readAt: null },
+    });
+    return { count };
+  }
+
+  async markRead(user: AccessTokenPayload, id: string): Promise<boolean> {
+    const { count } = await this.prisma.notification.updateMany({
+      where: { id, ...visibilityWhere(user) },
+      data: { readAt: new Date() },
+    });
+    return count > 0;
+  }
+
+  async markAllRead(user: AccessTokenPayload): Promise<{ updated: number }> {
+    const { count } = await this.prisma.notification.updateMany({
+      where: { ...visibilityWhere(user), readAt: null },
+      data: { readAt: new Date() },
+    });
+    return { updated: count };
   }
 }

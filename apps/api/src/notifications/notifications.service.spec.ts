@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 
-import { NotificationType } from '@prisma/client';
+import { NotificationType, Role } from '@prisma/client';
 import {
   SELLER_REGISTERED,
   SELLER_KYC_APPROVED,
@@ -9,7 +9,12 @@ import {
 import { NotificationsService } from './notifications.service';
 
 const makePrisma = () => ({
-  notification: { create: jest.fn() },
+  notification: {
+    create: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
+    updateMany: jest.fn(),
+  },
   seller: { findUnique: jest.fn() },
 });
 
@@ -196,5 +201,146 @@ describe('NotificationsService.recordSellerKyc', () => {
         },
       },
     });
+  });
+});
+
+describe('read methods', () => {
+  const makeService = () => {
+    const prisma = makePrisma();
+    const service = new NotificationsService(prisma as never);
+    return { prisma, service };
+  };
+
+  // list — scoping per role
+  it('list scopes a CUSTOMER to their own rows', async () => {
+    const { prisma, service } = makeService();
+    prisma.notification.findMany.mockResolvedValue([]);
+    prisma.notification.count.mockResolvedValue(0);
+    await service.list({ sub: 'u1', email: 'c@x', role: Role.CUSTOMER }, {});
+    expect(prisma.notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'u1' },
+        orderBy: { createdAt: 'desc' },
+        skip: 0,
+        take: 20,
+      }),
+    );
+  });
+
+  it('list includes the shared staff queue for ADMIN', async () => {
+    const { prisma, service } = makeService();
+    prisma.notification.findMany.mockResolvedValue([]);
+    prisma.notification.count.mockResolvedValue(0);
+    await service.list({ sub: 'a1', email: 'a@x', role: Role.ADMIN }, {});
+    expect(prisma.notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { OR: [{ userId: 'a1' }, { userId: null }] },
+      }),
+    );
+  });
+
+  it('list adds readAt:null when unread="true"', async () => {
+    const { prisma, service } = makeService();
+    prisma.notification.findMany.mockResolvedValue([]);
+    prisma.notification.count.mockResolvedValue(0);
+    await service.list(
+      { sub: 'u1', email: 'c@x', role: Role.CUSTOMER },
+      { unread: 'true' },
+    );
+    expect(prisma.notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'u1', readAt: null },
+      }),
+    );
+  });
+
+  it('list returns the paginated envelope with totalPages', async () => {
+    const { prisma, service } = makeService();
+    prisma.notification.findMany.mockResolvedValue([
+      {
+        id: 'n1',
+        type: NotificationType.LOW_STOCK,
+        payload: { productId: 'p' },
+        readAt: null,
+        createdAt: new Date('2026-07-01'),
+      },
+    ]);
+    prisma.notification.count.mockResolvedValue(21);
+    const res = await service.list(
+      { sub: 'u1', email: 'c@x', role: Role.CUSTOMER },
+      { page: 2, pageSize: 20 },
+    );
+    expect(prisma.notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 20, take: 20 }),
+    );
+    expect(res).toMatchObject({
+      page: 2,
+      pageSize: 20,
+      total: 21,
+      totalPages: 2,
+    });
+    expect(res.data[0]).toEqual({
+      id: 'n1',
+      type: NotificationType.LOW_STOCK,
+      payload: { productId: 'p' },
+      readAt: null,
+      createdAt: new Date('2026-07-01'),
+    });
+  });
+
+  // unreadCount
+  it('unreadCount counts unread within visibility (staff includes userId:null)', async () => {
+    const { prisma, service } = makeService();
+    prisma.notification.count.mockResolvedValue(3);
+    const res = await service.unreadCount({
+      sub: 'a1',
+      email: 'a@x',
+      role: Role.ADMIN,
+    });
+    expect(prisma.notification.count).toHaveBeenCalledWith({
+      where: { OR: [{ userId: 'a1' }, { userId: null }], readAt: null },
+    });
+    expect(res).toEqual({ count: 3 });
+  });
+
+  // markRead
+  it('markRead updateMany-scopes by id + visibility and returns true when a row matched', async () => {
+    const { prisma, service } = makeService();
+    prisma.notification.updateMany.mockResolvedValue({ count: 1 });
+    const ok = await service.markRead(
+      { sub: 'u1', email: 'c@x', role: Role.CUSTOMER },
+      'n1',
+    );
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: { id: 'n1', userId: 'u1' },
+      data: { readAt: expect.any(Date) },
+    });
+    expect(ok).toBe(true);
+  });
+
+  it('markRead returns false when no visible row matched (foreign/absent id)', async () => {
+    const { prisma, service } = makeService();
+    prisma.notification.updateMany.mockResolvedValue({ count: 0 });
+    const ok = await service.markRead(
+      { sub: 'u1', email: 'c@x', role: Role.CUSTOMER },
+      'nope',
+    );
+    expect(ok).toBe(false);
+  });
+
+  // markAllRead
+  it('markAllRead marks all unread within visibility and returns the count', async () => {
+    const { prisma, service } = makeService();
+    prisma.notification.updateMany.mockResolvedValue({ count: 5 });
+    const res = await service.markAllRead({
+      sub: 'a1',
+      email: 'a@x',
+      role: Role.ADMIN,
+    });
+    expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+      where: { OR: [{ userId: 'a1' }, { userId: null }], readAt: null },
+      data: { readAt: expect.any(Date) },
+    });
+    expect(res).toEqual({ updated: 5 });
   });
 });

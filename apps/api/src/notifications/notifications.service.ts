@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { NotificationType, OrderStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LowStockEvent } from '../inventory/inventory.events';
@@ -11,6 +11,11 @@ import {
 import { ReviewPublishedEvent } from '../reviews/reviews.events';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
 import { ListNotificationsDto } from './dto/list-notifications.dto';
+import { NOTIFICATION_CHANNEL } from './notification-channel';
+import type {
+  NotificationChannel,
+  NotificationMessage,
+} from './notification-channel';
 
 export interface Paginated<T> {
   data: T[];
@@ -48,7 +53,24 @@ function visibilityWhere(
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(NOTIFICATION_CHANNEL) private readonly channel: NotificationChannel,
+  ) {}
+
+  /** Best-effort out-of-band delivery of a persisted notification. Never throws:
+   *  the persisted row is source of truth, so a channel outage must not fail the
+   *  domain write or the originating request. */
+  private async dispatch(message: NotificationMessage): Promise<void> {
+    try {
+      await this.channel.send(message);
+    } catch (err) {
+      this.logger.error(
+        `Notification channel send failed for ${message.type}`,
+        err instanceof Error ? err.stack : String(err),
+      );
+    }
+  }
 
   /**
    * Record a low-stock alert for both the admin/staff queue and the owning
@@ -64,9 +86,15 @@ export class NotificationsService {
     const payload = event as unknown as Prisma.InputJsonValue;
 
     // Admin/staff queue (unchanged).
+    const adminMessage: NotificationMessage = {
+      type: NotificationType.LOW_STOCK,
+      userId: null,
+      payload,
+    };
     await this.prisma.notification.create({
-      data: { type: NotificationType.LOW_STOCK, userId: null, payload },
+      data: adminMessage as Prisma.NotificationUncheckedCreateInput,
     });
+    await this.dispatch(adminMessage);
 
     // Owning-seller alert: resolve the seller's user. If the seller is gone
     // or the lookup/write fails, the admin alert above still stands — log and
@@ -77,13 +105,15 @@ export class NotificationsService {
         select: { userId: true },
       });
       if (seller) {
+        const sellerMessage: NotificationMessage = {
+          type: NotificationType.LOW_STOCK,
+          userId: seller.userId,
+          payload,
+        };
         await this.prisma.notification.create({
-          data: {
-            type: NotificationType.LOW_STOCK,
-            userId: seller.userId,
-            payload,
-          },
+          data: sellerMessage as Prisma.NotificationUncheckedCreateInput,
         });
+        await this.dispatch(sellerMessage);
       }
     } catch (err) {
       this.logger.error(
@@ -99,17 +129,19 @@ export class NotificationsService {
    * low-stock admin-target convention.
    */
   async recordNewReview(event: ReviewPublishedEvent): Promise<void> {
-    await this.prisma.notification.create({
-      data: {
-        type: NotificationType.NEW_REVIEW,
-        userId: null,
-        payload: {
-          reviewId: event.reviewId,
-          productId: event.productId,
-          rating: event.rating,
-        },
+    const message: NotificationMessage = {
+      type: NotificationType.NEW_REVIEW,
+      userId: null,
+      payload: {
+        reviewId: event.reviewId,
+        productId: event.productId,
+        rating: event.rating,
       },
+    };
+    await this.prisma.notification.create({
+      data: message as Prisma.NotificationUncheckedCreateInput,
     });
+    await this.dispatch(message);
   }
 
   // ---------------------------------------------------------------------------
@@ -121,17 +153,19 @@ export class NotificationsService {
    * Targets staff (not a specific user), so `userId` is null.
    */
   async recordSellerRegistered(event: SellerRegisteredEvent): Promise<void> {
-    await this.prisma.notification.create({
-      data: {
-        type: NotificationType.SELLER_REGISTERED,
-        userId: null, // admin review queue (staff-targeted, like recordLowStock)
-        payload: {
-          sellerId: event.sellerId,
-          userId: event.userId,
-          displayName: event.displayName,
-        },
+    const message: NotificationMessage = {
+      type: NotificationType.SELLER_REGISTERED,
+      userId: null, // admin review queue (staff-targeted, like recordLowStock)
+      payload: {
+        sellerId: event.sellerId,
+        userId: event.userId,
+        displayName: event.displayName,
       },
+    };
+    await this.prisma.notification.create({
+      data: message as Prisma.NotificationUncheckedCreateInput,
     });
+    await this.dispatch(message);
   }
 
   /**
@@ -144,21 +178,24 @@ export class NotificationsService {
     event: SellerKycEvent,
     kind: typeof SELLER_KYC_APPROVED | typeof SELLER_KYC_REJECTED,
   ): Promise<void> {
-    await this.prisma.notification.create({
-      data: {
-        type:
-          kind === SELLER_KYC_APPROVED
-            ? NotificationType.SELLER_KYC_APPROVED
-            : NotificationType.SELLER_KYC_REJECTED,
-        userId: event.userId, // notify the seller directly
-        payload: {
-          sellerId: event.sellerId,
-          userId: event.userId,
-          status: event.status,
-          ...(event.reason ? { reason: event.reason } : {}),
-        },
+    const type =
+      kind === SELLER_KYC_APPROVED
+        ? NotificationType.SELLER_KYC_APPROVED
+        : NotificationType.SELLER_KYC_REJECTED;
+    const message: NotificationMessage = {
+      type,
+      userId: event.userId, // notify the seller directly
+      payload: {
+        sellerId: event.sellerId,
+        userId: event.userId,
+        status: event.status,
+        ...(event.reason ? { reason: event.reason } : {}),
       },
+    };
+    await this.prisma.notification.create({
+      data: message as Prisma.NotificationUncheckedCreateInput,
     });
+    await this.dispatch(message);
   }
 
   // ---------------------------------------------------------------------------
@@ -167,13 +204,15 @@ export class NotificationsService {
 
   /** Record a registration-confirmation notification for the new user. */
   async recordRegistration(event: { userId: string }): Promise<void> {
+    const message: NotificationMessage = {
+      type: NotificationType.REGISTRATION_CONFIRMATION,
+      userId: event.userId,
+      payload: { userId: event.userId },
+    };
     await this.prisma.notification.create({
-      data: {
-        type: NotificationType.REGISTRATION_CONFIRMATION,
-        userId: event.userId,
-        payload: { userId: event.userId },
-      },
+      data: message as Prisma.NotificationUncheckedCreateInput,
     });
+    await this.dispatch(message);
   }
 
   /**
@@ -185,20 +224,25 @@ export class NotificationsService {
     userId: string;
   }): Promise<void> {
     // Staff queue (new order to fulfil) + the customer's confirmation.
+    const newOrderMessage: NotificationMessage = {
+      type: NotificationType.NEW_ORDER,
+      userId: null,
+      payload: { orderId: event.orderId, userId: event.userId },
+    };
     await this.prisma.notification.create({
-      data: {
-        type: NotificationType.NEW_ORDER,
-        userId: null,
-        payload: { orderId: event.orderId, userId: event.userId },
-      },
+      data: newOrderMessage as Prisma.NotificationUncheckedCreateInput,
     });
+    await this.dispatch(newOrderMessage);
+
+    const confirmationMessage: NotificationMessage = {
+      type: NotificationType.ORDER_CONFIRMATION,
+      userId: event.userId,
+      payload: { orderId: event.orderId },
+    };
     await this.prisma.notification.create({
-      data: {
-        type: NotificationType.ORDER_CONFIRMATION,
-        userId: event.userId,
-        payload: { orderId: event.orderId },
-      },
+      data: confirmationMessage as Prisma.NotificationUncheckedCreateInput,
     });
+    await this.dispatch(confirmationMessage);
   }
 
   /**
@@ -217,13 +261,15 @@ export class NotificationsService {
           ? NotificationType.DELIVERY_UPDATE
           : null;
     if (!type) return; // S2 notifies only on Shipped/Delivered.
+    const message: NotificationMessage = {
+      type,
+      userId: event.userId,
+      payload: { orderId: event.orderId, status: event.status },
+    };
     await this.prisma.notification.create({
-      data: {
-        type,
-        userId: event.userId,
-        payload: { orderId: event.orderId, status: event.status },
-      },
+      data: message as Prisma.NotificationUncheckedCreateInput,
     });
+    await this.dispatch(message);
   }
 
   // ---------------------------------------------------------------------------

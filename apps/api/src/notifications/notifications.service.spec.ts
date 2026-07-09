@@ -17,10 +17,16 @@ const makePrisma = () => ({
   seller: { findUnique: jest.fn() },
 });
 
+function makeService() {
+  const prisma = makePrisma();
+  const channel = { send: jest.fn().mockResolvedValue(undefined) };
+  const service = new NotificationsService(prisma as never, channel);
+  return { service, prisma, channel };
+}
+
 describe('NotificationsService.recordLowStock', () => {
   it('creates an admin-facing LOW_STOCK notification with the event payload', async () => {
-    const prisma = makePrisma();
-    const svc = new NotificationsService(prisma as never);
+    const { service: svc, prisma } = makeService();
     prisma.seller.findUnique.mockResolvedValue(null);
 
     await svc.recordLowStock({
@@ -45,8 +51,7 @@ describe('NotificationsService.recordLowStock', () => {
   });
 
   it('records BOTH an admin (userId:null) and an owning-seller low-stock notification', async () => {
-    const prisma = makePrisma();
-    const svc = new NotificationsService(prisma as never);
+    const { service: svc, prisma } = makeService();
     // arrange: seller.findUnique resolves { userId: 'owner-user' }
     prisma.seller.findUnique.mockResolvedValue({ userId: 'owner-user' });
     prisma.notification.create.mockResolvedValue({});
@@ -84,8 +89,7 @@ describe('NotificationsService.recordLowStock', () => {
   });
 
   it('still records the admin alert if the owning seller cannot be resolved', async () => {
-    const prisma = makePrisma();
-    const svc = new NotificationsService(prisma as never);
+    const { service: svc, prisma } = makeService();
     prisma.seller.findUnique.mockResolvedValue(null);
     prisma.notification.create.mockResolvedValue({});
 
@@ -106,8 +110,7 @@ describe('NotificationsService.recordLowStock', () => {
   });
 
   it('still records the admin alert (and does not throw) if the seller lookup fails', async () => {
-    const prisma = makePrisma();
-    const svc = new NotificationsService(prisma as never);
+    const { service: svc, prisma } = makeService();
     prisma.seller.findUnique.mockRejectedValue(new Error('db down'));
     prisma.notification.create.mockResolvedValue({});
 
@@ -128,12 +131,35 @@ describe('NotificationsService.recordLowStock', () => {
     );
     expect(prisma.notification.create).toHaveBeenCalledTimes(1);
   });
+
+  it('dispatches the admin row (and seller row when resolved)', async () => {
+    const { service, prisma, channel } = makeService();
+    prisma.seller.findUnique.mockResolvedValue({ userId: 'sellerU' });
+    await service.recordLowStock({
+      productId: 'p1',
+      available: 1,
+      threshold: 5,
+      sellerId: 's1',
+    });
+    expect(channel.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: NotificationType.LOW_STOCK,
+        userId: null,
+      }),
+    );
+    expect(channel.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: NotificationType.LOW_STOCK,
+        userId: 'sellerU',
+      }),
+    );
+    expect(channel.send).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('NotificationsService.recordSellerRegistered', () => {
   it('creates a staff-targeted SELLER_REGISTERED notification with no kind field', async () => {
-    const prisma = makePrisma();
-    const svc = new NotificationsService(prisma as never);
+    const { service: svc, prisma } = makeService();
 
     const event = { sellerId: 's1', userId: 'u1', displayName: 'Acme Store' };
     await svc.recordSellerRegistered(event);
@@ -150,12 +176,22 @@ describe('NotificationsService.recordSellerRegistered', () => {
       },
     });
   });
+
+  it('dispatches SELLER_REGISTERED after persist', async () => {
+    const { service, channel } = makeService();
+    const event = { sellerId: 's1', userId: 'u1', displayName: 'Shop' };
+    await service.recordSellerRegistered(event);
+    expect(channel.send).toHaveBeenCalledWith({
+      type: NotificationType.SELLER_REGISTERED,
+      userId: null,
+      payload: { sellerId: 's1', userId: 'u1', displayName: 'Shop' },
+    });
+  });
 });
 
 describe('NotificationsService.recordSellerKyc', () => {
   it('creates a seller-facing SELLER_KYC_APPROVED notification for approved KYC, no kind field', async () => {
-    const prisma = makePrisma();
-    const svc = new NotificationsService(prisma as never);
+    const { service: svc, prisma } = makeService();
 
     const event = { sellerId: 's1', userId: 'u1', status: 'ACTIVE' as const };
     await svc.recordSellerKyc(event, SELLER_KYC_APPROVED);
@@ -174,8 +210,7 @@ describe('NotificationsService.recordSellerKyc', () => {
   });
 
   it('creates a seller-facing SELLER_KYC_REJECTED notification for rejected KYC, no kind field', async () => {
-    const prisma = makePrisma();
-    const svc = new NotificationsService(prisma as never);
+    const { service: svc, prisma } = makeService();
 
     const event = {
       sellerId: 's1',
@@ -198,12 +233,22 @@ describe('NotificationsService.recordSellerKyc', () => {
       },
     });
   });
+
+  it('dispatches SELLER_KYC_APPROVED after persist', async () => {
+    const { service, channel } = makeService();
+    const event = { sellerId: 's1', userId: 'u1', status: 'ACTIVE' as const };
+    await service.recordSellerKyc(event, SELLER_KYC_APPROVED);
+    expect(channel.send).toHaveBeenCalledWith({
+      type: NotificationType.SELLER_KYC_APPROVED,
+      userId: 'u1',
+      payload: { sellerId: 's1', userId: 'u1', status: 'ACTIVE' },
+    });
+  });
 });
 
 describe('recordRegistration', () => {
   it('writes a REGISTRATION_CONFIRMATION for the user', async () => {
-    const prisma = makePrisma();
-    const service = new NotificationsService(prisma as never);
+    const { service, prisma } = makeService();
     await service.recordRegistration({ userId: 'u1' });
     expect(prisma.notification.create).toHaveBeenCalledWith({
       data: {
@@ -213,12 +258,30 @@ describe('recordRegistration', () => {
       },
     });
   });
+
+  it('dispatches after persist', async () => {
+    const { service, channel } = makeService();
+    await service.recordRegistration({ userId: 'u1' });
+    expect(channel.send).toHaveBeenCalledWith({
+      type: NotificationType.REGISTRATION_CONFIRMATION,
+      userId: 'u1',
+      payload: { userId: 'u1' },
+    });
+  });
+
+  it('swallows a failing channel.send — persist still succeeds, no throw', async () => {
+    const { service, prisma, channel } = makeService();
+    channel.send.mockRejectedValue(new Error('smtp down'));
+    await expect(
+      service.recordRegistration({ userId: 'u1' }),
+    ).resolves.toBeUndefined();
+    expect(prisma.notification.create).toHaveBeenCalled();
+  });
 });
 
 describe('recordOrderPlaced', () => {
   it('writes NEW_ORDER (staff) and ORDER_CONFIRMATION (customer)', async () => {
-    const prisma = makePrisma();
-    const service = new NotificationsService(prisma as never);
+    const { service, prisma } = makeService();
     await service.recordOrderPlaced({ orderId: 'o1', userId: 'u1' });
     expect(prisma.notification.create).toHaveBeenCalledWith({
       data: {
@@ -235,12 +298,27 @@ describe('recordOrderPlaced', () => {
       },
     });
   });
+
+  it('dispatches BOTH rows', async () => {
+    const { service, channel } = makeService();
+    await service.recordOrderPlaced({ orderId: 'o1', userId: 'u1' });
+    expect(channel.send).toHaveBeenCalledWith({
+      type: NotificationType.NEW_ORDER,
+      userId: null,
+      payload: { orderId: 'o1', userId: 'u1' },
+    });
+    expect(channel.send).toHaveBeenCalledWith({
+      type: NotificationType.ORDER_CONFIRMATION,
+      userId: 'u1',
+      payload: { orderId: 'o1' },
+    });
+    expect(channel.send).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('recordOrderStatus', () => {
   it('SHIPPED → SHIPPING_UPDATE for the customer', async () => {
-    const prisma = makePrisma();
-    const service = new NotificationsService(prisma as never);
+    const { service, prisma } = makeService();
     await service.recordOrderStatus({
       orderId: 'o1',
       userId: 'u1',
@@ -255,8 +333,7 @@ describe('recordOrderStatus', () => {
     });
   });
   it('DELIVERED → DELIVERY_UPDATE for the customer', async () => {
-    const prisma = makePrisma();
-    const service = new NotificationsService(prisma as never);
+    const { service, prisma } = makeService();
     await service.recordOrderStatus({
       orderId: 'o1',
       userId: 'u1',
@@ -271,8 +348,7 @@ describe('recordOrderStatus', () => {
     });
   });
   it('other statuses write nothing', async () => {
-    const prisma = makePrisma();
-    const service = new NotificationsService(prisma as never);
+    const { service, prisma } = makeService();
     await service.recordOrderStatus({
       orderId: 'o1',
       userId: 'u1',
@@ -280,13 +356,39 @@ describe('recordOrderStatus', () => {
     });
     expect(prisma.notification.create).not.toHaveBeenCalled();
   });
+
+  it('SHIPPED dispatches once', async () => {
+    const { service, channel } = makeService();
+    await service.recordOrderStatus({
+      orderId: 'o1',
+      userId: 'u1',
+      status: OrderStatus.SHIPPED,
+    });
+    expect(channel.send).toHaveBeenCalledWith({
+      type: NotificationType.SHIPPING_UPDATE,
+      userId: 'u1',
+      payload: { orderId: 'o1', status: OrderStatus.SHIPPED },
+    });
+    expect(channel.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('no-op status dispatches nothing', async () => {
+    const { service, channel } = makeService();
+    await service.recordOrderStatus({
+      orderId: 'o1',
+      userId: 'u1',
+      status: OrderStatus.CONFIRMED,
+    });
+    expect(channel.send).not.toHaveBeenCalled();
+  });
 });
 
 describe('read methods', () => {
   const makeService = () => {
     const prisma = makePrisma();
-    const service = new NotificationsService(prisma as never);
-    return { prisma, service };
+    const channel = { send: jest.fn().mockResolvedValue(undefined) };
+    const service = new NotificationsService(prisma as never, channel);
+    return { prisma, service, channel };
   };
 
   // list — scoping per role

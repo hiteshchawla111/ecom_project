@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { randomBytes, createHash } from 'crypto';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PasswordService } from './password.service';
@@ -17,6 +18,7 @@ import { RefreshDto } from './dto/refresh.dto';
 import { RequestResetDto } from './dto/request-reset.dto';
 import { ConfirmResetDto } from './dto/confirm-reset.dto';
 import { TokenPair } from './auth-tokens';
+import { AUTH_REGISTERED } from './auth-events';
 
 /** Small helper bundle so the service is unit-testable without ConfigService. */
 export interface ResetHelpers {
@@ -30,6 +32,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly passwords: PasswordService,
     private readonly tokens: TokenService,
+    private readonly events: EventEmitter2,
     @Inject('RESET_HELPERS') private readonly reset: ResetHelpers,
   ) {}
 
@@ -41,6 +44,9 @@ export class AuthService {
     const user = await this.prisma.user.create({
       data: { email, name: dto.name, passwordHash, role: Role.CUSTOMER },
     });
+    // Post-commit: the create above has committed; a failed create throws
+    // before this line, so a failed registration never emits.
+    this.events.emit(AUTH_REGISTERED, { userId: user.id });
     return this.issuePair(user.id, user.email, user.role);
   }
 

@@ -5,6 +5,7 @@ import { NotificationsService } from './notifications.service';
 import { LowStockListener } from './low-stock.listener';
 import { SellerNotificationListener } from './seller.listener';
 import { ReviewListener } from './review.listener';
+import { AuthNotificationListener } from './auth-notification.listener';
 
 /** Notifications domain: domain-event driven (customer + admin events). (Phase 5/6) */
 @Module({
@@ -15,6 +16,7 @@ import { ReviewListener } from './review.listener';
     LowStockListener,
     SellerNotificationListener,
     ReviewListener,
+    AuthNotificationListener,
   ],
   exports: [NotificationsService],
 })

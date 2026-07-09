@@ -29,14 +29,23 @@ const makeTokens = () => ({
   revokeAllForUser: jest.fn().mockResolvedValue(undefined),
 });
 
+const makeEmitter = () => ({ emit: jest.fn() });
+
 const build = () => {
   const prisma = makePrisma();
   const tokens = makeTokens();
-  const svc = new AuthService(prisma as never, passwords, tokens as never, {
-    digest: (r: string) => `d:${r}`,
-    resetTtlMs: () => 3600000,
-  });
-  return { svc, prisma, tokens };
+  const emitter = makeEmitter();
+  const svc = new AuthService(
+    prisma as never,
+    passwords,
+    tokens as never,
+    emitter as never,
+    {
+      digest: (r: string) => `d:${r}`,
+      resetTtlMs: () => 3600000,
+    },
+  );
+  return { svc, prisma, tokens, emitter };
 };
 
 describe('AuthService', () => {
@@ -70,6 +79,37 @@ describe('AuthService', () => {
       await expect(
         svc.register({ email: 'a@b.c', password: 'password1', name: 'Al' }),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('emits auth.registered after a successful register', async () => {
+      const { svc, prisma, emitter } = build();
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({
+        id: 'u1',
+        email: 'a@x.com',
+        role: 'CUSTOMER',
+      });
+      await svc.register({
+        email: 'a@x.com',
+        name: 'A',
+        password: 'Password123!',
+      });
+      expect(emitter.emit).toHaveBeenCalledWith('auth.registered', {
+        userId: 'u1',
+      });
+    });
+
+    it('does NOT emit when registration fails (duplicate email)', async () => {
+      const { svc, prisma, emitter } = build();
+      prisma.user.findUnique.mockResolvedValue({ id: 'existing' });
+      await expect(
+        svc.register({
+          email: 'dup@x.com',
+          name: 'A',
+          password: 'Password123!',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(emitter.emit).not.toHaveBeenCalled();
     });
   });
 

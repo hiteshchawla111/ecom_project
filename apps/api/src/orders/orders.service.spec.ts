@@ -57,17 +57,23 @@ const makeAudit = () => ({
   record: jest.fn().mockResolvedValue(undefined),
 });
 
+const makeEvents = () => ({
+  emit: jest.fn(),
+});
+
 const build = () => {
   const prisma = makePrisma();
   const inventory = makeInventory();
   const audit = makeAudit();
+  const events = makeEvents();
   const svc = new OrdersService(
     prisma as never,
     makeConfig() as never,
     inventory as never,
     audit as never,
+    events as never,
   );
-  return { svc, prisma, inventory, audit };
+  return { svc, prisma, inventory, audit, events };
 };
 
 const shipping: CheckoutDto = {
@@ -100,6 +106,7 @@ const activeLine = (over: Record<string, unknown> = {}) => ({
  */
 const createdOrder = {
   id: 'order1',
+  userId: 'u1',
   status: OrderStatus.PENDING,
   subtotal: '10',
   discountTotal: '0',
@@ -233,6 +240,31 @@ describe('OrdersService.placeOrder', () => {
     );
     expect(prisma.order.create).not.toHaveBeenCalled();
   });
+
+  it('emits order.placed after placement commits', async () => {
+    const { svc, prisma, events } = build();
+    prisma.cart.findFirst.mockResolvedValue(cartWith([activeLine()]));
+    prisma.order.create.mockResolvedValue(createdOrder);
+
+    await svc.placeOrder('u1', shipping);
+
+    expect(events.emit).toHaveBeenCalledWith('order.placed', {
+      orderId: 'order1',
+      userId: 'u1',
+    });
+  });
+
+  it('does NOT emit order.placed when placement fails/rolls back', async () => {
+    const { svc, prisma, events } = build();
+    prisma.cart.findFirst.mockResolvedValue(cartWith([]));
+
+    await expect(svc.placeOrder('u1', shipping)).rejects.toBeTruthy();
+
+    expect(events.emit).not.toHaveBeenCalledWith(
+      'order.placed',
+      expect.anything(),
+    );
+  });
 });
 
 describe('OrdersService.getOrder', () => {
@@ -350,6 +382,34 @@ describe('OrdersService.updateStatus', () => {
     expect(view.status).toBe(OrderStatus.SHIPPED);
   });
 
+  it('emits order.status.changed after a valid transition commits (stock-moving branch)', async () => {
+    const { svc, prisma, events } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PROCESSING));
+    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.SHIPPED));
+
+    await svc.updateStatus(admin, 'order1', OrderStatus.SHIPPED);
+
+    expect(events.emit).toHaveBeenCalledWith('order.status.changed', {
+      orderId: 'order1',
+      userId: 'u1',
+      status: OrderStatus.SHIPPED,
+    });
+  });
+
+  it('emits order.status.changed after a valid transition commits (non-stock branch)', async () => {
+    const { svc, prisma, events } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
+    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.CONFIRMED));
+
+    await svc.updateStatus(admin, 'order1', OrderStatus.CONFIRMED);
+
+    expect(events.emit).toHaveBeenCalledWith('order.status.changed', {
+      orderId: 'order1',
+      userId: 'u1',
+      status: OrderStatus.CONFIRMED,
+    });
+  });
+
   it('does not deduct on SHIPPED→DELIVERED', async () => {
     const { svc, prisma, inventory } = build();
     prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.SHIPPED));
@@ -393,6 +453,19 @@ describe('OrdersService.updateStatus', () => {
       svc.updateStatus(admin, 'order1', OrderStatus.SHIPPED),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.order.update).not.toHaveBeenCalled();
+  });
+
+  it('does NOT emit order.status.changed on a rejected transition', async () => {
+    const { svc, prisma, events } = build();
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
+
+    await expect(
+      svc.updateStatus(admin, 'order1', OrderStatus.SHIPPED),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(events.emit).not.toHaveBeenCalledWith(
+      'order.status.changed',
+      expect.anything(),
+    );
   });
 
   it('throws 404 for an unknown order', async () => {

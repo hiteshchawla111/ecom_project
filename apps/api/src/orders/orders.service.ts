@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { OrderStatus, Prisma, ProductStatus, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
@@ -21,6 +22,7 @@ import {
 } from './order-status';
 import { AuditService } from '../audit/audit.service';
 import { ORDER_STATUS_CHANGED, REFUND_ISSUED } from '../audit/audit-actions';
+import { ORDER_PLACED, ORDER_STATUS_CHANGED_EVENT } from './orders-events';
 import { CheckoutDto } from './dto/checkout.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 import { ListAdminOrdersDto } from './dto/list-admin-orders.dto';
@@ -115,6 +117,7 @@ export class OrdersService {
     config: ConfigService,
     private readonly inventory: InventoryService,
     private readonly audit: AuditService,
+    private readonly events: EventEmitter2,
   ) {
     this.totalsConfig = resolveTotalsConfig(config);
   }
@@ -203,6 +206,8 @@ export class OrdersService {
     for (const crossing of lowStockCrossings) {
       this.inventory.emitLowStock(crossing);
     }
+    // Post-commit: the placement transaction has committed.
+    this.events.emit(ORDER_PLACED, { orderId: order.id, userId: order.userId });
 
     return this.toOrderView(order);
   }
@@ -450,6 +455,11 @@ export class OrdersService {
         }
         return u;
       });
+      this.events.emit(ORDER_STATUS_CHANGED_EVENT, {
+        orderId: updated.id,
+        userId: updated.userId,
+        status: nextStatus,
+      });
       return this.toOrderView(updated);
     }
 
@@ -470,6 +480,11 @@ export class OrdersService {
         tx,
       );
       return u;
+    });
+    this.events.emit(ORDER_STATUS_CHANGED_EVENT, {
+      orderId: updated.id,
+      userId: updated.userId,
+      status: nextStatus,
     });
     return this.toOrderView(updated);
   }

@@ -7,6 +7,8 @@ import { SellerNotificationListener } from './seller.listener';
 import { ReviewListener } from './review.listener';
 import { AuthNotificationListener } from './auth-notification.listener';
 import { OrderNotificationListener } from './order-notification.listener';
+import { NOTIFICATION_CHANNEL } from './notification-channel';
+import { MockNotificationChannel } from './mock-notification-channel';
 
 /** Notifications domain: domain-event driven (customer + admin events). (Phase 5/6) */
 @Module({
@@ -19,6 +21,7 @@ import { OrderNotificationListener } from './order-notification.listener';
     ReviewListener,
     AuthNotificationListener,
     OrderNotificationListener,
+    { provide: NOTIFICATION_CHANNEL, useClass: MockNotificationChannel },
   ],
   exports: [NotificationsService],
 })

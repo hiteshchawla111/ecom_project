@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 
-import { NotificationType, Role } from '@prisma/client';
+import { NotificationType, OrderStatus, Role } from '@prisma/client';
 import {
-  SELLER_REGISTERED,
   SELLER_KYC_APPROVED,
   SELLER_KYC_REJECTED,
 } from '../sellers/seller-events';
@@ -132,7 +131,7 @@ describe('NotificationsService.recordLowStock', () => {
 });
 
 describe('NotificationsService.recordSellerRegistered', () => {
-  it('creates a staff-targeted REGISTRATION_CONFIRMATION notification with kind=seller.registered', async () => {
+  it('creates a staff-targeted SELLER_REGISTERED notification with no kind field', async () => {
     const prisma = makePrisma();
     const svc = new NotificationsService(prisma as never);
 
@@ -141,10 +140,9 @@ describe('NotificationsService.recordSellerRegistered', () => {
 
     expect(prisma.notification.create).toHaveBeenCalledWith({
       data: {
-        type: NotificationType.REGISTRATION_CONFIRMATION,
+        type: NotificationType.SELLER_REGISTERED,
         userId: null,
         payload: {
-          kind: SELLER_REGISTERED,
           sellerId: 's1',
           userId: 'u1',
           displayName: 'Acme Store',
@@ -155,7 +153,7 @@ describe('NotificationsService.recordSellerRegistered', () => {
 });
 
 describe('NotificationsService.recordSellerKyc', () => {
-  it('creates a seller-facing REGISTRATION_CONFIRMATION notification for approved KYC', async () => {
+  it('creates a seller-facing SELLER_KYC_APPROVED notification for approved KYC, no kind field', async () => {
     const prisma = makePrisma();
     const svc = new NotificationsService(prisma as never);
 
@@ -164,10 +162,9 @@ describe('NotificationsService.recordSellerKyc', () => {
 
     expect(prisma.notification.create).toHaveBeenCalledWith({
       data: {
-        type: NotificationType.REGISTRATION_CONFIRMATION,
+        type: NotificationType.SELLER_KYC_APPROVED,
         userId: 'u1',
         payload: {
-          kind: SELLER_KYC_APPROVED,
           sellerId: 's1',
           userId: 'u1',
           status: 'ACTIVE',
@@ -176,7 +173,7 @@ describe('NotificationsService.recordSellerKyc', () => {
     });
   });
 
-  it('creates a seller-facing REGISTRATION_CONFIRMATION notification for rejected KYC', async () => {
+  it('creates a seller-facing SELLER_KYC_REJECTED notification for rejected KYC, no kind field', async () => {
     const prisma = makePrisma();
     const svc = new NotificationsService(prisma as never);
 
@@ -190,10 +187,9 @@ describe('NotificationsService.recordSellerKyc', () => {
 
     expect(prisma.notification.create).toHaveBeenCalledWith({
       data: {
-        type: NotificationType.REGISTRATION_CONFIRMATION,
+        type: NotificationType.SELLER_KYC_REJECTED,
         userId: 'u1',
         payload: {
-          kind: SELLER_KYC_REJECTED,
           sellerId: 's1',
           userId: 'u1',
           status: 'SUSPENDED',
@@ -201,6 +197,88 @@ describe('NotificationsService.recordSellerKyc', () => {
         },
       },
     });
+  });
+});
+
+describe('recordRegistration', () => {
+  it('writes a REGISTRATION_CONFIRMATION for the user', async () => {
+    const prisma = makePrisma();
+    const service = new NotificationsService(prisma as never);
+    await service.recordRegistration({ userId: 'u1' });
+    expect(prisma.notification.create).toHaveBeenCalledWith({
+      data: {
+        type: NotificationType.REGISTRATION_CONFIRMATION,
+        userId: 'u1',
+        payload: { userId: 'u1' },
+      },
+    });
+  });
+});
+
+describe('recordOrderPlaced', () => {
+  it('writes NEW_ORDER (staff) and ORDER_CONFIRMATION (customer)', async () => {
+    const prisma = makePrisma();
+    const service = new NotificationsService(prisma as never);
+    await service.recordOrderPlaced({ orderId: 'o1', userId: 'u1' });
+    expect(prisma.notification.create).toHaveBeenCalledWith({
+      data: {
+        type: NotificationType.NEW_ORDER,
+        userId: null,
+        payload: { orderId: 'o1', userId: 'u1' },
+      },
+    });
+    expect(prisma.notification.create).toHaveBeenCalledWith({
+      data: {
+        type: NotificationType.ORDER_CONFIRMATION,
+        userId: 'u1',
+        payload: { orderId: 'o1' },
+      },
+    });
+  });
+});
+
+describe('recordOrderStatus', () => {
+  it('SHIPPED → SHIPPING_UPDATE for the customer', async () => {
+    const prisma = makePrisma();
+    const service = new NotificationsService(prisma as never);
+    await service.recordOrderStatus({
+      orderId: 'o1',
+      userId: 'u1',
+      status: OrderStatus.SHIPPED,
+    });
+    expect(prisma.notification.create).toHaveBeenCalledWith({
+      data: {
+        type: NotificationType.SHIPPING_UPDATE,
+        userId: 'u1',
+        payload: { orderId: 'o1', status: OrderStatus.SHIPPED },
+      },
+    });
+  });
+  it('DELIVERED → DELIVERY_UPDATE for the customer', async () => {
+    const prisma = makePrisma();
+    const service = new NotificationsService(prisma as never);
+    await service.recordOrderStatus({
+      orderId: 'o1',
+      userId: 'u1',
+      status: OrderStatus.DELIVERED,
+    });
+    expect(prisma.notification.create).toHaveBeenCalledWith({
+      data: {
+        type: NotificationType.DELIVERY_UPDATE,
+        userId: 'u1',
+        payload: { orderId: 'o1', status: OrderStatus.DELIVERED },
+      },
+    });
+  });
+  it('other statuses write nothing', async () => {
+    const prisma = makePrisma();
+    const service = new NotificationsService(prisma as never);
+    await service.recordOrderStatus({
+      orderId: 'o1',
+      userId: 'u1',
+      status: OrderStatus.CONFIRMED,
+    });
+    expect(prisma.notification.create).not.toHaveBeenCalled();
   });
 });
 

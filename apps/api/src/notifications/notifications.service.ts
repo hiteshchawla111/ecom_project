@@ -1,9 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { NotificationType, Prisma, Role } from '@prisma/client';
+import { NotificationType, OrderStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LowStockEvent } from '../inventory/inventory.events';
 import {
-  SELLER_REGISTERED,
   SELLER_KYC_APPROVED,
   SELLER_KYC_REJECTED,
   SellerRegisteredEvent,
@@ -114,12 +113,7 @@ export class NotificationsService {
   }
 
   // ---------------------------------------------------------------------------
-  // Seller notifications — TEMPORARY generic-type mapping.
-  // These persist seller events under REGISTRATION_CONFIRMATION (the closest
-  // existing generic type) with a `kind` discriminator in the payload.
-  // M4b/K1 will add proper SELLER_* NotificationType enum values and clean up
-  // these payloads — at that point, replace these methods and drop the `kind`
-  // field workaround.
+  // Seller notifications — first-class SELLER_* NotificationType values.
   // ---------------------------------------------------------------------------
 
   /**
@@ -129,11 +123,12 @@ export class NotificationsService {
   async recordSellerRegistered(event: SellerRegisteredEvent): Promise<void> {
     await this.prisma.notification.create({
       data: {
-        type: NotificationType.REGISTRATION_CONFIRMATION,
+        type: NotificationType.SELLER_REGISTERED,
         userId: null, // admin review queue (staff-targeted, like recordLowStock)
         payload: {
-          kind: SELLER_REGISTERED,
-          ...event,
+          sellerId: event.sellerId,
+          userId: event.userId,
+          displayName: event.displayName,
         },
       },
     });
@@ -142,7 +137,8 @@ export class NotificationsService {
   /**
    * Record a seller-facing KYC outcome notification.
    * `kind` is SELLER_KYC_APPROVED or SELLER_KYC_REJECTED (passed by the listener
-   * since both events share the same SellerKycEvent payload shape).
+   * since both events share the same SellerKycEvent payload shape); it selects
+   * the NotificationType but is no longer stored in the payload.
    */
   async recordSellerKyc(
     event: SellerKycEvent,
@@ -150,12 +146,82 @@ export class NotificationsService {
   ): Promise<void> {
     await this.prisma.notification.create({
       data: {
-        type: NotificationType.REGISTRATION_CONFIRMATION,
+        type:
+          kind === SELLER_KYC_APPROVED
+            ? NotificationType.SELLER_KYC_APPROVED
+            : NotificationType.SELLER_KYC_REJECTED,
         userId: event.userId, // notify the seller directly
         payload: {
-          kind,
-          ...event,
+          sellerId: event.sellerId,
+          userId: event.userId,
+          status: event.status,
+          ...(event.reason ? { reason: event.reason } : {}),
         },
+      },
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Registration / order notifications.
+  // ---------------------------------------------------------------------------
+
+  /** Record a registration-confirmation notification for the new user. */
+  async recordRegistration(event: { userId: string }): Promise<void> {
+    await this.prisma.notification.create({
+      data: {
+        type: NotificationType.REGISTRATION_CONFIRMATION,
+        userId: event.userId,
+        payload: { userId: event.userId },
+      },
+    });
+  }
+
+  /**
+   * Record notifications for a newly placed order: a staff-queue NEW_ORDER
+   * alert (userId: null) plus the customer's own ORDER_CONFIRMATION.
+   */
+  async recordOrderPlaced(event: {
+    orderId: string;
+    userId: string;
+  }): Promise<void> {
+    // Staff queue (new order to fulfil) + the customer's confirmation.
+    await this.prisma.notification.create({
+      data: {
+        type: NotificationType.NEW_ORDER,
+        userId: null,
+        payload: { orderId: event.orderId, userId: event.userId },
+      },
+    });
+    await this.prisma.notification.create({
+      data: {
+        type: NotificationType.ORDER_CONFIRMATION,
+        userId: event.userId,
+        payload: { orderId: event.orderId },
+      },
+    });
+  }
+
+  /**
+   * Record a customer-facing status-change notification. Only SHIPPED and
+   * DELIVERED produce a notification in S2; any other status is a no-op.
+   */
+  async recordOrderStatus(event: {
+    orderId: string;
+    userId: string;
+    status: OrderStatus;
+  }): Promise<void> {
+    const type =
+      event.status === OrderStatus.SHIPPED
+        ? NotificationType.SHIPPING_UPDATE
+        : event.status === OrderStatus.DELIVERED
+          ? NotificationType.DELIVERY_UPDATE
+          : null;
+    if (!type) return; // S2 notifies only on Shipped/Delivered.
+    await this.prisma.notification.create({
+      data: {
+        type,
+        userId: event.userId,
+        payload: { orderId: event.orderId, status: event.status },
       },
     });
   }

@@ -58,4 +58,29 @@ describe('NotificationBell', () => {
     await userEvent.click(screen.getByRole('button', { name: /notifications/i }));
     expect(await screen.findByText(/no notifications yet/i)).toBeInTheDocument();
   });
+
+  it('toggles aria-expanded on the bell button when opened and closed', async () => {
+    render(<NotificationBell />);
+    const bellButton = screen.getByRole('button', { name: /notifications/i });
+    expect(bellButton).toHaveAttribute('aria-expanded', 'false');
+
+    await userEvent.click(bellButton);
+    expect(bellButton).toHaveAttribute('aria-expanded', 'true');
+
+    await userEvent.click(bellButton);
+    expect(bellButton).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('pressing Escape closes the open dropdown', async () => {
+    render(<NotificationBell />);
+    const bellButton = screen.getByRole('button', { name: /notifications/i });
+    await userEvent.click(bellButton);
+    expect(await screen.findByText('Your order has shipped')).toBeInTheDocument();
+    expect(bellButton).toHaveAttribute('aria-expanded', 'true');
+
+    await userEvent.keyboard('{Escape}');
+
+    expect(bellButton).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Your order has shipped')).not.toBeInTheDocument();
+  });
 });

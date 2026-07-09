@@ -382,6 +382,9 @@ enum NotificationType {
   LOW_STOCK
   REFUND_REQUEST
   NEW_REVIEW
+  SELLER_REGISTERED
+  SELLER_KYC_APPROVED
+  SELLER_KYC_REJECTED
 }
 
 model Notification {

@@ -130,7 +130,7 @@ export function NotificationBell() {
                       type="button"
                       onClick={() => handleRowClick(item)}
                       className={`flex w-full items-start gap-2 px-3 py-2 text-left text-sm ${
-                        isUnread ? 'bg-primary-50 text-content' : 'text-content-subtle'
+                        isUnread ? 'bg-primary-500/10 text-content' : 'text-content-subtle'
                       } hover:bg-surface-muted`}
                     >
                       {isUnread ? (

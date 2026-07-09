@@ -1,7 +1,13 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { CurrentUser } from '@/lib/api-auth';
 import { SiteHeaderView } from './SiteHeaderView';
+
+// The bell fetches on mount (via lib/notifications-client); stub it so this
+// header test stays a pure render test with no network calls.
+vi.mock('@/components/notifications/NotificationBell', () => ({
+  NotificationBell: () => <div data-testid="notification-bell-stub" />,
+}));
 
 const user: CurrentUser = {
   sub: 'u1',
@@ -69,6 +75,19 @@ describe('SiteHeaderView', () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: /sign up/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders the notification bell for a signed-in user, not when logged out', () => {
+    const loggedIn = render(<SiteHeaderView user={user} />);
+    expect(
+      loggedIn.getByTestId('notification-bell-stub'),
+    ).toBeInTheDocument();
+    loggedIn.unmount();
+
+    const loggedOut = render(<SiteHeaderView user={null} />);
+    expect(
+      loggedOut.queryByTestId('notification-bell-stub'),
     ).not.toBeInTheDocument();
   });
 

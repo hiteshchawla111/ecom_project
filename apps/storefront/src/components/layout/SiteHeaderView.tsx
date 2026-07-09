@@ -6,6 +6,7 @@ import { HeaderMotion } from './HeaderMotion';
 import { ThemeToggle } from './ThemeToggle';
 import { CartCountBadge } from '@/components/cart/CartCountBadge';
 import { SearchAutocomplete } from '@/components/search/SearchAutocomplete';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 /** Primary navigation links, shared by the desktop bar and the mobile menu. */
 export const NAV_LINKS = [
@@ -73,6 +74,8 @@ export function SiteHeaderView({ user }: SiteHeaderViewProps) {
               <CartCountBadge />
               <span className="sr-only">Cart</span>
             </Link>
+
+            {user && <NotificationBell />}
 
             {user ? (
               <Link

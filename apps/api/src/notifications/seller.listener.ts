@@ -15,11 +15,6 @@ import { NotificationsService } from './notifications.service';
  * Listens for seller domain events and persists Notification rows.
  * Decouples notification writes from the sellers request handlers
  * (CLAUDE.md: notifications fire on domain events, not inline).
- *
- * NOTE — generic-type mapping: seller events are stored under
- * NotificationType.REGISTRATION_CONFIRMATION with a `payload.kind`
- * discriminator. M4b/K1 will add SELLER_* NotificationType values and
- * remove this workaround.
  */
 @Injectable()
 export class SellerNotificationListener {

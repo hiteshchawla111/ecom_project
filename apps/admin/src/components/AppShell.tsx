@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { LogoutButton } from './LogoutButton';
+import { NotificationBell } from './notifications/NotificationBell';
 import { ThemeToggle } from './ui/ThemeToggle';
 
 const groupLabelClass =
@@ -174,6 +175,7 @@ export function AppShell() {
             <span data-testid="current-user">{user!.email}</span>
           </span>
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <ThemeToggle />
             <LogoutButton />
           </div>

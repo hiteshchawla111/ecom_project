@@ -34,6 +34,19 @@ function makePrismaMock(opts: {
 }) {
   const createdSubOrders: any[] = [];
   const createdItems: any[] = [];
+
+  // Pre-existing SubOrders for orders already backfilled before this run,
+  // so the "remaining un-backfilled" / distinct-orderId queries below see
+  // consistent state for them (mirrors what a real DB already contains).
+  const preExistingSubOrders = opts.orders
+    .filter((o) => o.alreadyBackfilled)
+    .map((o) => ({ id: `pre-${o.id}`, orderId: o.id }));
+  const preExistingItemsByOrder = new Map(
+    opts.orders
+      .filter((o) => o.alreadyBackfilled)
+      .map((o) => [o.id, o.items.length]),
+  );
+
   const prisma: any = {
     seller: {
       findUnique: jest.fn(({ where }: any) =>
@@ -45,10 +58,18 @@ function makePrismaMock(opts: {
         // emulate `where: { subOrders: { none: {} } }`
         opts.orders.filter((o) => !o.alreadyBackfilled),
       ),
-      count: jest.fn(() => opts.orders.length),
-    },
-    orderItem: {
-      count: jest.fn(() => opts.orders.reduce((n, o) => n + o.items.length, 0)),
+      // emulate both `count()` (all orders) and
+      // `count({ where: { subOrders: { none: {} } } })` (remaining un-backfilled)
+      count: jest.fn((args?: any) => {
+        if (args?.where?.subOrders?.none) {
+          return opts.orders.filter(
+            (o) =>
+              !o.alreadyBackfilled &&
+              !createdSubOrders.some((so) => so.orderId === o.id),
+          ).length;
+        }
+        return opts.orders.length;
+      }),
     },
     subOrder: {
       create: jest.fn(({ data }: any) => {
@@ -56,26 +77,37 @@ function makePrismaMock(opts: {
         createdSubOrders.push(so);
         return so;
       }),
-      // total DB count = pre-existing (already-backfilled orders) + newly created this run
-      count: jest.fn(
-        () =>
-          opts.orders.filter((o) => o.alreadyBackfilled).length +
-          createdSubOrders.length,
-      ),
-      findMany: jest.fn(() => createdSubOrders),
+      // emulate `findMany({ distinct: ['orderId'], select: { orderId: true } })`
+      findMany: jest.fn(() => {
+        const all = [...preExistingSubOrders, ...createdSubOrders];
+        const seen = new Set<string>();
+        const distinct: Array<{ orderId: string }> = [];
+        for (const so of all) {
+          if (!seen.has(so.orderId)) {
+            seen.add(so.orderId);
+            distinct.push({ orderId: so.orderId });
+          }
+        }
+        return distinct;
+      }),
     },
     subOrderItem: {
       create: jest.fn(({ data }: any) => {
         createdItems.push(data);
         return data;
       }),
-      // total DB count = pre-existing (already-backfilled orders' items) + newly created this run
-      count: jest.fn(
-        () =>
-          opts.orders
-            .filter((o) => o.alreadyBackfilled)
-            .reduce((n, o) => n + o.items.length, 0) + createdItems.length,
-      ),
+      // emulate `count({ where: { subOrder: { orderId } } })` — per-order item count
+      count: jest.fn(({ where }: any) => {
+        const orderId = where?.subOrder?.orderId;
+        const preExisting = preExistingItemsByOrder.get(orderId) ?? 0;
+        const subOrderIdsForOrder = createdSubOrders
+          .filter((so) => so.orderId === orderId)
+          .map((so) => so.id);
+        const createdForOrder = createdItems.filter((item) =>
+          subOrderIdsForOrder.includes(item.subOrderId),
+        ).length;
+        return preExisting + createdForOrder;
+      }),
     },
     // backfill wraps each order in a tx; the mock just runs the callback with itself
     $transaction: jest.fn((cb: any) => cb(prisma)),
@@ -161,15 +193,33 @@ describe('backfillSubOrders', () => {
     await expect(backfillSubOrders(prisma)).rejects.toThrow(/platform seller/i);
   });
 
-  it('throws when validation asserts fail (item count mismatch)', async () => {
+  it('throws when validation asserts fail (order left without a SubOrder)', async () => {
     const { prisma } = makePrismaMock({
       platform: { id: 'plat' },
       orders: [ORDER],
     });
-    // Force a mismatch: report more OrderItems than SubOrderItems created.
-    prisma.orderItem.count = jest.fn(() => 99);
+    // Force a false negative on the "remaining un-backfilled" check: pretend
+    // an order still has no SubOrder even after the run created one.
+    prisma.order.count = jest.fn(() => 1);
     await expect(backfillSubOrders(prisma)).rejects.toThrow(
-      /count\(OrderItem\)/i,
+      /remain without a SubOrder/i,
+    );
+  });
+
+  it('throws when distinct-orderId parity fails (count(Order) != count(DISTINCT SubOrder.orderId))', async () => {
+    const { prisma } = makePrismaMock({
+      platform: { id: 'plat' },
+      orders: [ORDER],
+    });
+    // Let the "remaining un-backfilled" check pass (0), but force the
+    // distinct-orderId parity check to see a stray order with no SubOrder,
+    // simulating cross-branch skew from a sibling M5a-S2 worktree: report 2
+    // orders total, while only 1 distinct SubOrder.orderId actually exists.
+    prisma.order.count = jest.fn((args?: any) =>
+      args?.where?.subOrders?.none ? 0 : 2,
+    );
+    await expect(backfillSubOrders(prisma)).rejects.toThrow(
+      /count\(DISTINCT SubOrder\.orderId\)/i,
     );
   });
 });

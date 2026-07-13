@@ -36,6 +36,11 @@ export async function backfillSubOrders(
   let subOrdersCreated = 0;
   let subOrderItemsCreated = 0;
 
+  // Per-order (order.id -> expected SubOrderItem count) guarantee, scoped to
+  // just the orders processed this run — never a global OrderItem/SubOrderItem
+  // total, which would be skewed by other branches' data sharing ecom_dev.
+  const processedItemCounts = new Map<string, number>();
+
   for (const order of orders) {
     await prisma.$transaction(async (tx) => {
       const subOrder = await tx.subOrder.create({
@@ -75,9 +80,11 @@ export async function backfillSubOrders(
         subOrderItemsCreated += 1;
       }
     });
+
+    processedItemCounts.set(order.id, order.items.length);
   }
 
-  await assertBackfillConsistent(prisma);
+  await assertBackfillConsistent(prisma, processedItemCounts);
 
   return {
     ordersProcessed: orders.length,
@@ -86,24 +93,56 @@ export async function backfillSubOrders(
   };
 }
 
-/** Row-count parity checks (throw on mismatch). */
-async function assertBackfillConsistent(prisma: PrismaClient): Promise<void> {
-  const [orderCount, subOrderCount, orderItemCount, subOrderItemCount] =
-    await Promise.all([
-      prisma.order.count(),
-      prisma.subOrder.count(),
-      prisma.orderItem.count(),
-      prisma.subOrderItem.count(),
-    ]);
-
-  if (orderCount !== subOrderCount) {
+/**
+ * Invariant checks that hold regardless of other branches/worktrees sharing
+ * the dev DB (e.g. a sibling M5a-S2 branch creating N SubOrders per Order).
+ * Deliberately avoids any GLOBAL count(SubOrder)/count(SubOrderItem) compare,
+ * since those are only valid under "exactly one SubOrder per Order" — an
+ * invariant this backfill guarantees for itself, but not one it can assume
+ * holds for rows created by other in-flight work. Throws on mismatch.
+ */
+async function assertBackfillConsistent(
+  prisma: PrismaClient,
+  processedItemCounts: Map<string, number>,
+): Promise<void> {
+  // 1. Strongest, invariant-independent check: after a full run, no Order
+  // may be left without a SubOrder.
+  const remaining = await prisma.order.count({
+    where: { subOrders: { none: {} } },
+  });
+  if (remaining !== 0) {
     throw new Error(
-      `Backfill validation failed: count(Order)=${orderCount} != count(SubOrder)=${subOrderCount}`,
+      `Backfill validation failed: ${remaining} order(s) remain without a SubOrder after backfill.`,
     );
   }
-  if (orderItemCount !== subOrderItemCount) {
+
+  // 2. Distinct-orderId parity: every Order has at least one SubOrder.
+  // (Robust to other branches creating multiple SubOrders per Order — we
+  // compare against DISTINCT orderId, not the raw SubOrder row count.)
+  const [orderCount, subOrdersByOrder] = await Promise.all([
+    prisma.order.count(),
+    prisma.subOrder.findMany({
+      distinct: ['orderId'],
+      select: { orderId: true },
+    }),
+  ]);
+  const distinctSubOrderOrderCount = subOrdersByOrder.length;
+  if (orderCount !== distinctSubOrderOrderCount) {
     throw new Error(
-      `Backfill validation failed: count(OrderItem)=${orderItemCount} != count(SubOrderItem)=${subOrderItemCount}`,
+      `Backfill validation failed: count(Order)=${orderCount} != count(DISTINCT SubOrder.orderId)=${distinctSubOrderOrderCount}`,
     );
+  }
+
+  // 3. Per-order item-count guarantee, scoped to orders processed THIS run
+  // (never a global OrderItem/SubOrderItem total).
+  for (const [orderId, expectedItemCount] of processedItemCounts) {
+    const actualItemCount = await prisma.subOrderItem.count({
+      where: { subOrder: { orderId } },
+    });
+    if (actualItemCount !== expectedItemCount) {
+      throw new Error(
+        `Backfill validation failed: order ${orderId} expected ${expectedItemCount} SubOrderItem(s) but found ${actualItemCount}.`,
+      );
+    }
   }
 }

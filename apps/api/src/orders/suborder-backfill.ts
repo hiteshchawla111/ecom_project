@@ -1,4 +1,4 @@
-import type { PrismaClient, SubOrderStatus } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 
 export interface BackfillResult {
   ordersProcessed: number;
@@ -42,10 +42,8 @@ export async function backfillSubOrders(
         data: {
           orderId: order.id,
           sellerId: platform.id,
-          // OrderStatus and SubOrderStatus are distinct Prisma enum types with
-          // identical string values (PENDING…REFUNDED). Map by value; the cast
-          // is safe because the value sets are identical (see SubOrderStatus enum).
-          status: order.status as unknown as SubOrderStatus,
+          // OrderStatus and SubOrderStatus share identical values; assignment type-checks directly.
+          status: order.status,
           subtotal: order.subtotal,
           discountTotal: order.discountTotal,
           taxTotal: order.taxTotal,

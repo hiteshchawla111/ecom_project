@@ -13,6 +13,7 @@ import { OrdersService } from './orders.service';
 import { CheckoutDto } from './dto/checkout.dto';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
 import { ORDER_STATUS_CHANGED, REFUND_ISSUED } from '../audit/audit-actions';
+import { moneyStringToCents } from './sum-totals';
 
 const makeConfig = () => ({
   get: (key: string) =>
@@ -38,10 +39,15 @@ const makePrisma = () => {
     },
     cartItem: { deleteMany: jest.fn() },
     auditLog: { create: jest.fn() },
+    subOrder: { create: jest.fn() },
   };
   prisma.$transaction = jest.fn(async (cb: (tx: any) => Promise<unknown>) =>
     cb(prisma),
   );
+  prisma.subOrder.create = jest.fn(({ data }: any) => ({
+    id: `sub-${data.sellerId}`,
+    ...data,
+  }));
   return prisma;
 };
 
@@ -95,8 +101,18 @@ const activeLine = (over: Record<string, unknown> = {}) => ({
     salePrice: null,
     status: ProductStatus.ACTIVE,
     deletedAt: null,
+    seller: { id: 's1', displayName: 'Shop One' },
   },
   ...over,
+});
+
+const activeProduct = (sellerId: string, displayName: string) => ({
+  name: 'Mouse',
+  price: '19.99',
+  salePrice: null,
+  status: ProductStatus.ACTIVE,
+  deletedAt: null,
+  seller: { id: sellerId, displayName },
 });
 
 /**
@@ -135,8 +151,15 @@ describe('OrdersService.placeOrder', () => {
 
     const view = await svc.placeOrder('u1', shipping);
 
-    // reserves each line's stock within the placement transaction (tx passed)
-    expect(inventory.reserve).toHaveBeenCalledWith('p1', 2, 'order1', prisma);
+    // reserves each line's stock within the placement transaction (tx passed),
+    // referencing its owning subOrderId (5th arg)
+    expect(inventory.reserve).toHaveBeenCalledWith(
+      'p1',
+      2,
+      'order1',
+      prisma,
+      'sub-s1',
+    );
 
     // order.create called with PENDING status + computed totals + nested items
     const createArg = prisma.order.create.mock.calls[0][0];
@@ -264,6 +287,110 @@ describe('OrdersService.placeOrder', () => {
       'order.placed',
       expect.anything(),
     );
+  });
+});
+
+describe('OrdersService.placeOrder — order split', () => {
+  it('creates one SubOrder per distinct seller with its own items + sellerName', async () => {
+    const { svc, prisma } = build();
+    prisma.cart.findFirst.mockResolvedValue(
+      cartWith([
+        activeLine({
+          productId: 'p1',
+          product: { ...activeProduct('s1', 'Shop One') },
+        }),
+        activeLine({
+          productId: 'p2',
+          product: { ...activeProduct('s2', 'Shop Two') },
+        }),
+      ]),
+    );
+    prisma.order.create.mockResolvedValue(createdOrder);
+    await svc.placeOrder('u1', shipping);
+
+    expect(prisma.subOrder.create).toHaveBeenCalledTimes(2);
+    const sellerIds = prisma.subOrder.create.mock.calls.map(
+      (c: any) => c[0].data.sellerId,
+    );
+    expect(sellerIds.sort()).toEqual(['s1', 's2']);
+    // each SubOrder carries the shipping snapshot + PENDING status
+    const first = prisma.subOrder.create.mock.calls[0][0].data;
+    expect(first.status).toBe('PENDING');
+    expect(first.shipFullName).toBe(shipping.shipFullName);
+    // SubOrderItems carry sellerName
+    expect(first.items.create[0].sellerName).toBeDefined();
+  });
+
+  it('creates ONE Order whose totals equal the sum of the SubOrders (parity)', async () => {
+    const { svc, prisma } = build();
+    prisma.cart.findFirst.mockResolvedValue(
+      cartWith([
+        activeLine({
+          productId: 'p1',
+          product: { ...activeProduct('s1', 'Shop One') },
+        }),
+        activeLine({
+          productId: 'p2',
+          product: { ...activeProduct('s2', 'Shop Two') },
+        }),
+      ]),
+    );
+    prisma.order.create.mockResolvedValue(createdOrder);
+    await svc.placeOrder('u1', shipping);
+
+    const orderData = prisma.order.create.mock.calls[0][0].data;
+    const subCalls = prisma.subOrder.create.mock.calls.map(
+      (c: any) => c[0].data,
+    );
+    const sumCents = (f: string) =>
+      subCalls.reduce((n: number, s: any) => n + moneyStringToCents(s[f]), 0);
+    // Order component == sum of SubOrder components (integer-cents equality)
+    expect(moneyStringToCents(orderData.grandTotal)).toBe(
+      sumCents('grandTotal'),
+    );
+    expect(moneyStringToCents(orderData.subtotal)).toBe(sumCents('subtotal'));
+    expect(moneyStringToCents(orderData.shippingTotal)).toBe(
+      sumCents('shippingTotal'),
+    );
+    // Order still gets ALL OrderItems (dual-write)
+    expect(orderData.items.create).toHaveLength(2);
+  });
+
+  it('reserves each line with its owning subOrderId (5th arg)', async () => {
+    const { svc, prisma, inventory } = build();
+    prisma.cart.findFirst.mockResolvedValue(
+      cartWith([
+        activeLine({
+          productId: 'p1',
+          product: { ...activeProduct('s1', 'Shop One') },
+        }),
+      ]),
+    );
+    prisma.order.create.mockResolvedValue(createdOrder);
+    await svc.placeOrder('u1', shipping);
+    // reserve(productId, qty, orderId, tx, subOrderId)
+    expect(inventory.reserve).toHaveBeenCalledWith(
+      'p1',
+      2,
+      'order1',
+      prisma,
+      'sub-s1',
+    );
+  });
+
+  it('single-seller cart → 1 Order + 1 SubOrder', async () => {
+    const { svc, prisma } = build();
+    prisma.cart.findFirst.mockResolvedValue(
+      cartWith([
+        activeLine({
+          productId: 'p1',
+          product: { ...activeProduct('s1', 'Shop One') },
+        }),
+      ]),
+    );
+    prisma.order.create.mockResolvedValue(createdOrder);
+    await svc.placeOrder('u1', shipping);
+    expect(prisma.subOrder.create).toHaveBeenCalledTimes(1);
   });
 });
 

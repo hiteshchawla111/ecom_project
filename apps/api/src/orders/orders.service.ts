@@ -7,19 +7,27 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { OrderStatus, Prisma, ProductStatus, Role } from '@prisma/client';
+import {
+  OrderStatus,
+  Prisma,
+  ProductStatus,
+  Role,
+  SubOrderStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
 import { InventoryService } from '../inventory/inventory.service';
 import type { LowStockEvent } from '../inventory/inventory.events';
 import { resolveTotalsConfig } from '../cart/cart.config';
-import { priceItems, PricingItem } from '../cart/cart-pricing';
+import { priceItems } from '../cart/cart-pricing';
 import { TotalsConfig } from '../cart/totals';
 import {
   assertTransition,
   InvalidOrderTransitionError,
   OrderStatus as OrderStatusFlow,
 } from './order-status';
+import { sumTotals } from './sum-totals';
+import { groupCartLinesBySeller, type SellerLine } from './group-by-seller';
 import { AuditService } from '../audit/audit.service';
 import { ORDER_STATUS_CHANGED, REFUND_ISSUED } from '../audit/audit-actions';
 import { ORDER_PLACED, ORDER_STATUS_CHANGED_EVENT } from './orders-events';
@@ -98,6 +106,7 @@ const CART_FOR_CHECKOUT = {
           salePrice: true,
           status: true,
           deletedAt: true,
+          seller: { select: { id: true, displayName: true } },
         },
       },
     },
@@ -127,13 +136,12 @@ export class OrdersService {
       where: { userId },
       include: CART_FOR_CHECKOUT,
     });
-
     if (!cart || cart.items.length === 0) {
       throw new BadRequestException('Your cart is empty');
     }
 
-    // Re-validate each line and build pricer input from current product data.
-    const pricingItems: PricingItem[] = cart.items.map((item) => {
+    // Validate each line and pair it with its seller (for grouping) + pricer input.
+    const sellerLines: SellerLine[] = cart.items.map((item) => {
       const p = item.product;
       if (p.deletedAt !== null || p.status !== ProductStatus.ACTIVE) {
         throw new BadRequestException(
@@ -141,38 +149,53 @@ export class OrdersService {
         );
       }
       return {
-        productId: item.productId,
-        quantity: item.quantity,
-        product: {
-          name: p.name,
-          price: p.price.toString(),
-          salePrice: p.salePrice !== null ? p.salePrice.toString() : null,
+        sellerId: p.seller.id,
+        sellerName: p.seller.displayName,
+        item: {
+          productId: item.productId,
+          quantity: item.quantity,
+          product: {
+            name: p.name,
+            price: p.price.toString(),
+            salePrice: p.salePrice !== null ? p.salePrice.toString() : null,
+          },
         },
       };
     });
 
-    const { lines, totals } = priceItems(pricingItems, this.totalsConfig);
+    // Group by seller; price each group; the Order total is the sum of groups.
+    const groups = groupCartLinesBySeller(sellerLines).map((g) => ({
+      ...g,
+      priced: priceItems(g.items, this.totalsConfig),
+    }));
+    const orderTotals = sumTotals(groups.map((g) => g.priced.totals));
+    const allLines = groups.flatMap((g) => g.priced.lines);
+
+    const ship = {
+      shipFullName: dto.shipFullName,
+      shipLine1: dto.shipLine1,
+      shipLine2: dto.shipLine2 ?? null,
+      shipCity: dto.shipCity,
+      shipState: dto.shipState,
+      shipCountry: dto.shipCountry,
+      shipPostalCode: dto.shipPostalCode,
+    };
 
     const { order, lowStockCrossings } = await this.prisma.$transaction(
       async (tx) => {
+        // Order: aggregate totals + ALL OrderItems (dual-write, shape unchanged).
         const created = await tx.order.create({
           data: {
             userId,
             status: OrderStatus.PENDING,
-            subtotal: totals.subtotal,
-            discountTotal: totals.discountTotal,
-            taxTotal: totals.taxTotal,
-            shippingTotal: totals.shippingTotal,
-            grandTotal: totals.grandTotal,
-            shipFullName: dto.shipFullName,
-            shipLine1: dto.shipLine1,
-            shipLine2: dto.shipLine2 ?? null,
-            shipCity: dto.shipCity,
-            shipState: dto.shipState,
-            shipCountry: dto.shipCountry,
-            shipPostalCode: dto.shipPostalCode,
+            subtotal: orderTotals.subtotal,
+            discountTotal: orderTotals.discountTotal,
+            taxTotal: orderTotals.taxTotal,
+            shippingTotal: orderTotals.shippingTotal,
+            grandTotal: orderTotals.grandTotal,
+            ...ship,
             items: {
-              create: lines.map((line) => ({
+              create: allLines.map((line) => ({
                 productId: line.productId,
                 productName: line.name,
                 unitPrice: line.unitPrice,
@@ -183,30 +206,53 @@ export class OrdersService {
           },
           include: ORDER_INCLUDE,
         });
-        // Reserve stock for each line within the same transaction: any failure
-        // (insufficient stock or no inventory item) rolls back the whole order.
-        // `reserve` returns any low-stock crossing to emit *after* commit.
+
         const crossings: LowStockEvent[] = [];
-        for (const line of lines) {
-          const crossing = await this.inventory.reserve(
-            line.productId,
-            line.quantity,
-            created.id,
-            tx,
-          );
-          if (crossing) crossings.push(crossing);
+        for (const group of groups) {
+          const subOrder = await tx.subOrder.create({
+            data: {
+              orderId: created.id,
+              sellerId: group.sellerId,
+              status: SubOrderStatus.PENDING,
+              subtotal: group.priced.totals.subtotal,
+              discountTotal: group.priced.totals.discountTotal,
+              taxTotal: group.priced.totals.taxTotal,
+              shippingTotal: group.priced.totals.shippingTotal,
+              grandTotal: group.priced.totals.grandTotal,
+              ...ship,
+              items: {
+                create: group.priced.lines.map((line) => ({
+                  productId: line.productId,
+                  productName: line.name,
+                  unitPrice: line.unitPrice,
+                  quantity: line.quantity,
+                  lineTotal: line.lineTotal,
+                  sellerName: group.sellerName,
+                })),
+              },
+            },
+          });
+          // Reserve per line, referencing BOTH the order and this sub-order.
+          for (const line of group.priced.lines) {
+            const crossing = await this.inventory.reserve(
+              line.productId,
+              line.quantity,
+              created.id,
+              tx,
+              subOrder.id,
+            );
+            if (crossing) crossings.push(crossing);
+          }
         }
+
         await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
         return { order: created, lowStockCrossings: crossings };
       },
     );
 
-    // Emit only after the placement transaction has committed, so a rolled-back
-    // order never produces a spurious low-stock alert.
     for (const crossing of lowStockCrossings) {
       this.inventory.emitLowStock(crossing);
     }
-    // Post-commit: the placement transaction has committed.
     this.events.emit(ORDER_PLACED, { orderId: order.id, userId: order.userId });
 
     return this.toOrderView(order);

@@ -458,7 +458,7 @@ git commit -m "feat(order-split): reserve/apply accept subOrderId, write both re
 **Interfaces:**
 - Consumes: `sumTotals` (Task 1), `groupCartLinesBySeller` + `SellerLine` (Task 2), `reserve(...subOrderId)` (Task 3), existing `priceItems`.
 
-- [ ] **Step 1: Update the test scaffolding + write the failing split tests**
+- [x] **Step 1: Update the test scaffolding + write the failing split tests**
 
 In `apps/api/src/orders/orders.service.spec.ts`: (a) add `subOrder: { create: jest.fn() }` to `makePrisma`; (b) extend `activeLine`'s `product` to include `seller: { id, displayName }`; (c) make `prisma.subOrder.create` resolve an object with a stable `id` (e.g. based on `sellerId`); (d) add these tests. Read the current file (esp. `build()`, `activeLine`, `createdOrder`) and adapt to its conventions.
 
@@ -559,12 +559,12 @@ const activeProduct = (sellerId: string, displayName: string) => ({
 
 and import `moneyStringToCents` from `./sum-totals` at the top of the spec.
 
-- [ ] **Step 2: Run the new tests to verify they fail**
+- [x] **Step 2: Run the new tests to verify they fail**
 
 Run: `cd apps/api && npm test -- orders.service.spec.ts`
 Expected: FAIL — `placeOrder` doesn't create SubOrders / doesn't pass `subOrderId` yet. (The existing placeOrder test asserting `reserve('p1', 2, 'order1', prisma)` will also fail — you update it in Step 3 to the 5-arg form.)
 
-- [ ] **Step 3: Rewrite `placeOrder` + extend the cart include**
+- [x] **Step 3: Rewrite `placeOrder` + extend the cart include**
 
 In `apps/api/src/orders/orders.service.ts`:
 
@@ -729,12 +729,12 @@ const CART_FOR_CHECKOUT = {
 
 (e) Update the **existing** placeOrder reserve assertion (the pre-split test) from `reserve('p1', 2, 'order1', prisma)` to the 5-arg form `reserve('p1', 2, 'order1', prisma, 'sub-s1')` — and ensure that test's `activeLine` has a seller (it will, once `activeLine` is updated in Step 1b).
 
-- [ ] **Step 4: Run the full orders spec + confirm green**
+- [x] **Step 4: Run the full orders spec + confirm green**
 
 Run: `cd apps/api && npm test -- orders.service.spec.ts`
 Expected: PASS — the new split tests + the updated existing tests. If a pre-split test still asserts old behavior (single order.create shape), reconcile it to the new dual-write reality (Order shape is unchanged, so most should pass as-is; only the reserve-arg assertion and any "no subOrder" assumption change).
 
-- [ ] **Step 5: Full suite + typecheck + lint**
+- [x] **Step 5: Full suite + typecheck + lint**
 
 Run: `cd apps/api && npm test`
 Expected: full suite green (all existing + new).
@@ -745,7 +745,7 @@ Expected: 0 new errors (3 known pre-existing).
 Run: `npm run lint`
 Expected: the changed files clean. If `--fix` reformats UNRELATED files, do NOT stage them — `git add` only the S2 files, then `git checkout --` any stray reformatted files.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /Users/sotsys033/Desktop/HITESH_CLAUDE/13jun_sat
@@ -759,15 +759,15 @@ git commit -m "feat(order-split): placeOrder splits cart into Order + N SubOrder
 
 Not a code task — a gate after Task 4.
 
-- [ ] `npm test` (API) green incl. all new specs; `npx tsc --noEmit` 0 new; `npm run lint` clean on changed files.
-- [ ] **Live HTTP smoke vs `ecom_dev`** (fresh boot; kill any stale :5000 first, confirm fresh route mapping):
-  - [ ] Build a cart with products from **2 distinct sellers** (platform + demo seller `seller@example.com`'s products). Place the order.
-  - [ ] Assert in the DB (prisma studio or a quick query): **1 Order + 2 SubOrders** for that order; each SubOrder's `sellerId` correct with its own totals; `Order.grandTotal == SubOrder1.grandTotal + SubOrder2.grandTotal` (and subtotal/tax/shipping components); `count(OrderItem for order) == total lines`; each SubOrderItem `sellerName` matches its seller's displayName.
-  - [ ] Inventory: the placement's RESERVATION movements carry both `orderId` and `subOrderId`; reserved counts per product correct.
-  - [ ] Single-seller cart → 1 Order + 1 SubOrder.
-  - [ ] `GET /orders/:id` response shape identical to before (no SubOrder fields leaked).
-  - [ ] Clean up the test order/suborders/movements + restore cart state; confirm counts back to baseline (shared DB).
-- [ ] Update `docs/IMPLEMENTATION_PLAN.md`: M5a S2 ✅ with a one-line summary.
+- [x] `npm test` (API) green incl. all new specs; `npx tsc --noEmit` 0 new; `npm run lint` clean on changed files.
+- [x] **Live HTTP smoke vs `ecom_dev`** (fresh boot; kill any stale :5000 first, confirm fresh route mapping):
+  - [x] Build a cart with products from **2 distinct sellers** (platform + demo seller `seller@example.com`'s products). Place the order.
+  - [x] Assert in the DB (prisma studio or a quick query): **1 Order + 2 SubOrders** for that order; each SubOrder's `sellerId` correct with its own totals; `Order.grandTotal == SubOrder1.grandTotal + SubOrder2.grandTotal` (and subtotal/tax/shipping components); `count(OrderItem for order) == total lines`; each SubOrderItem `sellerName` matches its seller's displayName.
+  - [x] Inventory: the placement's RESERVATION movements carry both `orderId` and `subOrderId`; reserved counts per product correct.
+  - [x] Single-seller cart → 1 Order + 1 SubOrder.
+  - [x] `GET /orders/:id` response shape identical to before (no SubOrder fields leaked).
+  - [x] Clean up the test order/suborders/movements + restore cart state; confirm counts back to baseline (shared DB).
+- [x] Update `docs/IMPLEMENTATION_PLAN.md`: M5a S2 ✅ with a one-line summary.
 - [ ] STOP and ask the user to verify (RULE.md §1). Push only when asked.
 
 ## Self-Review Notes (author)

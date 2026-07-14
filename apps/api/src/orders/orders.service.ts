@@ -444,15 +444,16 @@ export class OrdersService {
   }
 
   /**
-   * Drive an order through the status state machine.
+   * Customer self-service order cancellation.
    *
-   * - **ADMIN** may apply any transition the state machine permits.
-   * - **CUSTOMER** may only cancel their own still-`PENDING` order
-   *   (`PENDING → CANCELLED`); any other transition is forbidden.
+   * The ONLY transition this route now permits is cancelling an order while
+   * every one of its SubOrders is still `PENDING` (no seller has started
+   * fulfilment). Per-sub-order transitions (confirm/process/ship/deliver/
+   * refund) live on `transitionSubOrder`, called via the seller endpoint —
+   * ADMINs no longer drive arbitrary transitions through this route.
    *
-   * The transition itself is validated by the pure `assertTransition` guard, so
-   * an illegal move (e.g. `PENDING → SHIPPED`) is rejected as a 409 Conflict.
-   * A non-owned order is reported as 404 to a customer (no existence leak).
+   * A non-owned order is reported as 404 (no existence leak). A partially
+   * (or fully) progressed order cannot be self-cancelled (409 Conflict).
    */
   async updateStatus(
     actor: AccessTokenPayload,
@@ -461,117 +462,97 @@ export class OrdersService {
   ): Promise<OrderView> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: ORDER_INCLUDE,
+      include: { subOrders: { include: { items: true } } },
     });
     if (!order) throw new NotFoundException('Order not found');
 
-    if (actor.role !== Role.ADMIN) {
-      // Customers can only act on their own orders; hide others as 404.
-      if (order.userId !== actor.sub) {
-        throw new NotFoundException('Order not found');
-      }
-      // The only self-service transition is cancelling a pending order.
-      const isSelfCancel =
-        order.status === OrderStatus.PENDING &&
-        nextStatus === OrderStatus.CANCELLED;
-      if (!isSelfCancel) {
-        throw new ForbiddenException(
-          'You can only cancel an order while it is pending',
-        );
-      }
+    // Customers may only act on their own order; hide others as 404.
+    if (order.userId !== actor.sub) {
+      throw new NotFoundException('Order not found');
     }
-
-    try {
-      assertTransition(
-        order.status as unknown as OrderStatusFlow,
-        nextStatus as unknown as OrderStatusFlow,
+    // The only self-service transition is cancelling a fully-pending order.
+    if (nextStatus !== OrderStatus.CANCELLED) {
+      throw new ForbiddenException(
+        'You can only cancel an order while it is pending',
       );
-    } catch (err) {
-      if (err instanceof InvalidOrderTransitionError) {
-        throw new ConflictException(err.message);
-      }
-      throw err;
+    }
+    const allPending = order.subOrders.every(
+      (s) => s.status === SubOrderStatus.PENDING,
+    );
+    if (order.subOrders.length === 0 || !allPending) {
+      throw new ConflictException(
+        'This order can no longer be cancelled; one or more sellers have started fulfilment',
+      );
     }
 
-    // Some transitions move stock through the ledger, atomically with the
-    // status change so the two can never drift:
-    //   - CANCELLED releases the reserve back to available
-    //   - SHIPPED deducts the reserve (goods have left the warehouse)
-    //   - REFUNDED restocks the goods back to available
-    // These statuses are mutually exclusive per the state machine, so at most
-    // one stock op runs for a given transition.
-    if (this.movesStock(nextStatus)) {
-      const updated = await this.prisma.$transaction(async (tx) => {
-        for (const item of order.items) {
+    await this.prisma.$transaction(async (tx) => {
+      for (const sub of order.subOrders) {
+        for (const item of sub.items) {
           await this.applyStockForStatus(
-            nextStatus,
+            SubOrderStatus.CANCELLED,
             item.productId,
             item.quantity,
             order.id,
             tx,
+            sub.id,
           );
         }
-        const u = await tx.order.update({
-          where: { id: orderId },
-          data: { status: nextStatus },
-          include: ORDER_INCLUDE,
+        await tx.subOrder.update({
+          where: { id: sub.id },
+          data: { status: SubOrderStatus.CANCELLED },
         });
         await this.audit.record(
           {
             actorId: actor.sub,
-            action: ORDER_STATUS_CHANGED,
-            entityType: 'Order',
-            entityId: orderId,
-            metadata: { from: order.status, to: nextStatus },
+            action: SUBORDER_STATUS_CHANGED,
+            entityType: 'SubOrder',
+            entityId: sub.id,
+            metadata: {
+              from: sub.status,
+              to: SubOrderStatus.CANCELLED,
+              sellerId: sub.sellerId,
+            },
           },
           tx,
         );
-        if (nextStatus === OrderStatus.REFUNDED) {
-          await this.audit.record(
-            {
-              actorId: actor.sub,
-              action: REFUND_ISSUED,
-              entityType: 'Order',
-              entityId: orderId,
-              metadata: { grandTotal: order.grandTotal.toString() },
-            },
-            tx,
-          );
-        }
-        return u;
-      });
-      this.events.emit(ORDER_STATUS_CHANGED_EVENT, {
-        orderId: updated.id,
-        userId: updated.userId,
-        status: nextStatus,
-      });
-      return this.toOrderView(updated);
-    }
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const u = await tx.order.update({
-        where: { id: orderId },
-        data: { status: nextStatus },
-        include: ORDER_INCLUDE,
+      }
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: OrderStatus.CANCELLED },
       });
       await this.audit.record(
         {
           actorId: actor.sub,
           action: ORDER_STATUS_CHANGED,
           entityType: 'Order',
-          entityId: orderId,
-          metadata: { from: order.status, to: nextStatus },
+          entityId: order.id,
+          metadata: { from: order.status, to: OrderStatus.CANCELLED },
         },
         tx,
       );
-      return u;
     });
+
+    // Post-commit: one suborder event each, plus the order-level rollup event.
+    for (const sub of order.subOrders) {
+      this.events.emit(SUBORDER_STATUS_CHANGED_EVENT, {
+        subOrderId: sub.id,
+        orderId: order.id,
+        sellerId: sub.sellerId,
+        status: SubOrderStatus.CANCELLED,
+      });
+    }
     this.events.emit(ORDER_STATUS_CHANGED_EVENT, {
-      orderId: updated.id,
-      userId: updated.userId,
-      status: nextStatus,
+      orderId: order.id,
+      userId: order.userId,
+      status: OrderStatus.CANCELLED,
     });
-    return this.toOrderView(updated);
+
+    // Re-load with the OrderItem include for the unchanged response shape.
+    const view = await this.prisma.order.findUnique({
+      where: { id: order.id },
+      include: ORDER_INCLUDE,
+    });
+    return this.toOrderView(view!);
   }
 
   /** Whether a transition into `status` moves stock through the ledger. */
@@ -615,25 +596,31 @@ export class OrdersService {
   ): Promise<void> {
     switch (status) {
       case OrderStatus.CANCELLED:
-        if (subOrderId !== undefined) {
-          await this.inventory.release(productId, quantity, orderId, tx, subOrderId);
-        } else {
-          await this.inventory.release(productId, quantity, orderId, tx);
-        }
+        await this.inventory.release(
+          productId,
+          quantity,
+          orderId,
+          tx,
+          subOrderId,
+        );
         return;
       case OrderStatus.SHIPPED:
-        if (subOrderId !== undefined) {
-          await this.inventory.deduct(productId, quantity, orderId, tx, subOrderId);
-        } else {
-          await this.inventory.deduct(productId, quantity, orderId, tx);
-        }
+        await this.inventory.deduct(
+          productId,
+          quantity,
+          orderId,
+          tx,
+          subOrderId,
+        );
         return;
       case OrderStatus.REFUNDED:
-        if (subOrderId !== undefined) {
-          await this.inventory.restock(productId, quantity, orderId, tx, subOrderId);
-        } else {
-          await this.inventory.restock(productId, quantity, orderId, tx);
-        }
+        await this.inventory.restock(
+          productId,
+          quantity,
+          orderId,
+          tx,
+          subOrderId,
+        );
         return;
       default:
         return;
@@ -670,7 +657,9 @@ export class OrdersService {
     return { data: rows.map((r) => this.toSubOrderView(r)), nextCursor };
   }
 
-  private decodeSubOrderCursor(cursor?: string): Prisma.SubOrderWhereInput | null {
+  private decodeSubOrderCursor(
+    cursor?: string,
+  ): Prisma.SubOrderWhereInput | null {
     if (!cursor) return null;
     const idx = cursor.lastIndexOf('_');
     if (idx < 0) return null;
@@ -701,7 +690,10 @@ export class OrdersService {
     const scope: ScopeActor = { role: actor.role, sellerId: actor.sellerId };
     const subOrder = await this.prisma.subOrder.findFirst({
       where: { id: subOrderId, ...buildSellerScope(scope) },
-      include: { items: true, order: { select: { id: true, userId: true, status: true } } },
+      include: {
+        items: true,
+        order: { select: { id: true, userId: true, status: true } },
+      },
     });
     if (!subOrder) throw new NotFoundException('Sub-order not found');
 
@@ -724,7 +716,12 @@ export class OrdersService {
       if (this.movesStock(nextStatus)) {
         for (const item of subOrder.items) {
           await this.applyStockForStatus(
-            nextStatus, item.productId, item.quantity, subOrder.orderId, tx, subOrderId,
+            nextStatus,
+            item.productId,
+            item.quantity,
+            subOrder.orderId,
+            tx,
+            subOrderId,
           );
         }
       }
@@ -739,7 +736,10 @@ export class OrdersService {
       });
       const rolled = rollupOrderStatus(siblings.map((s) => s.status));
       if (rolled !== subOrder.order.status) {
-        await tx.order.update({ where: { id: subOrder.orderId }, data: { status: rolled } });
+        await tx.order.update({
+          where: { id: subOrder.orderId },
+          data: { status: rolled },
+        });
         orderStatusChanged = true;
         newOrderStatus = rolled;
       }
@@ -749,7 +749,11 @@ export class OrdersService {
           action: SUBORDER_STATUS_CHANGED,
           entityType: 'SubOrder',
           entityId: subOrderId,
-          metadata: { from: subOrder.status, to: nextStatus, sellerId: subOrder.sellerId },
+          metadata: {
+            from: subOrder.status,
+            to: nextStatus,
+            sellerId: subOrder.sellerId,
+          },
         },
         tx,
       );

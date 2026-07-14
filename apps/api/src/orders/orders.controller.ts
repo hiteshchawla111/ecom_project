@@ -43,12 +43,13 @@ export class OrdersController {
   }
 
   /**
-   * Drive an order through the status state machine. ADMINs may apply any valid
-   * transition; CUSTOMERs may only cancel their own pending order. The service
-   * enforces the per-role rule and the state-machine guard.
+   * Customer self-cancel: cancel an order (and every one of its still-PENDING
+   * SubOrders) before any seller has started fulfilment. ADMINs no longer
+   * transition orders through this route — they act per-SubOrder via the
+   * seller endpoint. The service enforces the ownership + all-PENDING rule.
    */
   @Patch(':id/status')
-  @Roles(Role.ADMIN, Role.CUSTOMER)
+  @Roles(Role.CUSTOMER)
   updateStatus(
     @CurrentUser() user: AccessTokenPayload,
     @Param('id') id: string,

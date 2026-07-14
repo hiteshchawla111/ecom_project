@@ -17,8 +17,14 @@ import {
 import { OrdersService } from './orders.service';
 import { CheckoutDto } from './dto/checkout.dto';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
-import { ORDER_STATUS_CHANGED, REFUND_ISSUED } from '../audit/audit-actions';
-import { ORDER_STATUS_CHANGED_EVENT, SUBORDER_STATUS_CHANGED_EVENT } from './orders-events';
+import {
+  ORDER_STATUS_CHANGED,
+  SUBORDER_STATUS_CHANGED,
+} from '../audit/audit-actions';
+import {
+  ORDER_STATUS_CHANGED_EVENT,
+  SUBORDER_STATUS_CHANGED_EVENT,
+} from './orders-events';
 import { moneyStringToCents } from './sum-totals';
 
 const makeConfig = () => ({
@@ -472,7 +478,7 @@ describe('OrdersService.listOrders', () => {
   });
 });
 
-describe('OrdersService.updateStatus', () => {
+describe('OrdersService.updateStatus (customer self-cancel-all-suborders)', () => {
   const admin: AccessTokenPayload = {
     sub: 'admin1',
     email: 'admin@shop.test',
@@ -484,142 +490,44 @@ describe('OrdersService.updateStatus', () => {
     role: Role.CUSTOMER,
   };
 
-  /** A stored order row at a given status, owned by `userId` (default u1). */
-  const orderAt = (status: OrderStatus, userId = 'u1') => ({
+  /** A sub-order row belonging to `orderId`, at a given status. */
+  const subOrderRow = (
+    id: string,
+    status: SubOrderStatus,
+    over: Record<string, unknown> = {},
+  ) => ({
+    id,
+    orderId: 'order1',
+    sellerId: `seller-${id}`,
+    status,
+    items: [{ productId: 'p1', quantity: 2 }],
+    ...over,
+  });
+
+  /** A stored order row (with subOrders), owned by `userId` (default u1). */
+  const orderAt = (
+    status: OrderStatus,
+    subOrders: ReturnType<typeof subOrderRow>[],
+    userId = 'u1',
+  ) => ({
     ...createdOrder,
     status,
     userId,
+    subOrders,
   });
 
-  it('lets an ADMIN make a valid transition and returns the updated view', async () => {
-    const { svc, prisma, inventory } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
-    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.CONFIRMED));
-
-    const view = await svc.updateStatus(admin, 'order1', OrderStatus.CONFIRMED);
-
-    const updateArg = prisma.order.update.mock.calls[0][0];
-    expect(updateArg.where).toEqual({ id: 'order1' });
-    expect(updateArg.data).toEqual({ status: OrderStatus.CONFIRMED });
-    expect(view.status).toBe(OrderStatus.CONFIRMED);
-    // a non-cancel/non-ship transition moves no stock
-    expect(inventory.release).not.toHaveBeenCalled();
-    expect(inventory.deduct).not.toHaveBeenCalled();
-  });
-
-  it('deducts each line’s reserved stock when an order is SHIPPED', async () => {
-    const { svc, prisma, inventory } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PROCESSING));
-    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.SHIPPED));
-
-    const view = await svc.updateStatus(admin, 'order1', OrderStatus.SHIPPED);
-
-    expect(inventory.deduct).toHaveBeenCalledWith('p1', 2, 'order1', prisma);
-    expect(inventory.release).not.toHaveBeenCalled();
-    expect(prisma.$transaction).toHaveBeenCalled();
-    expect(view.status).toBe(OrderStatus.SHIPPED);
-  });
-
-  it('emits order.status.changed after a valid transition commits (stock-moving branch)', async () => {
-    const { svc, prisma, events } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PROCESSING));
-    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.SHIPPED));
-
-    await svc.updateStatus(admin, 'order1', OrderStatus.SHIPPED);
-
-    expect(events.emit).toHaveBeenCalledWith('order.status.changed', {
-      orderId: 'order1',
-      userId: 'u1',
-      status: OrderStatus.SHIPPED,
-    });
-  });
-
-  it('emits order.status.changed after a valid transition commits (non-stock branch)', async () => {
-    const { svc, prisma, events } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
-    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.CONFIRMED));
-
-    await svc.updateStatus(admin, 'order1', OrderStatus.CONFIRMED);
-
-    expect(events.emit).toHaveBeenCalledWith('order.status.changed', {
-      orderId: 'order1',
-      userId: 'u1',
-      status: OrderStatus.CONFIRMED,
-    });
-  });
-
-  it('does not deduct on SHIPPED→DELIVERED', async () => {
-    const { svc, prisma, inventory } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.SHIPPED));
-    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.DELIVERED));
-
-    await svc.updateStatus(admin, 'order1', OrderStatus.DELIVERED);
-
-    expect(inventory.deduct).not.toHaveBeenCalled();
-    expect(inventory.restock).not.toHaveBeenCalled();
-  });
-
-  it('restocks each line’s goods when an order is REFUNDED', async () => {
-    const { svc, prisma, inventory } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.DELIVERED));
-    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.REFUNDED));
-
-    const view = await svc.updateStatus(admin, 'order1', OrderStatus.REFUNDED);
-
-    expect(inventory.restock).toHaveBeenCalledWith('p1', 2, 'order1', prisma);
-    expect(prisma.$transaction).toHaveBeenCalled();
-    expect(view.status).toBe(OrderStatus.REFUNDED);
-  });
-
-  it('releases each line’s reserved stock when an order is CANCELLED', async () => {
-    const { svc, prisma, inventory } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
-    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.CANCELLED));
-
-    await svc.updateStatus(admin, 'order1', OrderStatus.CANCELLED);
-
-    // releases the reserved qty for each order line within the same tx (prisma)
-    expect(inventory.release).toHaveBeenCalledWith('p1', 2, 'order1', prisma);
-    expect(prisma.$transaction).toHaveBeenCalled();
-  });
-
-  it('rejects an ADMIN invalid transition with 409 and writes nothing', async () => {
-    const { svc, prisma } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
-
-    await expect(
-      svc.updateStatus(admin, 'order1', OrderStatus.SHIPPED),
-    ).rejects.toBeInstanceOf(ConflictException);
-    expect(prisma.order.update).not.toHaveBeenCalled();
-  });
-
-  it('does NOT emit order.status.changed on a rejected transition', async () => {
-    const { svc, prisma, events } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
-
-    await expect(
-      svc.updateStatus(admin, 'order1', OrderStatus.SHIPPED),
-    ).rejects.toBeInstanceOf(ConflictException);
-    expect(events.emit).not.toHaveBeenCalledWith(
-      'order.status.changed',
-      expect.anything(),
-    );
-  });
-
-  it('throws 404 for an unknown order', async () => {
-    const { svc, prisma } = build();
-    prisma.order.findUnique.mockResolvedValue(null);
-
-    await expect(
-      svc.updateStatus(admin, 'nope', OrderStatus.CONFIRMED),
-    ).rejects.toBeInstanceOf(NotFoundException);
-    expect(prisma.order.update).not.toHaveBeenCalled();
-  });
-
-  it('lets a CUSTOMER cancel their own PENDING order', async () => {
-    const { svc, prisma } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
-    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.CANCELLED));
+  it('cancels every sub-order of an all-PENDING order (release per item w/ subOrderId) + rolls Order to CANCELLED', async () => {
+    const { svc, prisma, inventory, audit, events } = build();
+    const subs = [
+      subOrderRow('sub1', SubOrderStatus.PENDING),
+      subOrderRow('sub2', SubOrderStatus.PENDING, {
+        sellerId: 'seller-sub2',
+        items: [{ productId: 'p2', quantity: 3 }],
+      }),
+    ];
+    prisma.order.findUnique
+      .mockResolvedValueOnce(orderAt(OrderStatus.PENDING, subs))
+      .mockResolvedValueOnce(orderAt(OrderStatus.CANCELLED, subs));
 
     const view = await svc.updateStatus(
       customer,
@@ -628,16 +536,109 @@ describe('OrdersService.updateStatus', () => {
     );
 
     expect(view.status).toBe(OrderStatus.CANCELLED);
+    // stock released per sub-order item, tagged with that sub-order's id
+    expect(inventory.release).toHaveBeenCalledWith(
+      'p1',
+      2,
+      'order1',
+      prisma,
+      'sub1',
+    );
+    expect(inventory.release).toHaveBeenCalledWith(
+      'p2',
+      3,
+      'order1',
+      prisma,
+      'sub2',
+    );
+    expect(inventory.release).toHaveBeenCalledTimes(2);
+    // each sub-order flipped to CANCELLED
+    expect(prisma.subOrder.update).toHaveBeenCalledWith({
+      where: { id: 'sub1' },
+      data: { status: SubOrderStatus.CANCELLED },
+    });
+    expect(prisma.subOrder.update).toHaveBeenCalledWith({
+      where: { id: 'sub2' },
+      data: { status: SubOrderStatus.CANCELLED },
+    });
+    // order rolled up to CANCELLED
     expect(prisma.order.update).toHaveBeenCalledWith({
       where: { id: 'order1' },
       data: { status: OrderStatus.CANCELLED },
+    });
+    // audit: 1 SUBORDER_STATUS_CHANGED per sub-order + 1 ORDER_STATUS_CHANGED
+    expect(audit.record).toHaveBeenCalledTimes(3);
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: SUBORDER_STATUS_CHANGED,
+        entityType: 'SubOrder',
+        entityId: 'sub1',
+      }),
+      prisma,
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: SUBORDER_STATUS_CHANGED,
+        entityType: 'SubOrder',
+        entityId: 'sub2',
+      }),
+      prisma,
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: ORDER_STATUS_CHANGED,
+        entityType: 'Order',
+        entityId: 'order1',
+        metadata: { from: OrderStatus.PENDING, to: OrderStatus.CANCELLED },
+      }),
+      prisma,
+    );
+    // events: 1 per sub-order + 1 order-level rollup event
+    const emitted = events.emit.mock.calls.map((c: any) => c[0]);
+    expect(
+      emitted.filter((n: string) => n === SUBORDER_STATUS_CHANGED_EVENT),
+    ).toHaveLength(2);
+    expect(events.emit).toHaveBeenCalledWith(SUBORDER_STATUS_CHANGED_EVENT, {
+      subOrderId: 'sub1',
+      orderId: 'order1',
+      sellerId: 'seller-sub1',
+      status: SubOrderStatus.CANCELLED,
+    });
+    expect(events.emit).toHaveBeenCalledWith(ORDER_STATUS_CHANGED_EVENT, {
+      orderId: 'order1',
+      userId: 'u1',
+      status: OrderStatus.CANCELLED,
+    });
+    // final read uses ORDER_INCLUDE (items) for the unchanged response shape
+    expect(prisma.order.findUnique).toHaveBeenLastCalledWith({
+      where: { id: 'order1' },
       include: { items: true },
     });
   });
 
-  it('forbids a CUSTOMER from any non-cancel transition (403)', async () => {
+  it('rejects self-cancel with 409 when any sub-order has progressed past PENDING', async () => {
     const { svc, prisma } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
+    const subs = [
+      subOrderRow('sub1', SubOrderStatus.CONFIRMED),
+      subOrderRow('sub2', SubOrderStatus.PENDING),
+    ];
+    prisma.order.findUnique.mockResolvedValue(
+      orderAt(OrderStatus.PENDING, subs),
+    );
+
+    await expect(
+      svc.updateStatus(customer, 'order1', OrderStatus.CANCELLED),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.subOrder.update).not.toHaveBeenCalled();
+    expect(prisma.order.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects any non-CANCELLED target status with 403 (no other self-service transition)', async () => {
+    const { svc, prisma } = build();
+    const subs = [subOrderRow('sub1', SubOrderStatus.PENDING)];
+    prisma.order.findUnique.mockResolvedValue(
+      orderAt(OrderStatus.PENDING, subs),
+    );
 
     await expect(
       svc.updateStatus(customer, 'order1', OrderStatus.CONFIRMED),
@@ -647,8 +648,9 @@ describe('OrdersService.updateStatus', () => {
 
   it("treats another customer's order as 404 (no existence leak)", async () => {
     const { svc, prisma } = build();
+    const subs = [subOrderRow('sub1', SubOrderStatus.PENDING)];
     prisma.order.findUnique.mockResolvedValue(
-      orderAt(OrderStatus.PENDING, 'someoneElse'),
+      orderAt(OrderStatus.PENDING, subs, 'someoneElse'),
     );
 
     await expect(
@@ -657,84 +659,24 @@ describe('OrdersService.updateStatus', () => {
     expect(prisma.order.update).not.toHaveBeenCalled();
   });
 
-  it('forbids a CUSTOMER cancelling a non-PENDING order (403)', async () => {
+  it('throws 404 for an unknown order', async () => {
     const { svc, prisma } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.SHIPPED));
+    prisma.order.findUnique.mockResolvedValue(null);
 
     await expect(
-      svc.updateStatus(customer, 'order1', OrderStatus.CANCELLED),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+      svc.updateStatus(admin, 'nope', OrderStatus.CANCELLED),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.order.update).not.toHaveBeenCalled();
   });
 
-  it('(audit) records ORDER_STATUS_CHANGED for a non-stock transition (PENDING→CONFIRMED) inside a tx', async () => {
-    const { svc, prisma, audit } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
-    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.CONFIRMED));
-
-    await svc.updateStatus(admin, 'order1', OrderStatus.CONFIRMED);
-
-    expect(prisma.$transaction).toHaveBeenCalled();
-    expect(audit.record).toHaveBeenCalledTimes(1);
-    expect(audit.record).toHaveBeenCalledWith(
-      {
-        actorId: admin.sub,
-        action: ORDER_STATUS_CHANGED,
-        entityType: 'Order',
-        entityId: 'order1',
-        metadata: { from: OrderStatus.PENDING, to: OrderStatus.CONFIRMED },
-      },
-      prisma,
-    );
-  });
-
-  it('(audit) records ORDER_STATUS_CHANGED + REFUND_ISSUED for a REFUNDED transition', async () => {
-    const { svc, prisma, audit } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.DELIVERED));
-    prisma.order.update.mockResolvedValue(orderAt(OrderStatus.REFUNDED));
-
-    await svc.updateStatus(admin, 'order1', OrderStatus.REFUNDED);
-
-    expect(audit.record).toHaveBeenCalledTimes(2);
-    expect(audit.record).toHaveBeenCalledWith(
-      expect.objectContaining({ action: ORDER_STATUS_CHANGED }),
-      prisma,
-    );
-    expect(audit.record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: REFUND_ISSUED,
-        entityId: 'order1',
-        metadata: { grandTotal: '16' },
-      }),
-      prisma,
-    );
-  });
-
-  it('(audit) propagates tx errors so status + audit are atomic', async () => {
+  it('rejects a self-cancel with no sub-orders at all (409)', async () => {
     const { svc, prisma } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PROCESSING));
-    // Simulate the tx.order.update throwing (e.g. DB constraint); because the
-    // mock $transaction runs the callback synchronously, the thrown error
-    // propagates out of updateStatus, proving audit + update share the tx scope.
-    prisma.order.update.mockRejectedValue(new Error('db error'));
+    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING, []));
 
     await expect(
-      svc.updateStatus(admin, 'order1', OrderStatus.SHIPPED),
-    ).rejects.toThrow('db error');
-  });
-
-  it('(audit PATH B) propagates tx errors for a non-stock transition (PENDING→CONFIRMED)', async () => {
-    const { svc, prisma } = build();
-    prisma.order.findUnique.mockResolvedValue(orderAt(OrderStatus.PENDING));
-    // Simulate the tx.order.update failing inside the non-stock (PATH B) transaction.
-    // If the audit write were outside the tx, the test would still pass — but this
-    // proves the newly-wrapped PATH B path propagates the failure out of $transaction,
-    // so the audit row would roll back with it.
-    prisma.order.update.mockRejectedValueOnce(new Error('db fail'));
-
-    await expect(
-      svc.updateStatus(admin, 'order1', OrderStatus.CONFIRMED),
-    ).rejects.toThrow('db fail');
+      svc.updateStatus(customer, 'order1', OrderStatus.CANCELLED),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.order.update).not.toHaveBeenCalled();
   });
 });
 
@@ -848,10 +790,28 @@ const subOrderRow = (id: string) => ({
   orderId: `order-${id}`,
   sellerId: 's1',
   status: SubOrderStatus.PENDING,
-  subtotal: '10', discountTotal: '0', taxTotal: '1', shippingTotal: '5', grandTotal: '16',
-  shipFullName: 'Ada', shipLine1: '1 St', shipLine2: null,
-  shipCity: 'London', shipState: 'LDN', shipCountry: 'UK', shipPostalCode: 'EC1',
-  items: [{ productId: 'p1', productName: 'Mouse', unitPrice: '5', quantity: 2, lineTotal: '10', sellerName: 'Shop One' }],
+  subtotal: '10',
+  discountTotal: '0',
+  taxTotal: '1',
+  shippingTotal: '5',
+  grandTotal: '16',
+  shipFullName: 'Ada',
+  shipLine1: '1 St',
+  shipLine2: null,
+  shipCity: 'London',
+  shipState: 'LDN',
+  shipCountry: 'UK',
+  shipPostalCode: 'EC1',
+  items: [
+    {
+      productId: 'p1',
+      productName: 'Mouse',
+      unitPrice: '5',
+      quantity: 2,
+      lineTotal: '10',
+      sellerName: 'Shop One',
+    },
+  ],
   createdAt: new Date('2026-07-01T00:00:00Z'),
 });
 
@@ -863,7 +823,10 @@ describe('OrdersService.listSellerSubOrders', () => {
       { ...subOrderRow('b'), createdAt: new Date('2026-07-02T00:00:00Z') },
     ];
     prisma.subOrder.findMany.mockResolvedValue(rows);
-    const res = await svc.listSellerSubOrders({ role: Role.SELLER, sellerId: 's1' }, { limit: 20 });
+    const res = await svc.listSellerSubOrders(
+      { role: Role.SELLER, sellerId: 's1' },
+      { limit: 20 },
+    );
     const arg = prisma.subOrder.findMany.mock.calls[0][0];
     expect(arg.where).toMatchObject({ sellerId: 's1' });
     expect(arg.orderBy).toEqual([{ createdAt: 'desc' }, { id: 'desc' }]);
@@ -875,10 +838,14 @@ describe('OrdersService.listSellerSubOrders', () => {
   it('sets nextCursor and trims when more than limit rows return', async () => {
     const { svc, prisma } = build();
     const rows = Array.from({ length: 3 }, (_, i) => ({
-      ...subOrderRow(`x${i}`), createdAt: new Date(`2026-07-0${3 - i}T00:00:00Z`),
+      ...subOrderRow(`x${i}`),
+      createdAt: new Date(`2026-07-0${3 - i}T00:00:00Z`),
     }));
     prisma.subOrder.findMany.mockResolvedValue(rows);
-    const res = await svc.listSellerSubOrders({ role: Role.SELLER, sellerId: 's1' }, { limit: 2 });
+    const res = await svc.listSellerSubOrders(
+      { role: Role.SELLER, sellerId: 's1' },
+      { limit: 2 },
+    );
     expect(res.data).toHaveLength(2);
     expect(res.nextCursor).toMatch(/_x1$/); // last kept row id
   });
@@ -898,10 +865,28 @@ describe('OrdersService.transitionSubOrder', () => {
     orderId: 'order1',
     sellerId: 's1',
     status: SubOrderStatus.PENDING,
-    subtotal: '10', discountTotal: '0', taxTotal: '1', shippingTotal: '5', grandTotal: '16',
-    shipFullName: 'Ada', shipLine1: '1 St', shipLine2: null,
-    shipCity: 'London', shipState: 'LDN', shipCountry: 'UK', shipPostalCode: 'EC1',
-    items: [{ productId: 'p1', productName: 'Mouse', unitPrice: '5', quantity: 2, lineTotal: '10', sellerName: 'Shop One' }],
+    subtotal: '10',
+    discountTotal: '0',
+    taxTotal: '1',
+    shippingTotal: '5',
+    grandTotal: '16',
+    shipFullName: 'Ada',
+    shipLine1: '1 St',
+    shipLine2: null,
+    shipCity: 'London',
+    shipState: 'LDN',
+    shipCountry: 'UK',
+    shipPostalCode: 'EC1',
+    items: [
+      {
+        productId: 'p1',
+        productName: 'Mouse',
+        unitPrice: '5',
+        quantity: 2,
+        lineTotal: '10',
+        sellerName: 'Shop One',
+      },
+    ],
     order: { id: 'order1', userId: 'u1' },
     ...over,
   });
@@ -910,49 +895,92 @@ describe('OrdersService.transitionSubOrder', () => {
     const { svc, prisma } = build();
     prisma.subOrder.findFirst.mockResolvedValue(null);
     await expect(
-      svc.transitionSubOrder({ sub: 'u1', role: Role.SELLER, sellerId: 's1' }, 'sub1', SubOrderStatus.CONFIRMED),
+      svc.transitionSubOrder(
+        { sub: 'u1', role: Role.SELLER, sellerId: 's1' },
+        'sub1',
+        SubOrderStatus.CONFIRMED,
+      ),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('409s on an invalid transition', async () => {
     const { svc, prisma } = build();
-    prisma.subOrder.findFirst.mockResolvedValue(subOrder({ status: SubOrderStatus.PENDING }));
+    prisma.subOrder.findFirst.mockResolvedValue(
+      subOrder({ status: SubOrderStatus.PENDING }),
+    );
     await expect(
-      svc.transitionSubOrder({ sub: 'u1', role: Role.ADMIN }, 'sub1', SubOrderStatus.SHIPPED),
+      svc.transitionSubOrder(
+        { sub: 'u1', role: Role.ADMIN },
+        'sub1',
+        SubOrderStatus.SHIPPED,
+      ),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('SHIPPED deducts stock per item with subOrderId, updates the suborder, rolls up the order', async () => {
     const { svc, prisma, inventory } = build();
     // start at PROCESSING so PROCESSING->SHIPPED is valid
-    prisma.subOrder.findFirst.mockResolvedValue(subOrder({ status: SubOrderStatus.PROCESSING }));
-    prisma.subOrder.update.mockResolvedValue(subOrder({ status: SubOrderStatus.SHIPPED }));
+    prisma.subOrder.findFirst.mockResolvedValue(
+      subOrder({ status: SubOrderStatus.PROCESSING }),
+    );
+    prisma.subOrder.update.mockResolvedValue(
+      subOrder({ status: SubOrderStatus.SHIPPED }),
+    );
     // sibling statuses after update: this one SHIPPED + another PENDING -> rollup PENDING
     prisma.subOrder.findMany.mockResolvedValue([
-      { status: SubOrderStatus.SHIPPED }, { status: SubOrderStatus.PENDING },
+      { status: SubOrderStatus.SHIPPED },
+      { status: SubOrderStatus.PENDING },
     ]);
     prisma.order.findFirst = jest.fn(); // not used
-    await svc.transitionSubOrder({ sub: 'admin', role: Role.ADMIN }, 'sub1', SubOrderStatus.SHIPPED);
-    expect(inventory.deduct).toHaveBeenCalledWith('p1', 2, 'order1', prisma, 'sub1');
+    await svc.transitionSubOrder(
+      { sub: 'admin', role: Role.ADMIN },
+      'sub1',
+      SubOrderStatus.SHIPPED,
+    );
+    expect(inventory.deduct).toHaveBeenCalledWith(
+      'p1',
+      2,
+      'order1',
+      prisma,
+      'sub1',
+    );
     expect(prisma.subOrder.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'sub1' }, data: { status: SubOrderStatus.SHIPPED } }),
+      expect.objectContaining({
+        where: { id: 'sub1' },
+        data: { status: SubOrderStatus.SHIPPED },
+      }),
     );
     // rollup writes Order.status = PENDING (least-advanced of [SHIPPED, PENDING])
     expect(prisma.order.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'order1' }, data: { status: OrderStatus.PENDING } }),
+      expect.objectContaining({
+        where: { id: 'order1' },
+        data: { status: OrderStatus.PENDING },
+      }),
     );
   });
 
   it('emits suborder event always + order event only when rollup changes Order.status', async () => {
     const { svc, prisma, events } = build();
-    prisma.subOrder.findFirst.mockResolvedValue(subOrder({ status: SubOrderStatus.PENDING, order: { id: 'order1', userId: 'u1' } }));
-    prisma.subOrder.update.mockResolvedValue(subOrder({ status: SubOrderStatus.CONFIRMED }));
+    prisma.subOrder.findFirst.mockResolvedValue(
+      subOrder({
+        status: SubOrderStatus.PENDING,
+        order: { id: 'order1', userId: 'u1' },
+      }),
+    );
+    prisma.subOrder.update.mockResolvedValue(
+      subOrder({ status: SubOrderStatus.CONFIRMED }),
+    );
     // both siblings CONFIRMED -> order rolls to CONFIRMED (changed from PENDING)
     prisma.subOrder.findMany.mockResolvedValue([
-      { status: SubOrderStatus.CONFIRMED }, { status: SubOrderStatus.CONFIRMED },
+      { status: SubOrderStatus.CONFIRMED },
+      { status: SubOrderStatus.CONFIRMED },
     ]);
     prisma.order.update = jest.fn().mockResolvedValue({});
-    await svc.transitionSubOrder({ sub: 'admin', role: Role.ADMIN }, 'sub1', SubOrderStatus.CONFIRMED);
+    await svc.transitionSubOrder(
+      { sub: 'admin', role: Role.ADMIN },
+      'sub1',
+      SubOrderStatus.CONFIRMED,
+    );
     const emitted = events.emit.mock.calls.map((c: any) => c[0]);
     expect(emitted).toContain(SUBORDER_STATUS_CHANGED_EVENT);
     expect(emitted).toContain(ORDER_STATUS_CHANGED_EVENT);

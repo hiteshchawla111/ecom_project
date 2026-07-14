@@ -23,9 +23,10 @@ function renderShell() {
 }
 
 describe('AppShell (SELLER)', () => {
-  it('shows the seller nav (Dashboard, My Products, My Inventory)', () => {
+  it('shows the seller nav (Dashboard, Orders, My Products, My Inventory)', () => {
     renderShell();
     expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^orders$/i })).toHaveAttribute('href', '/seller/orders');
     expect(screen.getByRole('link', { name: /my products/i })).toHaveAttribute('href', '/seller/products');
     expect(screen.getByRole('link', { name: /my inventory/i })).toHaveAttribute('href', '/seller/inventory');
   });
@@ -33,10 +34,12 @@ describe('AppShell (SELLER)', () => {
   it('hides the admin nav from a SELLER', () => {
     renderShell();
     // admin links must not appear for a seller
-    // /^products$/i anchors the match so it does NOT hit "My Products"
+    // /^products$/i anchors the match so it does NOT hit "My Products"; the
+    // seller's own "Orders" link (/seller/orders) is legitimate, so the admin
+    // "Orders" link (/orders) is checked by href, not by name, to disambiguate.
     expect(screen.queryByRole('link', { name: /^products$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /categories/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /orders/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^orders$/i })).not.toHaveAttribute('href', '/orders');
     expect(screen.queryByRole('link', { name: /sellers/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /reviews/i })).not.toBeInTheDocument();
   });

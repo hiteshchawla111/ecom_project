@@ -102,6 +102,11 @@ export function AppShell() {
 
           {isSeller ? (
             <>
+              <p className={groupLabelClass}>Fulfillment</p>
+              <NavItem to="/seller/orders" icon="orders">
+                Orders
+              </NavItem>
+
               <p className={groupLabelClass}>Catalog</p>
               <NavItem to="/seller/products" icon="products">
                 My Products

@@ -18,6 +18,7 @@ import { SellersPage } from './pages/SellersPage';
 import { SellerDetailPage } from './pages/SellerDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SellerProductsPage } from './pages/SellerProductsPage';
+import { SellerOrdersPage } from './pages/SellerOrdersPage';
 import { SellerProductNewPage } from './pages/SellerProductNewPage';
 import { SellerProductEditPage } from './pages/SellerProductEditPage';
 import { SellerProductImportPage } from './pages/SellerProductImportPage';
@@ -60,6 +61,7 @@ export const router = createBrowserRouter([
           {
             element: <SellerOnlyRoute />,
             children: [
+              { path: 'seller/orders', element: <SellerOrdersPage /> },
               { path: 'seller/products', element: <SellerProductsPage /> },
               { path: 'seller/products/import', element: <SellerProductImportPage /> },
               { path: 'seller/products/new', element: <SellerProductNewPage /> },

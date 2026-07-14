@@ -44,6 +44,7 @@ import { rollupOrderStatus } from './rollup-order-status';
 import { CheckoutDto } from './dto/checkout.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 import { ListAdminOrdersDto } from './dto/list-admin-orders.dto';
+import { ListSubOrdersDto } from './dto/list-suborders.dto';
 
 /** Format a money value (Prisma Decimal, string, or number) as a 2-dp string. */
 function money(value: Prisma.Decimal | string | number): string {
@@ -637,6 +638,48 @@ export class OrdersService {
       default:
         return;
     }
+  }
+
+  /**
+   * Seller fulfillment queue: SubOrders scoped to the actor (SELLER → own rows
+   * only; ADMIN/INVENTORY_MANAGER → unscoped), optionally filtered by status,
+   * cursor-paginated newest-first (createdAt DESC, id DESC tiebreak).
+   */
+  async listSellerSubOrders(
+    actor: ScopeActor,
+    dto: ListSubOrdersDto,
+  ): Promise<{ data: SubOrderView[]; nextCursor: string | null }> {
+    const limit = dto.limit ?? 20;
+    const where: Prisma.SubOrderWhereInput = {
+      ...buildSellerScope(actor),
+      ...(dto.status ? { status: dto.status } : {}),
+    };
+    const cursorFilter = this.decodeSubOrderCursor(dto.cursor);
+    const rows = await this.prisma.subOrder.findMany({
+      where: cursorFilter ? { AND: [where, cursorFilter] } : where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      include: { items: true },
+    });
+    let nextCursor: string | null = null;
+    if (rows.length > limit) {
+      const last = rows[limit - 1];
+      nextCursor = `${last.createdAt.toISOString()}_${last.id}`;
+      rows.length = limit;
+    }
+    return { data: rows.map((r) => this.toSubOrderView(r)), nextCursor };
+  }
+
+  private decodeSubOrderCursor(cursor?: string): Prisma.SubOrderWhereInput | null {
+    if (!cursor) return null;
+    const idx = cursor.lastIndexOf('_');
+    if (idx < 0) return null;
+    const createdAt = new Date(cursor.slice(0, idx));
+    if (Number.isNaN(createdAt.getTime())) return null;
+    const id = cursor.slice(idx + 1);
+    return {
+      OR: [{ createdAt: { lt: createdAt } }, { createdAt, id: { lt: id } }],
+    };
   }
 
   /**

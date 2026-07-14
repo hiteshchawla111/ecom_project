@@ -3,7 +3,9 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { OrdersController } from './orders.controller';
 import { AdminOrdersController } from './admin-orders.controller';
+import { SellerSubOrdersController } from './seller-suborders.controller';
 import { OrdersService } from './orders.service';
+import { SellerApprovedGuard } from '../sellers/guards/seller-approved.guard';
 
 /**
  * Orders domain module. Owns the order lifecycle and its state-machine guard
@@ -12,8 +14,8 @@ import { OrdersService } from './orders.service';
  */
 @Module({
   imports: [PrismaModule, InventoryModule],
-  controllers: [OrdersController, AdminOrdersController],
-  providers: [OrdersService],
+  controllers: [OrdersController, AdminOrdersController, SellerSubOrdersController],
+  providers: [OrdersService, SellerApprovedGuard],
   exports: [OrdersService],
 })
 export class OrdersModule {}

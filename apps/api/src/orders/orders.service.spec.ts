@@ -842,6 +842,56 @@ describe('OrdersService.getAnyOrder (admin)', () => {
   });
 });
 
+/** A stored SubOrder row (with items) as returned by findMany, for list tests. */
+const subOrderRow = (id: string) => ({
+  id,
+  orderId: `order-${id}`,
+  sellerId: 's1',
+  status: SubOrderStatus.PENDING,
+  subtotal: '10', discountTotal: '0', taxTotal: '1', shippingTotal: '5', grandTotal: '16',
+  shipFullName: 'Ada', shipLine1: '1 St', shipLine2: null,
+  shipCity: 'London', shipState: 'LDN', shipCountry: 'UK', shipPostalCode: 'EC1',
+  items: [{ productId: 'p1', productName: 'Mouse', unitPrice: '5', quantity: 2, lineTotal: '10', sellerName: 'Shop One' }],
+  createdAt: new Date('2026-07-01T00:00:00Z'),
+});
+
+describe('OrdersService.listSellerSubOrders', () => {
+  it('scopes to the seller and cursor-paginates createdAt DESC, id DESC', async () => {
+    const { svc, prisma } = build();
+    const rows = [
+      { ...subOrderRow('a'), createdAt: new Date('2026-07-03T00:00:00Z') },
+      { ...subOrderRow('b'), createdAt: new Date('2026-07-02T00:00:00Z') },
+    ];
+    prisma.subOrder.findMany.mockResolvedValue(rows);
+    const res = await svc.listSellerSubOrders({ role: Role.SELLER, sellerId: 's1' }, { limit: 20 });
+    const arg = prisma.subOrder.findMany.mock.calls[0][0];
+    expect(arg.where).toMatchObject({ sellerId: 's1' });
+    expect(arg.orderBy).toEqual([{ createdAt: 'desc' }, { id: 'desc' }]);
+    expect(arg.take).toBe(21);
+    expect(res.data).toHaveLength(2);
+    expect(res.nextCursor).toBeNull();
+  });
+
+  it('sets nextCursor and trims when more than limit rows return', async () => {
+    const { svc, prisma } = build();
+    const rows = Array.from({ length: 3 }, (_, i) => ({
+      ...subOrderRow(`x${i}`), createdAt: new Date(`2026-07-0${3 - i}T00:00:00Z`),
+    }));
+    prisma.subOrder.findMany.mockResolvedValue(rows);
+    const res = await svc.listSellerSubOrders({ role: Role.SELLER, sellerId: 's1' }, { limit: 2 });
+    expect(res.data).toHaveLength(2);
+    expect(res.nextCursor).toMatch(/_x1$/); // last kept row id
+  });
+
+  it('admin scope is unscoped (no sellerId in where)', async () => {
+    const { svc, prisma } = build();
+    prisma.subOrder.findMany.mockResolvedValue([]);
+    await svc.listSellerSubOrders({ role: Role.ADMIN }, {});
+    const arg = prisma.subOrder.findMany.mock.calls[0][0];
+    expect(arg.where.sellerId).toBeUndefined();
+  });
+});
+
 describe('OrdersService.transitionSubOrder', () => {
   const subOrder = (over: Record<string, unknown> = {}) => ({
     id: 'sub1',

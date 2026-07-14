@@ -29,8 +29,18 @@ import {
 import { sumTotals } from './sum-totals';
 import { groupCartLinesBySeller, type SellerLine } from './group-by-seller';
 import { AuditService } from '../audit/audit.service';
-import { ORDER_STATUS_CHANGED, REFUND_ISSUED } from '../audit/audit-actions';
-import { ORDER_PLACED, ORDER_STATUS_CHANGED_EVENT } from './orders-events';
+import {
+  ORDER_STATUS_CHANGED,
+  REFUND_ISSUED,
+  SUBORDER_STATUS_CHANGED,
+} from '../audit/audit-actions';
+import {
+  ORDER_PLACED,
+  ORDER_STATUS_CHANGED_EVENT,
+  SUBORDER_STATUS_CHANGED_EVENT,
+} from './orders-events';
+import { buildSellerScope, type ScopeActor } from '../products/seller-scope';
+import { rollupOrderStatus } from './rollup-order-status';
 import { CheckoutDto } from './dto/checkout.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 import { ListAdminOrdersDto } from './dto/list-admin-orders.dto';
@@ -93,6 +103,34 @@ export interface AdminOrderSummary extends OrderSummary {
 export interface AdminOrderView extends OrderView {
   customerEmail: string;
   customerName: string;
+}
+
+export interface SubOrderItemView {
+  productId: string;
+  productName: string;
+  unitPrice: string;
+  quantity: number;
+  lineTotal: string;
+  sellerName: string;
+}
+export interface SubOrderView {
+  id: string;
+  orderId: string;
+  status: SubOrderStatus;
+  subtotal: string;
+  discountTotal: string;
+  taxTotal: string;
+  shippingTotal: string;
+  grandTotal: string;
+  shipFullName: string;
+  shipLine1: string;
+  shipLine2: string | null;
+  shipCity: string;
+  shipState: string;
+  shipCountry: string;
+  shipPostalCode: string;
+  items: SubOrderItemView[];
+  createdAt: Date;
 }
 
 /** Cart load for placement: items + the product fields the pricer + validation need. */
@@ -536,7 +574,7 @@ export class OrdersService {
   }
 
   /** Whether a transition into `status` moves stock through the ledger. */
-  private movesStock(status: OrderStatus): boolean {
+  private movesStock(status: OrderStatus | SubOrderStatus): boolean {
     return (
       status === OrderStatus.CANCELLED ||
       status === OrderStatus.SHIPPED ||
@@ -567,24 +605,170 @@ export class OrdersService {
 
   /** Apply the per-line inventory effect of a stock-moving status transition. */
   private async applyStockForStatus(
-    status: OrderStatus,
+    status: OrderStatus | SubOrderStatus,
     productId: string,
     quantity: number,
     orderId: string,
     tx: Prisma.TransactionClient,
+    subOrderId?: string,
   ): Promise<void> {
     switch (status) {
       case OrderStatus.CANCELLED:
-        await this.inventory.release(productId, quantity, orderId, tx);
+        if (subOrderId !== undefined) {
+          await this.inventory.release(productId, quantity, orderId, tx, subOrderId);
+        } else {
+          await this.inventory.release(productId, quantity, orderId, tx);
+        }
         return;
       case OrderStatus.SHIPPED:
-        await this.inventory.deduct(productId, quantity, orderId, tx);
+        if (subOrderId !== undefined) {
+          await this.inventory.deduct(productId, quantity, orderId, tx, subOrderId);
+        } else {
+          await this.inventory.deduct(productId, quantity, orderId, tx);
+        }
         return;
       case OrderStatus.REFUNDED:
-        await this.inventory.restock(productId, quantity, orderId, tx);
+        if (subOrderId !== undefined) {
+          await this.inventory.restock(productId, quantity, orderId, tx, subOrderId);
+        } else {
+          await this.inventory.restock(productId, quantity, orderId, tx);
+        }
         return;
       default:
         return;
     }
+  }
+
+  /**
+   * Drive a single SubOrder through the status state machine (S3: seller-scoped
+   * order-line-item fulfillment). Reuses `assertTransition` on the shared
+   * OrderStatus/SubOrderStatus value space, moves stock per SubOrderItem keyed
+   * on subOrderId, recomputes the parent Order's rollup status in the SAME
+   * transaction, audits, and emits events post-commit.
+   *
+   * - Ownership: a SELLER only sees their own sub-orders (buildSellerScope);
+   *   ADMIN/INVENTORY_MANAGER are unscoped. A sub-order outside scope is 404.
+   * - Invalid transition -> 409 (ConflictException), same as `updateStatus`.
+   */
+  async transitionSubOrder(
+    actor: { sub: string; role: Role; sellerId?: string },
+    subOrderId: string,
+    nextStatus: SubOrderStatus,
+  ): Promise<SubOrderView> {
+    const scope: ScopeActor = { role: actor.role, sellerId: actor.sellerId };
+    const subOrder = await this.prisma.subOrder.findFirst({
+      where: { id: subOrderId, ...buildSellerScope(scope) },
+      include: { items: true, order: { select: { id: true, userId: true, status: true } } },
+    });
+    if (!subOrder) throw new NotFoundException('Sub-order not found');
+
+    try {
+      assertTransition(
+        subOrder.status as unknown as OrderStatusFlow,
+        nextStatus as unknown as OrderStatusFlow,
+      );
+    } catch (err) {
+      if (err instanceof InvalidOrderTransitionError) {
+        throw new ConflictException(err.message);
+      }
+      throw err;
+    }
+
+    let orderStatusChanged = false;
+    let newOrderStatus = subOrder.order.status;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (this.movesStock(nextStatus)) {
+        for (const item of subOrder.items) {
+          await this.applyStockForStatus(
+            nextStatus, item.productId, item.quantity, subOrder.orderId, tx, subOrderId,
+          );
+        }
+      }
+      const u = await tx.subOrder.update({
+        where: { id: subOrderId },
+        data: { status: nextStatus },
+        include: { items: true },
+      });
+      const siblings = await tx.subOrder.findMany({
+        where: { orderId: subOrder.orderId },
+        select: { status: true },
+      });
+      const rolled = rollupOrderStatus(siblings.map((s) => s.status));
+      if (rolled !== subOrder.order.status) {
+        await tx.order.update({ where: { id: subOrder.orderId }, data: { status: rolled } });
+        orderStatusChanged = true;
+        newOrderStatus = rolled;
+      }
+      await this.audit.record(
+        {
+          actorId: actor.sub,
+          action: SUBORDER_STATUS_CHANGED,
+          entityType: 'SubOrder',
+          entityId: subOrderId,
+          metadata: { from: subOrder.status, to: nextStatus, sellerId: subOrder.sellerId },
+        },
+        tx,
+      );
+      if (nextStatus === SubOrderStatus.REFUNDED) {
+        await this.audit.record(
+          {
+            actorId: actor.sub,
+            action: REFUND_ISSUED,
+            entityType: 'SubOrder',
+            entityId: subOrderId,
+            metadata: { grandTotal: subOrder.grandTotal.toString() },
+          },
+          tx,
+        );
+      }
+      return u;
+    });
+
+    this.events.emit(SUBORDER_STATUS_CHANGED_EVENT, {
+      subOrderId,
+      orderId: subOrder.orderId,
+      sellerId: subOrder.sellerId,
+      status: nextStatus,
+    });
+    if (orderStatusChanged) {
+      this.events.emit(ORDER_STATUS_CHANGED_EVENT, {
+        orderId: subOrder.orderId,
+        userId: subOrder.order.userId,
+        status: newOrderStatus,
+      });
+    }
+    return this.toSubOrderView(updated);
+  }
+
+  protected toSubOrderView(
+    s: Prisma.SubOrderGetPayload<{ include: { items: true } }>,
+  ): SubOrderView {
+    return {
+      id: s.id,
+      orderId: s.orderId,
+      status: s.status,
+      subtotal: money(s.subtotal),
+      discountTotal: money(s.discountTotal),
+      taxTotal: money(s.taxTotal),
+      shippingTotal: money(s.shippingTotal),
+      grandTotal: money(s.grandTotal),
+      shipFullName: s.shipFullName,
+      shipLine1: s.shipLine1,
+      shipLine2: s.shipLine2,
+      shipCity: s.shipCity,
+      shipState: s.shipState,
+      shipCountry: s.shipCountry,
+      shipPostalCode: s.shipPostalCode,
+      items: s.items.map((i) => ({
+        productId: i.productId,
+        productName: i.productName,
+        unitPrice: money(i.unitPrice),
+        quantity: i.quantity,
+        lineTotal: money(i.lineTotal),
+        sellerName: i.sellerName,
+      })),
+      createdAt: s.createdAt,
+    };
   }
 }

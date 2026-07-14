@@ -8,11 +8,17 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { OrderStatus, ProductStatus, Role } from '@prisma/client';
+import {
+  OrderStatus,
+  ProductStatus,
+  Role,
+  SubOrderStatus,
+} from '@prisma/client';
 import { OrdersService } from './orders.service';
 import { CheckoutDto } from './dto/checkout.dto';
 import type { AccessTokenPayload } from '../auth/auth-tokens';
 import { ORDER_STATUS_CHANGED, REFUND_ISSUED } from '../audit/audit-actions';
+import { ORDER_STATUS_CHANGED_EVENT, SUBORDER_STATUS_CHANGED_EVENT } from './orders-events';
 import { moneyStringToCents } from './sum-totals';
 
 const makeConfig = () => ({
@@ -39,7 +45,12 @@ const makePrisma = () => {
     },
     cartItem: { deleteMany: jest.fn() },
     auditLog: { create: jest.fn() },
-    subOrder: { create: jest.fn() },
+    subOrder: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      findMany: jest.fn(),
+    },
   };
   prisma.$transaction = jest.fn(async (cb: (tx: any) => Promise<unknown>) =>
     cb(prisma),
@@ -828,5 +839,72 @@ describe('OrdersService.getAnyOrder (admin)', () => {
     await expect(svc.getAnyOrder('nope')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+});
+
+describe('OrdersService.transitionSubOrder', () => {
+  const subOrder = (over: Record<string, unknown> = {}) => ({
+    id: 'sub1',
+    orderId: 'order1',
+    sellerId: 's1',
+    status: SubOrderStatus.PENDING,
+    subtotal: '10', discountTotal: '0', taxTotal: '1', shippingTotal: '5', grandTotal: '16',
+    shipFullName: 'Ada', shipLine1: '1 St', shipLine2: null,
+    shipCity: 'London', shipState: 'LDN', shipCountry: 'UK', shipPostalCode: 'EC1',
+    items: [{ productId: 'p1', productName: 'Mouse', unitPrice: '5', quantity: 2, lineTotal: '10', sellerName: 'Shop One' }],
+    order: { id: 'order1', userId: 'u1' },
+    ...over,
+  });
+
+  it('404s when the sub-order is not in the actor scope', async () => {
+    const { svc, prisma } = build();
+    prisma.subOrder.findFirst.mockResolvedValue(null);
+    await expect(
+      svc.transitionSubOrder({ sub: 'u1', role: Role.SELLER, sellerId: 's1' }, 'sub1', SubOrderStatus.CONFIRMED),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('409s on an invalid transition', async () => {
+    const { svc, prisma } = build();
+    prisma.subOrder.findFirst.mockResolvedValue(subOrder({ status: SubOrderStatus.PENDING }));
+    await expect(
+      svc.transitionSubOrder({ sub: 'u1', role: Role.ADMIN }, 'sub1', SubOrderStatus.SHIPPED),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('SHIPPED deducts stock per item with subOrderId, updates the suborder, rolls up the order', async () => {
+    const { svc, prisma, inventory } = build();
+    // start at PROCESSING so PROCESSING->SHIPPED is valid
+    prisma.subOrder.findFirst.mockResolvedValue(subOrder({ status: SubOrderStatus.PROCESSING }));
+    prisma.subOrder.update.mockResolvedValue(subOrder({ status: SubOrderStatus.SHIPPED }));
+    // sibling statuses after update: this one SHIPPED + another PENDING -> rollup PENDING
+    prisma.subOrder.findMany.mockResolvedValue([
+      { status: SubOrderStatus.SHIPPED }, { status: SubOrderStatus.PENDING },
+    ]);
+    prisma.order.findFirst = jest.fn(); // not used
+    await svc.transitionSubOrder({ sub: 'admin', role: Role.ADMIN }, 'sub1', SubOrderStatus.SHIPPED);
+    expect(inventory.deduct).toHaveBeenCalledWith('p1', 2, 'order1', prisma, 'sub1');
+    expect(prisma.subOrder.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'sub1' }, data: { status: SubOrderStatus.SHIPPED } }),
+    );
+    // rollup writes Order.status = PENDING (least-advanced of [SHIPPED, PENDING])
+    expect(prisma.order.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'order1' }, data: { status: OrderStatus.PENDING } }),
+    );
+  });
+
+  it('emits suborder event always + order event only when rollup changes Order.status', async () => {
+    const { svc, prisma, events } = build();
+    prisma.subOrder.findFirst.mockResolvedValue(subOrder({ status: SubOrderStatus.PENDING, order: { id: 'order1', userId: 'u1' } }));
+    prisma.subOrder.update.mockResolvedValue(subOrder({ status: SubOrderStatus.CONFIRMED }));
+    // both siblings CONFIRMED -> order rolls to CONFIRMED (changed from PENDING)
+    prisma.subOrder.findMany.mockResolvedValue([
+      { status: SubOrderStatus.CONFIRMED }, { status: SubOrderStatus.CONFIRMED },
+    ]);
+    prisma.order.update = jest.fn().mockResolvedValue({});
+    await svc.transitionSubOrder({ sub: 'admin', role: Role.ADMIN }, 'sub1', SubOrderStatus.CONFIRMED);
+    const emitted = events.emit.mock.calls.map((c: any) => c[0]);
+    expect(emitted).toContain(SUBORDER_STATUS_CHANGED_EVENT);
+    expect(emitted).toContain(ORDER_STATUS_CHANGED_EVENT);
   });
 });

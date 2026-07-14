@@ -7,3 +7,4 @@ export const SELLER_PROFILE_UPDATED_AUDIT = 'seller.profile.updated';
 export const BRANDING_UPDATED = 'branding.updated';
 export const REVIEW_HIDDEN = 'review.hidden';
 export const REVIEW_UNHIDDEN = 'review.unhidden';
+export const SUBORDER_STATUS_CHANGED = 'suborder.status-changed';

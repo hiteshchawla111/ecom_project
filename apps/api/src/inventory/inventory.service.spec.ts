@@ -318,6 +318,56 @@ describe('InventoryService.restock', () => {
   });
 });
 
+describe('InventoryService release/deduct/restock subOrderId', () => {
+  it('release writes both orderId and subOrderId on the movement', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ reserved: 5 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ reserved: 3 }));
+    await svc.release('p1', 2, 'order1', undefined, 'sub1');
+    expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ orderId: 'order1', subOrderId: 'sub1' }),
+      }),
+    );
+  });
+
+  it('deduct writes both orderId and subOrderId on the movement', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ reserved: 5 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ reserved: 3 }));
+    await svc.deduct('p1', 2, 'order1', undefined, 'sub1');
+    expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ orderId: 'order1', subOrderId: 'sub1' }),
+      }),
+    );
+  });
+
+  it('restock writes both orderId and subOrderId on the movement', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findFirst.mockResolvedValue(item());
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 12 }));
+    await svc.restock('p1', 2, 'order1', undefined, 'sub1');
+    expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ orderId: 'order1', subOrderId: 'sub1' }),
+      }),
+    );
+  });
+
+  it('omitting subOrderId writes subOrderId: null (existing callers unaffected)', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findFirst.mockResolvedValue(item({ reserved: 5 }));
+    prisma.inventoryItem.update.mockResolvedValue(item({ reserved: 3 }));
+    await svc.release('p1', 2, 'order1');
+    expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ orderId: 'order1', subOrderId: null }),
+      }),
+    );
+  });
+});
+
 describe('InventoryService.adjust', () => {
   it('ADDITION increases available and appends an ADDITION movement', async () => {
     const { svc, prisma } = build();

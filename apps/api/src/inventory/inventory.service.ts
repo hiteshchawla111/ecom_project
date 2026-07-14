@@ -162,6 +162,7 @@ export class InventoryService {
     quantity: number,
     orderId?: string,
     tx?: Prisma.TransactionClient,
+    subOrderId?: string,
   ): Promise<void> {
     const item = await this.requireItem(productId, SYSTEM_ACTOR, tx);
     if (item.reserved < quantity) {
@@ -177,6 +178,7 @@ export class InventoryService {
         type: MovementType.RELEASE,
         delta: quantity,
         orderId,
+        subOrderId,
       },
       tx,
     );
@@ -193,6 +195,7 @@ export class InventoryService {
     quantity: number,
     orderId?: string,
     tx?: Prisma.TransactionClient,
+    subOrderId?: string,
   ): Promise<void> {
     const item = await this.requireItem(productId, SYSTEM_ACTOR, tx);
     if (item.reserved < quantity) {
@@ -205,6 +208,7 @@ export class InventoryService {
         type: MovementType.DEDUCTION,
         delta: -quantity,
         orderId,
+        subOrderId,
       },
       tx,
     );
@@ -221,6 +225,7 @@ export class InventoryService {
     quantity: number,
     orderId?: string,
     tx?: Prisma.TransactionClient,
+    subOrderId?: string,
   ): Promise<void> {
     const item = await this.requireItem(productId, SYSTEM_ACTOR, tx);
     await this.apply(
@@ -230,6 +235,7 @@ export class InventoryService {
         type: MovementType.ADDITION,
         delta: quantity,
         orderId,
+        subOrderId,
         reason: 'refund',
       },
       tx,

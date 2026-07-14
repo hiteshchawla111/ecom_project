@@ -115,6 +115,7 @@ export class InventoryService {
     quantity: number,
     orderId?: string,
     tx?: Prisma.TransactionClient,
+    subOrderId?: string,
   ): Promise<LowStockEvent | null> {
     const item = await this.requireItem(productId, SYSTEM_ACTOR, tx);
     if (item.available < quantity) {
@@ -130,6 +131,7 @@ export class InventoryService {
         type: MovementType.RESERVATION,
         delta: -quantity,
         orderId,
+        subOrderId,
       },
       tx,
     );
@@ -602,6 +604,7 @@ export class InventoryService {
       type: MovementType;
       delta: number;
       orderId?: string;
+      subOrderId?: string;
       reason?: string | null;
     },
     tx?: Prisma.TransactionClient,
@@ -617,6 +620,7 @@ export class InventoryService {
           type: move.type,
           quantity: move.delta,
           orderId: move.orderId ?? null,
+          subOrderId: move.subOrderId ?? null,
           reason: move.reason ?? null,
         },
       });

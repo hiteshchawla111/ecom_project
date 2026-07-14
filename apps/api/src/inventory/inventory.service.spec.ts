@@ -89,6 +89,7 @@ describe('InventoryService.reserve', () => {
         type: MovementType.RESERVATION,
         quantity: -3,
         orderId: 'order1',
+        subOrderId: null,
         reason: null,
       },
     });
@@ -117,6 +118,32 @@ describe('InventoryService.reserve', () => {
   });
 });
 
+describe('InventoryService.reserve subOrderId', () => {
+  it('writes both orderId and subOrderId on the reservation movement when subOrderId is provided', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findFirst.mockResolvedValue(item());
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 8, reserved: 2 }));
+    await svc.reserve('p1', 2, 'order1', undefined, 'sub1');
+    expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ orderId: 'order1', subOrderId: 'sub1' }),
+      }),
+    );
+  });
+
+  it('writes subOrderId: null when omitted (existing callers unaffected)', async () => {
+    const { svc, prisma } = build();
+    prisma.inventoryItem.findFirst.mockResolvedValue(item());
+    prisma.inventoryItem.update.mockResolvedValue(item({ available: 8, reserved: 2 }));
+    await svc.reserve('p1', 2, 'order1');
+    expect(prisma.inventoryMovement.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ orderId: 'order1', subOrderId: null }),
+      }),
+    );
+  });
+});
+
 describe('InventoryService.release', () => {
   it('moves stock reserved→available and appends a RELEASE movement', async () => {
     const { svc, prisma } = build();
@@ -139,6 +166,7 @@ describe('InventoryService.release', () => {
         type: MovementType.RELEASE,
         quantity: 2,
         orderId: 'order1',
+        subOrderId: null,
         reason: null,
       },
     });
@@ -219,6 +247,7 @@ describe('InventoryService.deduct', () => {
         type: MovementType.DEDUCTION,
         quantity: -2,
         orderId: 'order1',
+        subOrderId: null,
         reason: null,
       },
     });
@@ -253,6 +282,7 @@ describe('InventoryService.restock', () => {
         type: MovementType.ADDITION,
         quantity: 2,
         orderId: 'order1',
+        subOrderId: null,
         reason: 'refund',
       },
     });
@@ -310,6 +340,7 @@ describe('InventoryService.adjust', () => {
         type: MovementType.ADDITION,
         quantity: 3,
         orderId: null,
+        subOrderId: null,
         reason: 'restock',
       },
     });
@@ -336,6 +367,7 @@ describe('InventoryService.adjust', () => {
         type: MovementType.DEDUCTION,
         quantity: -2,
         orderId: null,
+        subOrderId: null,
         reason: 'damaged',
       },
     });
@@ -377,6 +409,7 @@ describe('InventoryService.adjust', () => {
         type: MovementType.ADJUSTMENT,
         quantity: -3,
         orderId: null,
+        subOrderId: null,
         reason: 'cycle count',
       },
     });
@@ -403,6 +436,7 @@ describe('InventoryService.adjust', () => {
         type: MovementType.ADJUSTMENT,
         quantity: -4,
         orderId: null,
+        subOrderId: null,
         reason: 'none on hand',
       },
     });
